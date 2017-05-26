@@ -75,9 +75,18 @@ cargo build --release
 ./target/release/woodpecker
 ```
 
+## Test it
+
+Go to the `example` directorty and you'll find a [README](./example) how
+to test it in a safe environment.
+
+**Disclaimer**: We really recommend not to run intensive benchmanks against
+production environments.
+
 ## Roadmap
 
 - Complete and improve the interpolation engine
+- Add HTTPS support
 - Add cookie support
 - Add writing to a file support
 - Add statistic support

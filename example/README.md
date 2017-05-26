@@ -1,6 +1,6 @@
 # How to play with woodpecker
 
-Start a HTTP server from this directory:
+Start a HTTP server from `responses` directory:
 
 `python -m SimpleHTTPServer 9000`
 
