@@ -31,23 +31,24 @@ impl<'a> Interpolator<'a> {
     let re = Regex::new(r"\{\{ *([a-z\.]+) *\}\}").unwrap();
 
     let result = re.replace(url.as_str(), |caps: &Captures| {
+      let capture = &caps[1];
 
-      if let Some(item) = self.resolve_context_interpolation(&caps) {
+      if let Some(item) = self.resolve_context_interpolation(&capture) {
         return item.to_string();
       }
 
-      if let Some(item) = self.resolve_responses_interpolation(&caps) {
+      if let Some(item) = self.resolve_responses_interpolation(&capture) {
         return item.to_string();
       }
 
-      panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
+      panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
     });
 
     self.base_url.to_string() + &result
   }
 
-  fn resolve_responses_interpolation(&self, caps: &Captures) -> Option<String> {
-    match self.responses.get(&caps[1]) {
+  fn resolve_responses_interpolation(&self, capture: &str) -> Option<String> {
+    match self.responses.get(capture) {
       Some(_value) => {
         // TODO
         None
@@ -58,8 +59,8 @@ impl<'a> Interpolator<'a> {
     }
   }
 
-  fn resolve_context_interpolation(&self, caps: &Captures) -> Option<String> {
-    let cap_path: Vec<&str> = caps[1].split(".").collect();
+  fn resolve_context_interpolation(&self, capture: &str) -> Option<String> {
+    let cap_path: Vec<&str> = capture.split(".").collect();
 
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
@@ -86,15 +87,15 @@ impl<'a> Interpolator<'a> {
                 return Some(vi.to_string());
               }
 
-              panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
+              panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &capture);
             },
             _ => {
-              panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
+              panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
             }
           }
         }
 
-        panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
+        panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &capture);
       },
       _ => {
         None
