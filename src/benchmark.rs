@@ -129,9 +129,9 @@ impl BenchmarkItem {
       context.insert("item", self.with_item.clone().unwrap());
     }
 
-    let result = interpolator::resolve_interpolations(&self.url, &context, &responses);
+    let interpolator = interpolator::Interpolator::new(&base_url, &context, &responses);
 
-    let final_url = base_url.to_string() + &result;
+    let final_url = interpolator.resolve(&self.url);
 
     let response = self.send_request(&final_url);
 
