@@ -20,56 +20,48 @@ pub fn resolve_interpolations(url: &String, context: &HashMap<&str, Yaml>, respo
 
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
-    let kaka = match context.get(cap_root[0]) {
+    match context.get(cap_root[0]) {
       Some(value) => {
-        let vs = value.as_str();
-        let vi = value.as_i64();
-        let vh = value.as_hash();
-
-        if vs.is_some() {
-          return vs.unwrap().to_string();
+        if let Some(vs) = value.as_str() {
+          return vs.to_string();
         }
 
-        if vi.is_some() {
-          return vi.unwrap().to_string();
+        if let Some(vi) = value.as_i64() {
+          return vi.to_string();
         }
 
-        if vh.is_some() {
+        if let Some(vh) = value.as_hash() {
           let item_key = yaml_rust::Yaml::String(cap_tail[0].to_string());
 
-          return match vh.unwrap().get(&item_key){
+          match vh.get(&item_key){
             Some(value) => {
-              let vs = value.as_str();
-              let vi = value.as_i64();
-
-              if vs.is_some() {
-                return vs.unwrap().to_string();
+              if let Some(vs) = value.as_str() {
+                return vs.to_string();
               }
 
-              if vi.is_some() {
-                return vi.unwrap().to_string();
+              if let Some(vi) = value.as_i64() {
+                return vi.to_string();
               }
 
-              "wat".to_string()
+              panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
             },
-            _ => "hhh".to_string()
+            _ => {
+              panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
+            }
           }
         }
 
-        "???".to_string()
+        panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
       },
       _ => {
         match responses.get(&caps[1]) {
-          Some(value) => "lol".to_string(),
+          Some(_value) => "lol".to_string(),
           _ => {
-            println!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
-            "wat".to_string()
+            panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &caps[1]);
           }
         }
       }
-    };
-
-    kaka
+    }
   });
 
   result.to_string()

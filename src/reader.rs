@@ -40,7 +40,7 @@ pub fn read_csv_file_as_yml(filepath: &str) -> yaml_rust::yaml::Array {
   };
 
   let mut rdr = csv::ReaderBuilder::new()
-        .has_headers(false)
+        .has_headers(true)
         .from_reader(file);
 
   let mut items = yaml_rust::yaml::Array::new();
@@ -51,10 +51,6 @@ pub fn read_csv_file_as_yml(filepath: &str) -> yaml_rust::yaml::Array {
   };
 
   for result in rdr.records() {
-      // TODO: ignore first row???
-
-      // The iterator yields Result<StringRecord, Error>, so we check the
-      // error here.
       match result {
         Ok(record) => {
           let mut item_tree = BTreeMap::new();

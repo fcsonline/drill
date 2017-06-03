@@ -8,18 +8,27 @@
   request:
     url: /api/organizations
 
-- name: Fetch account
-  request:
-    url: /api/account
-  assign: foo
+  #- name: Fetch account
+  #  request:
+  #    url: /api/account
+  #  assign: foo
+  #
+  #- name: Fetch other user
+  #  request:
+  #    url: /api/users/{{ foo }}
 
-- name: Fetch other user
-  request:
-    url: /api/users/{{ foo }}
+  #- name: Assign values
+  #  assign:
+  #    key: bar
+  #    value: 2
+  #
+  #- name: Fetch other other user
+  #  request:
+  #    url: /api/users/{{ bar }}
 
-- name: Fetch last user
-  request:
-    url: /api/users/{{ foo.body.id }}
+  #- name: Fetch last user
+  #  request:
+  #    url: /api/users/{{ foo.body.id }}
 
 - name: Fetch some users
   request:
