@@ -5,6 +5,8 @@ mod config;
 mod interpolator;
 mod benchmark;
 mod reader;
+mod actions;
+mod expandable;
 
 fn main() {
   let config = config::Config::new("./config.yml");
@@ -14,6 +16,5 @@ fn main() {
   println!("{} {}", "Base URL".yellow(), config.base_url.to_string().purple());
   println!("");
 
-  let suite = benchmark::Benchmark::new("./benchmark.yml");
-  suite.execute(config.threads, config.iterations, config.base_url);
+  benchmark::execute("./benchmark.yml", config.threads, config.iterations, config.base_url);
 }

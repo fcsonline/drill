@@ -1,5 +1,8 @@
 ---
 
+- name: Include comments
+  include: comments.yml
+
 - name: Fetch users
   request:
     url: /api/users.json
@@ -8,27 +11,23 @@
   request:
     url: /api/organizations
 
-  #- name: Fetch account
-  #  request:
-  #    url: /api/account
-  #  assign: foo
-  #
-  #- name: Fetch other user
-  #  request:
-  #    url: /api/users/{{ foo }}
+- name: Fetch account
+  request:
+    url: /api/account
+  assign: foo
 
-  #- name: Assign values
-  #  assign:
-  #    key: bar
-  #    value: 2
-  #
-  #- name: Fetch other other user
-  #  request:
-  #    url: /api/users/{{ bar }}
+- name: Fetch manager user
+  request:
+    url: /api/users/{{ foo.manager_id }}
 
-  #- name: Fetch last user
-  #  request:
-  #    url: /api/users/{{ foo.body.id }}
+- name: Assign values
+  assign:
+    key: bar
+    value: "2"
+
+- name: Fetch user from assign
+  request:
+    url: /api/users/{{ bar }}
 
 - name: Fetch some users
   request:

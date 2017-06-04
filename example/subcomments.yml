@@ -1,0 +1,5 @@
+---
+
+- name: Fetch sub comments
+  request:
+    url: /api/subcomments.json
