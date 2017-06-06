@@ -11,7 +11,10 @@ extern crate serde_json;
 use self::serde_json::Value;
 
 extern crate hyper;
+extern crate hyper_native_tls;
 use self::hyper::client::{Client, Response};
+use self::hyper::net::HttpsConnector;
+use self::hyper_native_tls::NativeTlsClient;
 
 extern crate time;
 
@@ -46,7 +49,10 @@ impl Request {
   }
 
   fn send_request(&self, url: &str) -> (Response, f64) {
-    let client = Client::new();
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    let client = Client::with_connector(connector);
+
     let begin = time::precise_time_s();
 
     let response = client.get(url).send();

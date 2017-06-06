@@ -102,7 +102,6 @@ production environments.
 ## Roadmap
 
 - Complete and improve the interpolation engine
-- Add HTTPS support
 - Add cookie support
 - Add writing to a file support
 - Add statistic support
