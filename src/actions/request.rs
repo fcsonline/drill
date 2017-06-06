@@ -15,12 +15,15 @@ extern crate hyper_native_tls;
 use self::hyper::client::{Client, Response};
 use self::hyper::net::HttpsConnector;
 use self::hyper_native_tls::NativeTlsClient;
+use self::hyper::header::UserAgent;
 
 extern crate time;
 
 use interpolator;
 
 use actions::Runnable;
+
+static USER_AGENT: &'static str = "woodpecker";
 
 #[derive(Clone)]
 pub struct Request {
@@ -55,7 +58,9 @@ impl Request {
 
     let begin = time::precise_time_s();
 
-    let response = client.get(url).send();
+    let response = client.get(url)
+        .header(UserAgent(USER_AGENT.to_string()))
+        .send();
 
     if let Err(e) = response {
       panic!("Error connecting '{}': {:?}", url, e);
