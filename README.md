@@ -25,18 +25,34 @@ Here is an example for **benchmark.yml**:
 ```yaml
 ---
 
+- name: Include comments
+  include: comments.yml
+
 - name: Fetch users
   request:
     url: /api/users.json
+
+- name: Fetch organizations
+  request:
+    url: /api/organizations
 
 - name: Fetch account
   request:
     url: /api/account
   assign: foo
 
-- name: Fetch last user
+- name: Fetch manager user
   request:
-    url: /api/users/{{ foo.body.id }}
+    url: /api/users/{{ foo.manager_id }}
+
+- name: Assign values
+  assign:
+    key: bar
+    value: "2"
+
+- name: Fetch user from assign
+  request:
+    url: /api/users/{{ bar }}
 
 - name: Fetch some users
   request:
