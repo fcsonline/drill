@@ -10,5 +10,5 @@ use yaml_rust::Yaml;
 use serde_json::Value;
 
 pub trait Runnable {
-  fn execute(&self, _base_url: &String, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>);
+  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>);
 }

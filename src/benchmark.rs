@@ -9,18 +9,20 @@ use actions::Runnable;
 
 use std::sync::{Arc, Mutex};
 
-fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_url_clone: String) {
+fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_clone: String) {
   for _ in 0..iterations {
     let mut responses:HashMap<String, Value> = HashMap::new();
     let mut context:HashMap<String, Yaml> = HashMap::new();
 
+    context.insert("base".to_string(), Yaml::String(base_clone.clone()));
+
     for item in benchmark_clone.lock().unwrap().iter() {
-      item.execute(&base_url_clone, &mut context, &mut responses);
+      item.execute(&mut context, &mut responses);
     }
   }
 }
 
-pub fn execute(path: &str, threads: i64, iterations: i64, base_url: String) {
+pub fn execute(path: &str, threads: i64, iterations: i64, base: String) {
   let mut list: Vec<Box<(Runnable + Sync + Send)>> = Vec::new();
 
   include::expand_from_filepath(path, &mut list);
@@ -30,10 +32,10 @@ pub fn execute(path: &str, threads: i64, iterations: i64, base_url: String) {
   let foo = Arc::new(Mutex::new(list));
 
   for _ in 0..threads {
-    let base_url_clone = base_url.to_owned();
+    let base_clone = base.to_owned();
     let benchmark_clone = foo.clone();
 
-    children.push(thread::spawn(move || thread_func(benchmark_clone, iterations, base_url_clone)));
+    children.push(thread::spawn(move || thread_func(benchmark_clone, iterations, base_clone)));
   }
 
   for child in children {

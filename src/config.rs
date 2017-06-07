@@ -6,7 +6,7 @@ static NTHREADS: i64 = 3;
 static NITERATIONS: i64 = 2;
 
 pub struct Config {
-  pub base_url: String,
+  pub base: String,
   pub threads: i64,
   pub iterations: i64,
 }
@@ -36,10 +36,10 @@ impl Config {
       },
     };
 
-    let base_url = config_doc["base_url"].as_str().unwrap().to_owned();
+    let base = config_doc["base"].as_str().unwrap().to_owned();
 
     Config{
-      base_url: base_url,
+      base: base,
       threads: threads,
       iterations: iterations,
     }

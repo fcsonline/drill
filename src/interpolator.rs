@@ -6,15 +6,13 @@ use colored::*;
 use yaml_rust::Yaml;
 
 pub struct Interpolator<'a> {
-  base_url: &'a String,
   context: &'a HashMap<String, Yaml>,
   responses: &'a HashMap<String, Value>,
 }
 
 impl<'a> Interpolator<'a> {
-  pub fn new(base_url: &'a String, context: &'a HashMap<String, Yaml>, responses: &'a HashMap<String, Value>) -> Interpolator<'a> {
+  pub fn new(context: &'a HashMap<String, Yaml>, responses: &'a HashMap<String, Value>) -> Interpolator<'a> {
     Interpolator {
-      base_url: base_url,
       context: context,
       responses: responses
     }
@@ -38,7 +36,18 @@ impl<'a> Interpolator<'a> {
     }).to_string();
 
     if &result[..1] == "/" {
-      self.base_url.to_string() + &result
+      match self.context.get("base") {
+        Some(value) => {
+          if let Some(vs) = value.as_str() {
+            return vs.to_string() + &result;
+          }
+
+          panic!("{} Unknown 'base' variable!", "WARNING!".yellow().bold());
+        },
+        _ => {
+          "".to_string()
+        }
+      }
     } else {
       result
     }

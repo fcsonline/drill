@@ -63,7 +63,7 @@ impl Request {
 }
 
 impl Runnable for Request {
-  fn execute(&self, base_url: &String, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>) {
+  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), self.with_item.clone().unwrap());
     }
@@ -72,7 +72,7 @@ impl Runnable for Request {
 
     // Resolve the url
     {
-      let interpolator = interpolator::Interpolator::new(&base_url, &context, &responses);
+      let interpolator = interpolator::Interpolator::new(&context, &responses);
       final_url = interpolator.resolve(&self.url);
     }
 

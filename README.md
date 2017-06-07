@@ -16,7 +16,7 @@ Here is an example for **config.yml**:
 ---
 
 threads: 4
-base_url: 'http://localhost:9000'
+base: 'http://localhost:9000'
 iterations: 5
 ```
 

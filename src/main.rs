@@ -21,8 +21,8 @@ fn main() {
 
   println!("{} {}", "Threads".yellow(), config.threads.to_string().purple());
   println!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple());
-  println!("{} {}", "Base URL".yellow(), config.base_url.to_string().purple());
+  println!("{} {}", "Base URL".yellow(), config.base.to_string().purple());
   println!("");
 
-  benchmark::execute("./benchmark.yml", config.threads, config.iterations, config.base_url);
+  benchmark::execute("./benchmark.yml", config.threads, config.iterations, config.base);
 }
