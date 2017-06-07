@@ -5,7 +5,7 @@ for this project is to build a really lightweight tool as alternative to other
 that require JVM and other stuff.
 
 You can write brenchmark files, in YAML format, describing all the stuff you
-want to test. You
+want to test.
 
 It was inspered by [Ansible](http://docs.ansible.com/ansible/playbooks_intro.html)
 syntax because it is really easy to use and extend.
@@ -77,7 +77,7 @@ Here is an example for **benchmark.yml**:
 ```
 
 As you can see you can play with interpolations in different ways. This
-will let you specify a benchmank with different request and
+will let you specify a benchmank with different requests and
 dependencies between them.
 
 ## Install
