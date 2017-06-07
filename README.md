@@ -74,6 +74,10 @@ Here is an example for **benchmark.yml**:
   request:
     url: /api/users/contacts/{{ item.id }}
   with_items_from_csv: ./fixtures/users.csv
+
+- name: Fetch no relative url
+  request:
+    url: http://localhost:9000/api/users.json
 ```
 
 As you can see you can play with interpolations in different ways. This

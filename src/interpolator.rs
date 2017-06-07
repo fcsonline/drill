@@ -35,9 +35,13 @@ impl<'a> Interpolator<'a> {
       }
 
       panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
-    });
+    }).to_string();
 
-    self.base_url.to_string() + &result
+    if &result[..1] == "/" {
+      self.base_url.to_string() + &result
+    } else {
+      result
+    }
   }
 
   // TODO: Refactor this function to support multiple levels
