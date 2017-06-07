@@ -1,8 +1,6 @@
-extern crate yaml_rust;
-use self::yaml_rust::Yaml;
+use yaml_rust::Yaml;
 
 use actions::{Request, Runnable};
-
 use reader;
 
 pub fn is_that_you(item: &Yaml) -> bool{

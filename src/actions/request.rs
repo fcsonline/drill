@@ -1,23 +1,15 @@
 use std::collections::HashMap;
 use std::io::Read;
 
-extern crate yaml_rust;
-use self::yaml_rust::Yaml;
+use yaml_rust::Yaml;
+use colored::*;
+use serde_json;
+use time;
 
-extern crate colored;
-use self::colored::*;
-
-extern crate serde_json;
-use self::serde_json::Value;
-
-extern crate hyper;
-extern crate hyper_native_tls;
-use self::hyper::client::{Client, Response};
-use self::hyper::net::HttpsConnector;
-use self::hyper_native_tls::NativeTlsClient;
-use self::hyper::header::UserAgent;
-
-extern crate time;
+use hyper::client::{Client, Response};
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
+use hyper::header::UserAgent;
 
 use interpolator;
 
@@ -71,7 +63,7 @@ impl Request {
 }
 
 impl Runnable for Request {
-  fn execute(&self, base_url: &String, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>) {
+  fn execute(&self, base_url: &String, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), self.with_item.clone().unwrap());
     }
@@ -93,7 +85,7 @@ impl Runnable for Request {
 
       response.read_to_string(&mut data).unwrap();
 
-      let value: Value = serde_json::from_str(&data).unwrap();
+      let value: serde_json::Value = serde_json::from_str(&data).unwrap();
 
       responses.insert(key.to_owned(), value);
     }

@@ -1,5 +1,4 @@
-extern crate yaml_rust;
-use self::yaml_rust::YamlLoader;
+use yaml_rust::YamlLoader;
 
 use reader;
 

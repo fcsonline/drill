@@ -1,16 +1,9 @@
 use std::collections::HashMap;
 
-extern crate regex;
-use self::regex::{Regex, Captures};
-
-extern crate serde_json;
-use self::serde_json::Value;
-
-extern crate colored;
-use self::colored::*;
-
-extern crate yaml_rust;
-use self::yaml_rust::Yaml;
+use regex::{Regex, Captures};
+use serde_json::Value;
+use colored::*;
+use yaml_rust::Yaml;
 
 pub struct Interpolator<'a> {
   base_url: &'a String,
@@ -81,7 +74,7 @@ impl<'a> Interpolator<'a> {
         }
 
         if let Some(vh) = value.as_hash() {
-          let item_key = yaml_rust::Yaml::String(cap_tail[0].to_string());
+          let item_key = Yaml::String(cap_tail[0].to_string());
 
           match vh.get(&item_key){
             Some(value) => {

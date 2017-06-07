@@ -1,5 +1,4 @@
-extern crate yaml_rust;
-use self::yaml_rust::{YamlLoader, Yaml};
+use yaml_rust::{YamlLoader, Yaml};
 
 use expandable::{multi_request, multi_csv_request, include};
 use actions;

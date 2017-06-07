@@ -1,4 +1,12 @@
 extern crate colored;
+extern crate yaml_rust;
+extern crate hyper;
+extern crate hyper_native_tls;
+extern crate time;
+extern crate serde_json;
+extern crate csv;
+extern crate regex;
+
 use self::colored::*;
 
 mod config;

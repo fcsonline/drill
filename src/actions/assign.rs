@@ -1,13 +1,8 @@
 use std::collections::HashMap;
 
-extern crate yaml_rust;
-use self::yaml_rust::Yaml;
-
-extern crate colored;
-use self::colored::*;
-
-extern crate serde_json;
-use self::serde_json::Value;
+use yaml_rust::Yaml;
+use colored::*;
+use serde_json::Value;
 
 use actions::Runnable;
 
@@ -36,6 +31,6 @@ impl Runnable for Assign {
   fn execute(&self, _base_url: &String, context: &mut HashMap<String, Yaml>, _responses: &mut HashMap<String, Value>) {
     println!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width=25);
 
-    context.insert(self.key.to_owned(), yaml_rust::Yaml::String(self.value.to_owned()));
+    context.insert(self.key.to_owned(), Yaml::String(self.value.to_owned()));
   }
 }

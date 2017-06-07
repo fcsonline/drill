@@ -3,8 +3,8 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::collections::BTreeMap;
 
-extern crate csv;
-extern crate yaml_rust;
+use yaml_rust;
+use csv;
 
 pub fn read_file(filepath: &str) -> String {
   // Create a path to the desired file
