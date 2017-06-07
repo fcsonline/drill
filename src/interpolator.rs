@@ -23,8 +23,7 @@ impl<'a> Interpolator<'a> {
   pub fn resolve(&self, url: &String) -> String {
     let re = Regex::new(r"\{\{ *([a-z\._]+) *\}\}").unwrap();
 
-    let result = re.replace(url.as_str(), |caps: &Captures| {
-      // TODO : multiple ?
+    let result = re.replace_all(url.as_str(), |caps: &Captures| {
       let capture = &caps[1];
 
       if let Some(item) = self.resolve_context_interpolation(&capture) {
