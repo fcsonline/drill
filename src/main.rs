@@ -6,8 +6,7 @@ extern crate time;
 extern crate serde_json;
 extern crate csv;
 extern crate regex;
-
-use self::colored::*;
+extern crate clap;
 
 mod config;
 mod interpolator;
@@ -16,13 +15,27 @@ mod reader;
 mod actions;
 mod expandable;
 
+use self::clap::{Arg, App};
+
 fn main() {
-  let config = config::Config::new("./config.yml");
 
-  println!("{} {}", "Threads".yellow(), config.threads.to_string().purple());
-  println!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple());
-  println!("{} {}", "Base URL".yellow(), config.base.to_string().purple());
-  println!("");
+  let matches = App::new("woodpecker")
+                      .version("0.1.0")
+                      .about("HTTP load testing application written in Rust inspired by Ansible syntax")
+                      .arg(Arg::with_name("benchmark")
+                                  .help("Sets the benchmark file")
+                                  .long("benchmark")
+                                  .short("b")
+                                  .required(true)
+                                  .takes_value(true))
+                      //.arg(Arg::with_name("compare")
+                      //            .short("c")
+                      //            .long("compare")
+                      //            .help("Sets a compare file")
+                      //            .takes_value(true))
+                      .get_matches();
 
-  benchmark::execute("./benchmark.yml", config.threads, config.iterations, config.base);
+  let benchmark_file = matches.value_of("benchmark").unwrap();
+
+  benchmark::execute(benchmark_file);
 }

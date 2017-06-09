@@ -10,7 +10,7 @@ want to test.
 It was inspered by [Ansible](http://docs.ansible.com/ansible/playbooks_intro.html)
 syntax because it is really easy to use and extend.
 
-Here is an example for **config.yml**:
+Here is an example for **benchmark.yml**:
 
 ```yaml
 ---
@@ -18,66 +18,61 @@ Here is an example for **config.yml**:
 threads: 4
 base: 'http://localhost:9000'
 iterations: 5
-```
 
-Here is an example for **benchmark.yml**:
+plan:
+  - name: Include comments
+    include: comments.yml
 
-```yaml
----
+  - name: Fetch users
+    request:
+      url: /api/users.json
 
-- name: Include comments
-  include: comments.yml
+  - name: Fetch organizations
+    request:
+      url: /api/organizations
 
-- name: Fetch users
-  request:
-    url: /api/users.json
+  - name: Fetch account
+    request:
+      url: /api/account
+    assign: foo
 
-- name: Fetch organizations
-  request:
-    url: /api/organizations
+  - name: Fetch manager user
+    request:
+      url: /api/users/{{ foo.manager_id }}
 
-- name: Fetch account
-  request:
-    url: /api/account
-  assign: foo
+  - name: Assign values
+    assign:
+      key: bar
+      value: "2"
 
-- name: Fetch manager user
-  request:
-    url: /api/users/{{ foo.manager_id }}
+  - name: Fetch user from assign
+    request:
+      url: /api/users/{{ bar }}
 
-- name: Assign values
-  assign:
-    key: bar
-    value: "2"
+  - name: Fetch some users
+    request:
+      url: /api/users/{{ item }}
+    with_items:
+      - 70
+      - 73
+      - 75
 
-- name: Fetch user from assign
-  request:
-    url: /api/users/{{ bar }}
+  - name: Fetch some users by hash
+    request:
+      url: /api/users/{{ item.id }}
+    with_items:
+      - { id: 70 }
+      - { id: 73 }
+      - { id: 75 }
 
-- name: Fetch some users
-  request:
-    url: /api/users/{{ item }}
-  with_items:
-    - 70
-    - 73
-    - 75
+  - name: Fetch some users from CSV
+    request:
+      url: /api/users/contacts/{{ item.id }}
+    with_items_from_csv: ./fixtures/users.csv
 
-- name: Fetch some users by hash
-  request:
-    url: /api/users/{{ item.id }}
-  with_items:
-    - { id: 70 }
-    - { id: 73 }
-    - { id: 75 }
-
-- name: Fetch some users from CSV
-  request:
-    url: /api/users/contacts/{{ item.id }}
-  with_items_from_csv: ./fixtures/users.csv
-
-- name: Fetch no relative url
-  request:
-    url: http://localhost:9000/api/users.json
+  - name: Fetch no relative url
+    request:
+      url: http://localhost:9000/api/users.json
 ```
 
 As you can see you can play with interpolations in different ways. This
@@ -92,7 +87,7 @@ it:
 ```
 git clone git@github.com:fcsonline/woodpecker.git && cd woodpecker
 cargo build --release
-./target/release/woodpecker
+./target/release/woodpecker --benchmark benchmark.yml
 ```
 
 ## Test it

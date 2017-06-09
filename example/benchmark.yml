@@ -1,55 +1,60 @@
 ---
 
-- name: Include comments
-  include: comments.yml
+threads: 1
+base: 'http://localhost:9000'
+iterations: 1
 
-- name: Fetch users
-  request:
-    url: /api/users.json
+plan:
+  - name: Include comments
+    include: comments.yml
 
-- name: Fetch organizations
-  request:
-    url: /api/organizations
+  - name: Fetch users
+    request:
+      url: /api/users.json
 
-- name: Fetch account
-  request:
-    url: /api/account
-  assign: foo
+  - name: Fetch organizations
+    request:
+      url: /api/organizations
 
-- name: Fetch manager user
-  request:
-    url: /api/users/{{ foo.manager_id }}
+  - name: Fetch account
+    request:
+      url: /api/account
+    assign: foo
 
-- name: Assign values
-  assign:
-    key: bar
-    value: "2"
+  - name: Fetch manager user
+    request:
+      url: /api/users/{{ foo.manager_id }}
 
-- name: Fetch user from assign
-  request:
-    url: /api/users/{{ bar }}
+  - name: Assign values
+    assign:
+      key: bar
+      value: "2"
 
-- name: Fetch some users
-  request:
-    url: /api/users/{{ item }}
-  with_items:
-    - 70
-    - 73
-    - 75
+  - name: Fetch user from assign
+    request:
+      url: /api/users/{{ bar }}
 
-- name: Fetch some users by hash
-  request:
-    url: /api/users/{{ item.id }}
-  with_items:
-    - { id: 70 }
-    - { id: 73 }
-    - { id: 75 }
+  - name: Fetch some users
+    request:
+      url: /api/users/{{ item }}
+    with_items:
+      - 70
+      - 73
+      - 75
 
-- name: Fetch some users from CSV
-  request:
-    url: /api/users/contacts/{{ item.id }}
-  with_items_from_csv: ./fixtures/users.csv
+  - name: Fetch some users by hash
+    request:
+      url: /api/users/{{ item.id }}
+    with_items:
+      - { id: 70 }
+      - { id: 73 }
+      - { id: 75 }
 
-- name: Fetch no relative url
-  request:
-    url: http://localhost:9000/api/users.json
+  - name: Fetch some users from CSV
+    request:
+      url: /api/users/contacts/{{ item.id }}
+    with_items_from_csv: ./fixtures/users.csv
+
+  - name: Fetch no relative url
+    request:
+      url: http://localhost:9000/api/users.json

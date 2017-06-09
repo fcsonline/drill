@@ -13,15 +13,21 @@ pub fn is_that_you(item: &Yaml) -> bool{
 pub fn expand(item: &Yaml, mut list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
   let path = item["include"].as_str().unwrap();
 
-  expand_from_filepath(path, &mut list);
+  expand_from_filepath(path, &mut list, None);
 }
 
-pub fn expand_from_filepath(path: &str, mut list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
+pub fn expand_from_filepath(path: &str, mut list: &mut Vec<Box<(Runnable + Sync + Send)>>, accessor: Option<&str>) {
   let benchmark_file = reader::read_file(path);
 
   let docs = YamlLoader::load_from_str(benchmark_file.as_str()).unwrap();
   let doc = &docs[0];
-  let items = doc.as_vec().unwrap();
+  let items;
+
+  if let Some(accessor_id) = accessor {
+    items = doc[accessor_id].as_vec().unwrap();
+  } else {
+    items = doc.as_vec().unwrap();
+  }
 
   for item in items {
     if multi_request::is_that_you(&item) {

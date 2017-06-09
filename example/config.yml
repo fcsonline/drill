@@ -1,5 +1,0 @@
----
-
-threads: 1
-base: 'http://localhost:9000'
-iterations: 1

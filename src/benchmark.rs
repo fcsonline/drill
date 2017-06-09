@@ -1,13 +1,15 @@
 use std::thread;
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use yaml_rust::Yaml;
 use serde_json::Value;
 
 use expandable::include;
 use actions::Runnable;
+use config;
 
-use std::sync::{Arc, Mutex};
+use colored::*;
 
 fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_clone: String) {
   for _ in 0..iterations {
@@ -22,10 +24,20 @@ fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, 
   }
 }
 
-pub fn execute(path: &str, threads: i64, iterations: i64, base: String) {
+pub fn execute(path: &str) {
+  let config = config::Config::new(path);
+  let threads: i64 = config.threads;
+  let iterations: i64 = config.iterations;
+  let base: String = config.base;
+
+  println!("{} {}", "Threads".yellow(), threads.to_string().purple());
+  println!("{} {}", "Iterations".yellow(), iterations.to_string().purple());
+  println!("{} {}", "Base URL".yellow(), base.to_string().purple());
+  println!("");
+
   let mut list: Vec<Box<(Runnable + Sync + Send)>> = Vec::new();
 
-  include::expand_from_filepath(path, &mut list);
+  include::expand_from_filepath(path, &mut list, Some("plan"));
 
   let mut children = vec![];
 
