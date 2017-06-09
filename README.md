@@ -98,6 +98,29 @@ to test it in a safe environment.
 **Disclaimer**: We really recommend not to run intensive benchmanks against
 production environments.
 
+## Command line interface
+
+Full list of cli options, which is available under `woodpecker --help`
+
+```
+woodpecker 0.1.0
+HTTP load testing application written in Rust inspired by Ansible syntax
+
+USAGE:
+    woodpecker [OPTIONS] --benchmark <benchmark>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -b, --benchmark <benchmark>    Sets the benchmark file
+    -c, --compare <compare>        Sets a compare file
+    -r, --report <report>          Sets a report file
+    -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
+
+```
+
 ## Roadmap
 
 - Complete and improve the interpolation engine

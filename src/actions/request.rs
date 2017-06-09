@@ -13,7 +13,7 @@ use hyper::header::UserAgent;
 
 use interpolator;
 
-use actions::Runnable;
+use actions::{Runnable, Report};
 
 static USER_AGENT: &'static str = "woodpecker";
 
@@ -63,7 +63,7 @@ impl Request {
 }
 
 impl Runnable for Request {
-  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>) {
+  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), self.with_item.clone().unwrap());
     }
@@ -76,9 +76,12 @@ impl Runnable for Request {
       final_url = interpolator.resolve(&self.url);
     }
 
-    let (mut response, duration) = self.send_request(&final_url);
+    let (mut response, duration_ns) = self.send_request(&final_url);
+    let duration_ms = duration_ns * 1000.0;
 
-    println!("{:width$} {} {} {}{}", self.name.green(), final_url.blue().bold(), response.status.to_string().yellow(), (duration * 1000.0).round().to_string().cyan(), "ms".cyan(), width=25);
+    println!("{:width$} {} {} {}{}", self.name.green(), final_url.blue().bold(), response.status.to_string().yellow(), duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
+
+    reports.push(Report { name: self.name.to_owned(), duration: duration_ms });
 
     if let Some(ref key) = self.assign {
       let mut data = String::new();

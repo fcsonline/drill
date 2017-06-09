@@ -1,0 +1,48 @@
+
+- name: Fetch comments
+  duration: 3.634535998571664
+
+- name: Fetch sub comments
+  duration: 2.202805000706576
+
+- name: Fetch users
+  duration: 1.7013250035233796
+
+- name: Fetch organizations
+  duration: 2.215414002421312
+
+- name: Fetch account
+  duration: 3.202499996405095
+
+- name: Fetch manager user
+  duration: 2.0226619963068515
+
+- name: Fetch user from assign
+  duration: 2.9759119934169576
+
+- name: Fetch some users
+  duration: 2.2810389928054065
+
+- name: Fetch some users
+  duration: 2.038847000221722
+
+- name: Fetch some users
+  duration: 1.7131600034190342
+
+- name: Fetch some users by hash
+  duration: 1.3824570050928742
+
+- name: Fetch some users by hash
+  duration: 1.246710991836153
+
+- name: Fetch some users by hash
+  duration: 1.091740996344015
+
+- name: Fetch some users from CSV
+  duration: 1.04759399255272
+
+- name: Fetch some users from CSV
+  duration: 1.2955650017829612
+
+- name: Fetch no relative url
+  duration: 1.2122449988964945
