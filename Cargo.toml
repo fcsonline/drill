@@ -2,6 +2,12 @@
 name = "woodpecker"
 version = "0.1.0"
 authors = ["Ferran Basora <fcsonline@gmail.com>"]
+description = "Woodpecker is a HTTP load testing application written in Rust inspired by Ansible syntax"
+repository = "https://github.com/fcsonline/woodpecker"
+keywords = ["performance", "http", "ansible", "jmeter"]
+category = "web-programming::http-server"
+license = "GPL-3.0"
+license-file = "LICENSE"
 
 [dependencies]
 clap = "2.24.2"
