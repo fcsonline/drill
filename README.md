@@ -1,6 +1,6 @@
-# Woodpecker 🐦
+# Drill
 
-Woodpecker is a HTTP load testing application written in Rust. The main goal
+Drill is a HTTP load testing application written in Rust. The main goal
 for this project is to build a really lightweight tool as alternative to other
 that require JVM and other stuff.
 
@@ -85,9 +85,9 @@ The easiest way right now is to download the source code and compile
 it:
 
 ```
-git clone git@github.com:fcsonline/woodpecker.git && cd woodpecker
+git clone git@github.com:fcsonline/drill.git && cd drill
 cargo build --release
-./target/release/woodpecker --benchmark benchmark.yml
+./target/release/drill --benchmark benchmark.yml
 ```
 
 ## Test it
@@ -100,14 +100,14 @@ production environments.
 
 ## Command line interface
 
-Full list of cli options, which is available under `woodpecker --help`
+Full list of cli options, which is available under `drill --help`
 
 ```
-woodpecker 0.1.0
+drill 0.1.0
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
-    woodpecker [OPTIONS] --benchmark <benchmark>
+    drill [OPTIONS] --benchmark <benchmark>
 
 FLAGS:
     -h, --help       Prints help information

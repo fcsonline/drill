@@ -1,4 +1,4 @@
-# How to play with woodpecker
+# How to play with drill
 
 Start a HTTP server from `responses` directory:
 
@@ -6,4 +6,4 @@ Start a HTTP server from `responses` directory:
 
 and then run:
 
-`./woodpecker`
+`./drill`

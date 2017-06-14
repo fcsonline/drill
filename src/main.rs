@@ -22,7 +22,7 @@ use std::process;
 
 fn main() {
 
-  let matches = App::new("woodpecker")
+  let matches = App::new("drill")
                       .version("0.1.0")
                       .about("HTTP load testing application written in Rust inspired by Ansible syntax")
                       .arg(Arg::with_name("benchmark")

@@ -15,7 +15,7 @@ use interpolator;
 
 use actions::{Runnable, Report};
 
-static USER_AGENT: &'static str = "woodpecker";
+static USER_AGENT: &'static str = "drill";
 
 #[derive(Clone)]
 pub struct Request {
