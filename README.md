@@ -7,7 +7,7 @@ that require JVM and other stuff.
 You can write brenchmark files, in YAML format, describing all the stuff you
 want to test.
 
-It was inspered by [Ansible](http://docs.ansible.com/ansible/playbooks_intro.html)
+It was inspired by [Ansible](http://docs.ansible.com/ansible/playbooks_intro.html)
 syntax because it is really easy to use and extend.
 
 Here is an example for **benchmark.yml**:
