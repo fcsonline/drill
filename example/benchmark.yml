@@ -29,7 +29,6 @@ plan:
     assign:
       key: bar
       value: "2"
-
   - name: Fetch user from assign
     request:
       url: /api/users/{{ bar }}
@@ -58,3 +57,9 @@ plan:
   - name: Fetch no relative url
     request:
       url: http://localhost:9000/api/users.json
+
+  - name: Support for POST method
+    request:
+      url: /api/users
+      method: POST
+      body: foo=bar&arg={{ bar }}

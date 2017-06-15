@@ -73,6 +73,12 @@ plan:
   - name: Fetch no relative url
     request:
       url: http://localhost:9000/api/users.json
+
+  - name: Support for POST method
+    request:
+      url: /api/users
+      method: POST
+      body: foo=bar&arg={{ bar }}
 ```
 
 As you can see you can play with interpolations in different ways. This
