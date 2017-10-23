@@ -36,7 +36,7 @@ fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, 
 
 fn join<S:ToString> (l: Vec<S>, sep: &str) -> String {
     l.iter().fold("".to_string(),
-                  |a,b| if a.len()>0 {a+sep} else {a} + &b.to_string()
+                  |a,b| if !a.is_empty() {a+sep} else {a} + &b.to_string()
                   )
 }
 
@@ -78,7 +78,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>) -> Result
   } else {
     for _ in 0..threads {
       let base_clone = base.to_owned();
-      let list_clone = list_mutex.clone();
+      let list_clone = Arc::clone(&list_mutex);
 
       children.push(thread::spawn(move || thread_func(list_clone, iterations, base_clone)));
     }

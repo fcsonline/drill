@@ -11,8 +11,7 @@ pub fn write_file(filepath: &str, content: String) {
     Ok(file) => file,
   };
 
-  match file.write_all(content.as_bytes()) {
-    Err(why) => panic!("couldn't write to {}: {:?}", display, why),
-    Ok(_) => {},
+  if let Err(why) = file.write_all(content.as_bytes()) {
+    panic!("couldn't write to {}: {:?}", display, why);
   }
 }

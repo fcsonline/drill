@@ -68,7 +68,7 @@ impl Request {
 
     // Resolve the url
     {
-      let interpolator = interpolator::Interpolator::new(&context, &responses);
+      let interpolator = interpolator::Interpolator::new(context, responses);
       interpolated_url = interpolator.resolve(&self.url);
     }
 
@@ -78,8 +78,8 @@ impl Request {
       let body = self.body.as_ref().unwrap();
 
       // Resolve the body
-      let interpolator = interpolator::Interpolator::new(&context, &responses);
-      interpolated_body = interpolator.resolve(&body).to_owned();
+      let interpolator = interpolator::Interpolator::new(context, responses);
+      interpolated_body = interpolator.resolve(body).to_owned();
 
       request = client.post(&interpolated_url).body(&interpolated_body);
     } else {

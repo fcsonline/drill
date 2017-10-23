@@ -25,9 +25,8 @@ pub fn compare(list_reports: Vec<Vec<Report>>, filepath: &str, threshold: &str) 
 
   // Read the file contents into a string, returns `io::Result<usize>`
   let mut content = String::new();
-  match file.read_to_string(&mut content) {
-    Err(why) => panic!("couldn't read {}: {}", display, why),
-    Ok(_) => {},
+  if let Err(why) = file.read_to_string(&mut content) {
+    panic!("couldn't read {}: {}", display, why);
   }
 
   let docs = YamlLoader::load_from_str(content.as_str()).unwrap();
@@ -45,7 +44,7 @@ pub fn compare(list_reports: Vec<Vec<Report>>, filepath: &str, threshold: &str) 
       if delta_ms > threshold_value {
         println!("{:width$} is {}{} slower than before", report_item.name.green(), delta_ms.round().to_string().red(), "ms".red(), width=25);
 
-        slow_counter = slow_counter + 1;
+        slow_counter += 1;
       }
     }
   }

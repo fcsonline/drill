@@ -55,7 +55,7 @@ impl<'a> Interpolator<'a> {
 
   // TODO: Refactor this function to support multiple levels
   fn resolve_responses_interpolation(&self, capture: &str) -> Option<String> {
-    let cap_path: Vec<&str> = capture.split(".").collect();
+    let cap_path: Vec<&str> = capture.split('.').collect();
 
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
@@ -71,7 +71,7 @@ impl<'a> Interpolator<'a> {
 
   // TODO: Refactor this function to support multiple levels
   fn resolve_context_interpolation(&self, capture: &str) -> Option<String> {
-    let cap_path: Vec<&str> = capture.split(".").collect();
+    let cap_path: Vec<&str> = capture.split('.').collect();
 
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
