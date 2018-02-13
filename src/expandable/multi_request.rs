@@ -7,7 +7,7 @@ pub fn is_that_you(item: &Yaml) -> bool{
   item["with_items"].as_vec().is_some()
 }
 
-pub fn expand(item: &Yaml, mut list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
+pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
   let with_items_option = item["with_items"].as_vec();
 
   if with_items_option.is_some() {

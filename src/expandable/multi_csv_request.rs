@@ -8,7 +8,7 @@ pub fn is_that_you(item: &Yaml) -> bool{
     item["with_items_from_csv"].as_str().is_some()
 }
 
-pub fn expand(item: &Yaml, mut list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
+pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
   let with_items_from_csv_option = item["with_items_from_csv"].as_str();
 
   if with_items_from_csv_option.is_some() {
