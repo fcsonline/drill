@@ -1,9 +1,21 @@
 # How to play with drill
 
-Start a HTTP server from `responses` directory:
+Compile drill:
 
-`python -m SimpleHTTPServer 9000`
+```
+cargo build --release
+```
+
+Start a HTTP server from `responses` directory in another terminal:
+
+```
+cd example/responses
+python -m SimpleHTTPServer 9000
+```
 
 and then run:
 
-`./drill`
+```
+cd example
+../target/release/drill --benchmark benchmark.yml
+```
