@@ -111,7 +111,7 @@ impl Runnable for Request {
 
     let (mut response, duration_ms) = self.send_request(context, responses);
 
-    reports.push(Report { name: self.name.to_owned(), duration: duration_ms });
+    reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: response.status.to_u16() });
 
     if let Some(ref key) = self.assign {
       let mut data = String::new();

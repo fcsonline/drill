@@ -1,8 +1,8 @@
 ---
 
-threads: 1
+threads: 2
 base: 'http://localhost:9000'
-iterations: 1
+iterations: 3
 
 plan:
   - name: Include comments

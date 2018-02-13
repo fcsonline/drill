@@ -15,7 +15,7 @@ use colored::*;
 fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_clone: String) -> Vec<Report> {
   let mut global_reports = Vec::new();
 
-  for i in 0..iterations {
+  for _i in 0..iterations {
     let mut responses:HashMap<String, Value> = HashMap::new();
     let mut context:HashMap<String, Yaml> = HashMap::new();
     let mut reports:Vec<Report> = Vec::new();
@@ -26,12 +26,10 @@ fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, 
       item.execute(&mut context, &mut responses, &mut reports);
     }
 
-    if i == 0 {
-      global_reports = reports;
-    }
+    global_reports.push(reports);
   }
 
-  global_reports
+  global_reports.concat()
 }
 
 fn join<S:ToString> (l: Vec<S>, sep: &str) -> String {
