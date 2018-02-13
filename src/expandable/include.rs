@@ -30,15 +30,15 @@ pub fn expand_from_filepath(path: &str, mut list: &mut Vec<Box<(Runnable + Sync 
   }
 
   for item in items {
-    if multi_request::is_that_you(&item) {
-      multi_request::expand(&item, &mut list);
-    } else if multi_csv_request::is_that_you(&item) {
-      multi_csv_request::expand(&item, &mut list);
-    } else if include::is_that_you(&item) {
-      include::expand(&item, &mut list);
-    } else if actions::Assign::is_that_you(&item) {
+    if multi_request::is_that_you(item) {
+      multi_request::expand(item, &mut list);
+    } else if multi_csv_request::is_that_you(item) {
+      multi_csv_request::expand(item, &mut list);
+    } else if include::is_that_you(item) {
+      include::expand(item, &mut list);
+    } else if actions::Assign::is_that_you(item) {
       list.push(Box::new(actions::Assign::new(item, None)));
-    } else if actions::Request::is_that_you(&item){
+    } else if actions::Request::is_that_you(item){
       list.push(Box::new(actions::Request::new(item, None)));
     }
   }
