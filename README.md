@@ -96,6 +96,10 @@ cargo build --release
 ./target/release/drill --benchmark benchmark.yml
 ```
 
+## Demo
+
+[![demo](https://asciinema.org/a/EVpfjsQ42Uccuinsquov06cEp.png)](https://asciinema.org/a/EVpfjsQ42Uccuinsquov06cEp?autoplay=1)
+
 ## Test it
 
 Go to the `example` directorty and you'll find a [README](./example) how
