@@ -113,7 +113,7 @@ production environments.
 Full list of cli options, which is available under `drill --help`
 
 ```
-drill 0.1.0
+drill 0.3.0
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
@@ -121,6 +121,7 @@ USAGE:
 
 FLAGS:
     -h, --help       Prints help information
+    -s, --stats      Shows request statistics
     -V, --version    Prints version information
 
 OPTIONS:

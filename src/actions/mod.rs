@@ -14,9 +14,11 @@ pub trait Runnable {
   fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>);
 }
 
+#[derive(Clone)]
 pub struct Report {
   pub name: String,
   pub duration: f64,
+  pub status: u16,
 }
 
 impl fmt::Debug for Report {
@@ -27,6 +29,6 @@ impl fmt::Debug for Report {
 
 impl fmt::Display for Report {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "\n- name: {}\n  duration: {}\n", self.name, self.duration)
+    write!(f, "\n- name: {}\n  duration: {}\n  status: {}\n", self.name, self.duration, self.status)
   }
 }
