@@ -98,7 +98,7 @@ cargo build --release
 
 ## Demo
 
-[![demo](https://asciinema.org/a/EVpfjsQ42Uccuinsquov06cEp.png)](https://asciinema.org/a/EVpfjsQ42Uccuinsquov06cEp?autoplay=1)
+[![demo](https://asciinema.org/a/164615.png)](https://asciinema.org/a/164615?autoplay=1)
 
 ## Test it
 
