@@ -93,7 +93,7 @@ it:
 ```
 git clone git@github.com:fcsonline/drill.git && cd drill
 cargo build --release
-./target/release/drill --benchmark benchmark.yml
+./target/release/drill --benchmark benchmark.yml --stats
 ```
 
 ## Demo
