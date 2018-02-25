@@ -25,7 +25,7 @@ use std::collections::HashMap;
 fn main() {
 
   let matches = App::new("drill")
-                      .version("0.3.0")
+                      .version("0.3.1")
                       .about("HTTP load testing application written in Rust inspired by Ansible syntax")
                       .arg(Arg::with_name("benchmark")
                                   .help("Sets the benchmark file")
