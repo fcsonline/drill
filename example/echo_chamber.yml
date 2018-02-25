@@ -1,0 +1,24 @@
+---
+
+threads: 1
+base: 'http://localhost:3000'
+iterations: 1
+
+plan:
+  - name: Login user
+    request:
+      url: /login?user=example&password=3x4mpl3
+
+  - name: Fetch counter
+    request:
+      url: /counter
+    assign: memory
+
+  - name: Fetch counter
+    request:
+      url: /counter
+    assign: memory
+
+  - name: Fetch endpoint
+    request:
+      url: /?counter={{ memory.counter }}

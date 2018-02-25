@@ -9,7 +9,7 @@ use time;
 use hyper::client::{Client, Response};
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
-use hyper::header::UserAgent;
+use hyper::header::{UserAgent, Headers, Cookie, SetCookie};
 
 use interpolator;
 
@@ -51,7 +51,7 @@ impl Request {
       method: method,
       body: body.map(str::to_string),
       with_item: with_item,
-      assign: reference.map(str::to_string)
+      assign: reference.map(str::to_string),
     }
   }
 
@@ -88,9 +88,15 @@ impl Request {
       panic!("Unknown method '{}'", self.method);
     }
 
-    let response_result = request
-        .header(UserAgent(USER_AGENT.to_string()))
-        .send();
+    // Headers
+    let mut headers = Headers::new();
+    headers.set(UserAgent(USER_AGENT.to_string()));
+
+    if let Some(cookie) = context.get("cookie") {
+      headers.set(Cookie(vec![String::from(cookie.as_str().unwrap())]));
+    }
+
+    let response_result = request.headers(headers).send();
 
     if let Err(e) = response_result {
       panic!("Error connecting '{}': {:?}", interpolated_url, e);
@@ -114,6 +120,13 @@ impl Runnable for Request {
     let (mut response, duration_ms) = self.send_request(context, responses);
 
     reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: response.status.to_u16() });
+
+    if let Some(&SetCookie(ref cookies)) = response.headers.get::<SetCookie>() {
+      if let Some(cookie) = cookies.iter().next() {
+        let value = String::from(cookie.split(";").next().unwrap());
+        context.insert("cookie".to_string(), Yaml::String(value));
+      }
+    }
 
     if let Some(ref key) = self.assign {
       let mut data = String::new();
