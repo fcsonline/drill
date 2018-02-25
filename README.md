@@ -79,6 +79,24 @@ plan:
       url: /api/users
       method: POST
       body: foo=bar&arg={{ bar }}
+
+  - name: Login user
+    request:
+      url: /login?user=example&password=3x4mpl3
+
+  - name: Fetch counter
+    request:
+      url: /counter
+    assign: memory
+
+  - name: Fetch counter
+    request:
+      url: /counter
+    assign: memory
+
+  - name: Fetch endpoint
+    request:
+      url: /?counter={{ memory.counter }}
 ```
 
 As you can see you can play with interpolations in different ways. This
@@ -99,6 +117,21 @@ cargo build --release
 ## Demo
 
 [![demo](https://asciinema.org/a/164615.png)](https://asciinema.org/a/164615?autoplay=1)
+
+## Features
+
+This is the list of all features supported by the current version of `drill`:
+
+- *Multi thread:* run your benchmarks setting as many concurrent threads as you want.
+- *Multi iterations:* specify the number of iterations you want to run the benchmark.
+- *Dynamic urls:* execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
+- *Request dependencies:* create dependencies between requests with `assign` and url interpolations.
+- *Split files:* organize you benchmarks in multiple files and include them.
+- *CSV support:* read CSV files and build N requests fill dynamic interpolations with CSV data.
+- *GET & POST methods:* build request with different http methods like GET or POST. _More are coming_
+- *Cookie support:* create benchmarks with sessions because cookies are propagates between requests.
+- *Stats:* get nice statistics about all the requests.
+- *Thresholds:* compare the current benchmark with a stored one and fail if a threshold is exceeded.
 
 ## Test it
 
@@ -135,9 +168,9 @@ OPTIONS:
 ## Roadmap
 
 - Complete and improve the interpolation engine
-- Add cookie support
+- Add PUT/PATCH/DELETE support
+- Add custom headers support
 - Add writing to a file support
-- Add statistic support
 
 ## Contribute
 
