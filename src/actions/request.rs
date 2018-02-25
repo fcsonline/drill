@@ -83,6 +83,8 @@ impl Request {
 
       request = client.post(&interpolated_url).body(&interpolated_body);
     } else {
+      // TODO: investigate client.request
+      // https://docs.rs/hyper/0.10.13/hyper/client/struct.Client.html#method.request
       panic!("Unknown method '{}'", self.method);
     }
 
