@@ -22,3 +22,17 @@ plan:
   - name: Fetch endpoint
     request:
       url: /?counter={{ memory.counter }}
+
+  - name: Reset counter
+    request:
+      method: DELETE
+      url: /
+
+  - name: Fetch counter
+    request:
+      url: /counter
+    assign: memory
+
+  - name: Fetch endpoint
+    request:
+      url: /?counter={{ memory.counter }}

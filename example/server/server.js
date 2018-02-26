@@ -29,4 +29,9 @@ app.get('/', function(req, res){
   res.json({ status: ':D' })
 });
 
+app.del('/', function(req, res){
+  req.session.counter = 1;
+  res.json({counter: req.session.counter})
+});
+
 app.listen(3000);

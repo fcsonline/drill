@@ -10,6 +10,7 @@ use hyper::client::{Client, Response};
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
 use hyper::header::{UserAgent, Headers, Cookie, SetCookie};
+use hyper::method::Method;
 
 use interpolator;
 
@@ -72,20 +73,27 @@ impl Request {
       interpolated_url = interpolator.resolve(&self.url);
     }
 
-    if self.method == "GET" {
-      request = client.get(&interpolated_url);
-    } else if self.method == "POST" {
-      let body = self.body.as_ref().unwrap();
+    // Method
+    let method = match self.method.as_ref() {
+      "GET" => Method::Get,
+      "POST" => Method::Post,
+      "PUT" => Method::Put,
+      "PATCH" => Method::Patch,
+      "DELETE" => Method::Delete,
+      _ => panic!("Unknown method '{}'", self.method),
+    };
 
+    // Body
+    if let Some(body) = self.body.as_ref() {
       // Resolve the body
       let interpolator = interpolator::Interpolator::new(context, responses);
       interpolated_body = interpolator.resolve(body).to_owned();
 
-      request = client.post(&interpolated_url).body(&interpolated_body);
+      request = client
+        .request(method, &interpolated_url)
+        .body(&interpolated_body);
     } else {
-      // TODO: investigate client.request
-      // https://docs.rs/hyper/0.10.13/hyper/client/struct.Client.html#method.request
-      panic!("Unknown method '{}'", self.method);
+      request = client.request(method, &interpolated_url);
     }
 
     // Headers
