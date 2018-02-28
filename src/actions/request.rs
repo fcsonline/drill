@@ -24,6 +24,7 @@ pub struct Request {
   url: String,
   time: f64,
   method: String,
+  headers: HashMap<String, String>,
   pub body: Option<String>,
   pub with_item: Option<Yaml>,
   pub assign: Option<String>,
@@ -39,10 +40,18 @@ impl Request {
     let body: Option<&str> = item["request"]["body"].as_str();
     let method;
 
+    let mut headers = HashMap::new();
+
     if let Some(v) = item["request"]["method"].as_str() {
       method = v.to_string().to_uppercase();
     } else {
-      method = "GET".to_string()
+      method = "GET".to_string();
+    }
+
+    if let Some(hash) = item["request"]["headers"].as_hash() {
+      for (key, val) in hash.iter() {
+        headers.insert(key.as_str().unwrap().to_string(), val.as_str().unwrap().to_string());
+      }
     }
 
     Request {
@@ -50,6 +59,7 @@ impl Request {
       url: item["request"]["url"].as_str().unwrap().to_string(),
       time: 0.0,
       method: method,
+      headers: headers,
       body: body.map(str::to_string),
       with_item: with_item,
       assign: reference.map(str::to_string),
@@ -74,7 +84,7 @@ impl Request {
     }
 
     // Method
-    let method = match self.method.as_ref() {
+    let method = match self.method.to_uppercase().as_ref() {
       "GET" => Method::Get,
       "POST" => Method::Post,
       "PUT" => Method::Put,
@@ -99,6 +109,14 @@ impl Request {
     // Headers
     let mut headers = Headers::new();
     headers.set(UserAgent(USER_AGENT.to_string()));
+
+    for (key, val) in self.headers.iter() {
+      // Resolve the body
+      let interpolator = interpolator::Interpolator::new(context, responses);
+      let interpolated_header = interpolator.resolve(val).to_owned();
+
+      headers.set_raw(key.to_owned(), vec![interpolated_header.clone().into_bytes()]);
+    }
 
     if let Some(cookie) = context.get("cookie") {
       headers.set(Cookie(vec![String::from(cookie.as_str().unwrap())]));

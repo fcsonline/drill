@@ -130,12 +130,13 @@ This is the list of all features supported by the current version of `drill`:
 - **Multi thread:** run your benchmarks setting as many concurrent threads as you want.
 - **Multi iterations:** specify the number of iterations you want to run the benchmark.
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
+- **Dynamic headers:** execute requests with dynamic headers. [headers.yml](./example/headers.yml)
 - **Request dependencies:** create dependencies between requests with `assign` and url interpolations.
 - **Split files:** organize you benchmarks in multiple files and include them.
 - **CSV support:** read CSV files and build N requests fill dynamic interpolations with CSV data.
 - **HTTP methods:** build request with different http methods like GET, POST, PUT, PATCH or DELETE.
 - **Cookie support:** create benchmarks with sessions because cookies are propagates between requests.
-- **Stats:** get nice statistics about all the requests.
+- **Stats:** get nice statistics about all the requests. [cookies.yml](./example/cookies.yml)
 - **Thresholds:** compare the current benchmark performance against a stored one session and fail if a threshold is exceeded.
 
 ## Test it
@@ -173,7 +174,6 @@ OPTIONS:
 ## Roadmap
 
 - Complete and improve the interpolation engine
-- Add custom headers support
 - Add writing to a file support
 
 ## Contribute

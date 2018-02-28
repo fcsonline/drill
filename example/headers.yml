@@ -1,0 +1,23 @@
+---
+
+threads: 1
+base: 'http://localhost:3000'
+iterations: 1
+
+plan:
+  - name: Custom headers
+    request:
+      url: /
+      headers:
+        Authorization: Basic aHR0cHdhdGNoOmY=
+        X-Foo: Bar
+
+  - name: Dynamic Custom headers
+    request:
+      url: /
+      headers:
+        Authorization: Basic aHR0cHdhdGNoOmY=
+        X-Foo: Bar {{ item }}
+    with_items:
+      - 70
+      - 73
