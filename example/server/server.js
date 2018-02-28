@@ -5,7 +5,11 @@ const session = require('express-session');
 const app = express();
 
 app.use(cookieParser());
-app.use(session({secret: "Shh, its a secret!"}));
+app.use(session({
+  secret: "driiilll!",
+  resave: false,
+  saveUninitialized: false
+}));
 
 app.get('/login', function(req, res){
   if(req.query.user === 'example' && req.query.password === '3x4mpl3'){
@@ -29,7 +33,7 @@ app.get('/', function(req, res){
   res.json({ status: ':D' })
 });
 
-app.del('/', function(req, res){
+app.delete('/', function(req, res){
   req.session.counter = 1;
   res.json({counter: req.session.counter})
 });
