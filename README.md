@@ -117,8 +117,14 @@ dependencies between them.
 
 ## Install
 
-The easiest way right now is to download the source code and compile
-it:
+The easiest way right now is to install with [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
+
+```
+cargo install drill
+drill --benchmark benchmark.yml --stats
+```
+
+or download the source code and compile it:
 
 ```
 git clone git@github.com:fcsonline/drill.git && cd drill
