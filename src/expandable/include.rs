@@ -1,3 +1,4 @@
+use std::process;
 use yaml_rust::{YamlLoader, Yaml};
 
 use expandable::{multi_request, multi_csv_request, include};
@@ -24,7 +25,14 @@ pub fn expand_from_filepath(path: &str, mut list: &mut Vec<Box<(Runnable + Sync 
   let items;
 
   if let Some(accessor_id) = accessor {
-    items = doc[accessor_id].as_vec().unwrap();
+    items = match doc[accessor_id].as_vec() {
+        Some(items) => items,
+        None => {
+            println!("{} {}", "Node missing on config:", accessor_id);
+            println!("{}", "Exiting.");
+            process::exit(1)
+        },
+    }
   } else {
     items = doc.as_vec().unwrap();
   }
