@@ -115,6 +115,8 @@ As you can see, you can play with interpolations in different ways. This
 will let you specify a benchmank with different requests and
 dependencies between them.
 
+If you want to know more about the benchmank file syntax, [read this](./SYNTAX.md)
+
 ## Install
 
 The easiest way right now is to install with [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
