@@ -42,10 +42,10 @@ impl<'a> Interpolator<'a> {
             return vs.to_string() + &result;
           }
 
-          panic!("{} Unknown 'base' variable!", "WARNING!".yellow().bold());
+          panic!("{} Wrong type 'base' variable!", "WARNING!".yellow().bold());
         },
         _ => {
-          "".to_string()
+          panic!("{} Unknown 'base' variable!", "WARNING!".yellow().bold());
         }
       }
     } else {
@@ -112,5 +112,78 @@ impl<'a> Interpolator<'a> {
         None
       }
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use serde_json::Value;
+  use serde_json;
+
+  #[test]
+  fn interpolates_variables() {
+    let mut context: HashMap<String, Yaml> = HashMap::new();
+    let responses: HashMap<String, Value> = HashMap::new();
+
+    context.insert(String::from("user_Id"), Yaml::String(String::from("12")));
+
+    let interpolator = Interpolator{ context: &context, responses: &responses };
+    let url = String::from("http://example.com/users/{{ user_Id }}/view/{{ user_Id }}");
+    let interpolated = interpolator.resolve(&url);
+
+    assert_eq!(interpolated, "http://example.com/users/12/view/12");
+  }
+
+  #[test]
+  fn interpolates_responses() {
+    let context: HashMap<String, Yaml> = HashMap::new();
+    let mut responses: HashMap<String, Value> = HashMap::new();
+
+    let data = String::from("{ \"bar\": 12 }");
+    let value: serde_json::Value = serde_json::from_str(&data).unwrap();
+    responses.insert(String::from("foo"), value);
+
+    let interpolator = Interpolator{ context: &context, responses: &responses };
+    let url = String::from("http://example.com/users/{{ foo.bar }}");
+    let interpolated = interpolator.resolve(&url);
+
+    assert_eq!(interpolated, "http://example.com/users/12");
+  }
+
+  #[test]
+  fn interpolates_relatives() {
+    let mut context: HashMap<String, Yaml> = HashMap::new();
+    let responses: HashMap<String, Value> = HashMap::new();
+
+    context.insert(String::from("base"), Yaml::String(String::from("http://example.com")));
+
+    let interpolator = Interpolator{ context: &context, responses: &responses };
+    let url = String::from("/users/1");
+    let interpolated = interpolator.resolve(&url);
+
+    assert_eq!(interpolated, "http://example.com/users/1");
+  }
+
+  #[test]
+  #[should_panic]
+  fn interpolates_missing_variable() {
+    let context: HashMap<String, Yaml> = HashMap::new();
+    let responses: HashMap<String, Value> = HashMap::new();
+
+    let interpolator = Interpolator{ context: &context, responses: &responses };
+    let url = String::from("/users/{{ userId }}");
+    interpolator.resolve(&url);
+  }
+
+  #[test]
+  #[should_panic]
+  fn interpolates_missing_base() {
+    let context: HashMap<String, Yaml> = HashMap::new();
+    let responses: HashMap<String, Value> = HashMap::new();
+
+    let interpolator = Interpolator{ context: &context, responses: &responses };
+    let url = String::from("/users/1");
+    interpolator.resolve(&url);
   }
 }
