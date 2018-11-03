@@ -50,7 +50,11 @@ impl Request {
 
     if let Some(hash) = item["request"]["headers"].as_hash() {
       for (key, val) in hash.iter() {
-        headers.insert(key.as_str().unwrap().to_string(), val.as_str().unwrap().to_string());
+        if let Some(vs) = val.as_str() {
+          headers.insert(key.as_str().unwrap().to_string(), vs.to_string());
+        } else {
+          panic!("{} Headers must be strings!!", "WARNING!".yellow().bold());
+        }
       }
     }
 
