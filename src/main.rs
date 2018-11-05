@@ -21,6 +21,7 @@ use self::clap::{Arg, App};
 use colored::*;
 use std::process;
 use std::collections::HashMap;
+use std::f64;
 
 fn main() {
 
@@ -84,6 +85,15 @@ fn main() {
         let deviations = durations.iter().map(|a| (mean - a).powf(2.0)).collect::<Vec<f64>>();
         let stdev = (deviations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64).sqrt();
 
+        let mut sorted = durations.clone();
+        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let durlen = sorted.len();
+        let median = if durlen % 2 == 0 {
+          sorted[durlen / 2]
+        } else {
+          (sorted[durlen / 2] + sorted[durlen / 2 + 1]) / 2f64
+        };
+
         let total_requests = list_reports.concat().len();
         let successful_requests = group_by_status.entry(2).or_insert(Vec::new()).len();
         let failed_requests = total_requests - successful_requests;
@@ -96,7 +106,8 @@ fn main() {
         println!("{} {}", "Successful requests".yellow(), successful_requests.to_string().purple());
         println!("{} {}", "Failed requests".yellow(), failed_requests.to_string().purple());
         println!("{} {} {}", "Requests per second".yellow(), format!("{:.3}", requests_per_second).to_string().purple(), "[#/sec]".purple());
-        println!("{} {}{}", "Time per request".yellow(), mean.round().to_string().purple(), "ms".purple());
+        println!("{} {}{}", "Median time per request".yellow(), median.round().to_string().purple(), "ms".purple());
+        println!("{} {}{}", "Average time per request".yellow(), mean.round().to_string().purple(), "ms".purple());
         println!("{} {}{}", "Sample standard deviation".yellow(), stdev.round().to_string().purple(), "ms".purple());
 
       }
