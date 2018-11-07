@@ -114,16 +114,16 @@ impl Request {
     let mut headers = Headers::new();
     headers.set(UserAgent(USER_AGENT.to_string()));
 
+    if let Some(cookie) = context.get("cookie") {
+      headers.set(Cookie(vec![String::from(cookie.as_str().unwrap())]));
+    }
+
     for (key, val) in self.headers.iter() {
       // Resolve the body
       let interpolator = interpolator::Interpolator::new(context, responses);
       let interpolated_header = interpolator.resolve(val).to_owned();
 
       headers.set_raw(key.to_owned(), vec![interpolated_header.clone().into_bytes()]);
-    }
-
-    if let Some(cookie) = context.get("cookie") {
-      headers.set(Cookie(vec![String::from(cookie.as_str().unwrap())]));
     }
 
     let response_result = request.headers(headers).send();
