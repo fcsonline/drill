@@ -77,6 +77,7 @@ impl Request {
 
     let begin = time::precise_time_s();
 
+    let interpolated_name;
     let interpolated_url;
     let interpolated_body;
     let request;
@@ -84,6 +85,7 @@ impl Request {
     // Resolve the url
     {
       let interpolator = interpolator::Interpolator::new(context, responses);
+      interpolated_name = interpolator.resolve(&self.name);
       interpolated_url = interpolator.resolve(&self.url);
     }
 
@@ -135,7 +137,7 @@ impl Request {
     let response = response_result.unwrap();
     let duration_ms = (time::precise_time_s() - begin) * 1000.0;
 
-    println!("{:width$} {} {} {}{}", self.name.green(), interpolated_url.blue().bold(), response.status.to_string().yellow(), duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
+    println!("{:width$} {} {} {}{}", interpolated_name.green(), interpolated_url.blue().bold(), response.status.to_string().yellow(), duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
 
     (response, duration_ms)
   }

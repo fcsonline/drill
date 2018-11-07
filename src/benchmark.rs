@@ -12,7 +12,7 @@ use writer;
 
 use colored::*;
 
-fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_clone: String) -> Vec<Report> {
+fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_clone: String, thread: i64) -> Vec<Report> {
   let mut global_reports = Vec::new();
 
   for _i in 0..iterations {
@@ -20,6 +20,7 @@ fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, 
     let mut context:HashMap<String, Yaml> = HashMap::new();
     let mut reports:Vec<Report> = Vec::new();
 
+    context.insert("thread".to_string(), Yaml::String(thread.to_string()));
     context.insert("base".to_string(), Yaml::String(base_clone.clone()));
 
     for item in benchmark_clone.lock().unwrap().iter() {
@@ -68,17 +69,17 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>) -> Result
   let list_mutex = Arc::new(Mutex::new(list));
 
   if let Some(report_path) = report_path_option {
-    let reports = thread_func(list_mutex, iterations, base.to_owned());
+    let reports = thread_func(list_mutex, iterations, base.to_owned(), 0);
 
     writer::write_file(report_path, join(reports, ""));
 
     Ok(list_reports)
   } else {
-    for _ in 0..threads {
+    for index in 0..threads {
       let base_clone = base.to_owned();
       let list_clone = Arc::clone(&list_mutex);
 
-      children.push(thread::spawn(move || thread_func(list_clone, iterations, base_clone)));
+      children.push(thread::spawn(move || thread_func(list_clone, iterations, base_clone, index)));
     }
 
     for child in children {
