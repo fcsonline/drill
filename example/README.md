@@ -12,7 +12,7 @@ Start a HTTP server from `responses` directory in another terminal:
 
 ```
 cd example/responses
-python -m SimpleHTTPServer 9000
+python server.py
 ```
 
 and then run:
