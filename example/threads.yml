@@ -2,22 +2,22 @@
 
 threads: 3
 base: 'http://localhost:9000'
-iterations: 1
+iterations: 5
 
 plan:
-  - name: "Fetch 1 - Thread: {{ thread }}"
+  - name: "Fetch 1 - Thread: {{ thread }} - Iteration: {{ iteration }}"
     request:
       url: /api/users.json
 
-  - name: "Fetch 2 - Thread: {{ thread }}"
+  - name: "Fetch 2 - Thread: {{ thread }} - Iteration: {{ iteration }}"
     request:
       url: /api/organizations
 
-  - name: "Fetch 3 - Thread: {{ thread }}"
+  - name: "Fetch 3 - Thread: {{ thread }} - Iteration: {{ iteration }}"
     request:
       url: /api/account
     assign: foo
 
-  - name: "Fetch 4 - Thread: {{ thread }}"
+  - name: "Fetch 4 - Thread: {{ thread }} - Iteration: {{ iteration }}"
     request:
-      url: /api/users/{{ foo.manager_id }}/{{ thread }}
+      url: /api/users/{{ foo.manager_id }}

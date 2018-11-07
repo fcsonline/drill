@@ -15,11 +15,12 @@ use colored::*;
 fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_clone: String, thread: i64) -> Vec<Report> {
   let mut global_reports = Vec::new();
 
-  for _i in 0..iterations {
+  for iteration in 0..iterations {
     let mut responses:HashMap<String, Value> = HashMap::new();
     let mut context:HashMap<String, Yaml> = HashMap::new();
     let mut reports:Vec<Report> = Vec::new();
 
+    context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
     context.insert("thread".to_string(), Yaml::String(thread.to_string()));
     context.insert("base".to_string(), Yaml::String(base_clone.clone()));
 
