@@ -2,7 +2,7 @@
 
 threads: 3
 base: 'http://localhost:9000'
-iterations: 5
+iterations: 1
 
 plan:
   - name: "Fetch 1 - Thread: {{ thread }} - Iteration: {{ iteration }}"
