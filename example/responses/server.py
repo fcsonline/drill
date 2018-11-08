@@ -7,7 +7,7 @@ PORT = 9000
 
 class DelayedHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
-        time.sleep(random.random())
+        time.sleep(random.random() / 10.0)
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b'{}')
