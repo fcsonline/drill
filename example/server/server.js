@@ -11,6 +11,21 @@ app.use(session({
   saveUninitialized: false
 }));
 
+const handler = function(req, res){
+  res.json({ status: ':D' })
+};
+
+// Standard test plan
+app.get('/api/organizations', handler);
+app.get('/api/users.json', handler);
+app.get('/api/users/contacts/:id', handler);
+app.get('/api/subcomments.json', handler);
+app.get('/api/comments.json', handler);
+app.get('/api/users/:id', handler);
+app.post('/api/users', handler);
+app.get('/api/account', handler);
+
+// Sessions test plan
 app.get('/login', function(req, res){
   if(req.query.user === 'example' && req.query.password === '3x4mpl3'){
     req.session.counter = 1;
@@ -38,4 +53,4 @@ app.delete('/', function(req, res){
   res.json({counter: req.session.counter})
 });
 
-app.listen(3000);
+app.listen(9000);
