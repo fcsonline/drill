@@ -137,7 +137,13 @@ impl Request {
     let response = response_result.unwrap();
     let duration_ms = (time::precise_time_s() - begin) * 1000.0;
 
-    println!("{:width$} {} {} {}{}", interpolated_name.green(), interpolated_url.blue().bold(), response.status.to_string().yellow(), duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
+    let status_text = if response.status.is_server_error() {
+      response.status.to_string().red()
+    } else {
+      response.status.to_string().yellow()
+    };
+
+    println!("{:width$} {} {} {}{}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
 
     (response, duration_ms)
   }
