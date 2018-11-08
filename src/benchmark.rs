@@ -1,6 +1,6 @@
 use std::thread;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use yaml_rust::Yaml;
 use serde_json::Value;
@@ -12,7 +12,7 @@ use writer;
 
 use colored::*;
 
-fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, iterations: i64, base_clone: String, thread: i64) -> Vec<Report> {
+fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, iterations: i64, base: String, thread: i64) -> Vec<Report> {
   let mut global_reports = Vec::new();
 
   for iteration in 0..iterations {
@@ -22,9 +22,9 @@ fn thread_func(benchmark_clone: Arc<Mutex<Vec<Box<(Runnable + Sync + Send)>>>>, 
 
     context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
     context.insert("thread".to_string(), Yaml::String(thread.to_string()));
-    context.insert("base".to_string(), Yaml::String(base_clone.clone()));
+    context.insert("base".to_string(), Yaml::String(base.to_string()));
 
-    for item in benchmark_clone.lock().unwrap().iter() {
+    for item in benchmark.iter() {
       item.execute(&mut context, &mut responses, &mut reports);
     }
 
@@ -64,13 +64,12 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>) -> Result
 
   include::expand_from_filepath(benchmark_path, &mut list, Some("plan"));
 
+  let list_arc = Arc::new(list);
   let mut children = vec![];
   let mut list_reports:Vec<Vec<Report>> = vec![];
 
-  let list_mutex = Arc::new(Mutex::new(list));
-
   if let Some(report_path) = report_path_option {
-    let reports = thread_func(list_mutex, iterations, base.to_owned(), 0);
+    let reports = thread_func(list_arc.clone(), iterations, base, 0);
 
     writer::write_file(report_path, join(reports, ""));
 
@@ -78,7 +77,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>) -> Result
   } else {
     for index in 0..threads {
       let base_clone = base.to_owned();
-      let list_clone = Arc::clone(&list_mutex);
+      let list_clone = list_arc.clone();
 
       children.push(thread::spawn(move || thread_func(list_clone, iterations, base_clone, index)));
     }
