@@ -11,6 +11,7 @@ use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
 use hyper::header::{UserAgent, Headers, Cookie, SetCookie};
 use hyper::method::Method;
+use hyper_native_tls::native_tls::TlsConnector;
 
 use interpolator;
 
@@ -71,7 +72,12 @@ impl Request {
   }
 
   fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>) -> (Response, f64) {
-    let ssl = NativeTlsClient::new().unwrap();
+    // Build a TSL connector
+    let mut connector_builder = TlsConnector::builder();
+    let no_check_certificate = context.get("no_check_certificate").unwrap().as_bool().unwrap();
+    connector_builder.danger_accept_invalid_certs(no_check_certificate);
+
+    let ssl = NativeTlsClient::from(connector_builder.build().unwrap());
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
 
