@@ -1,15 +1,17 @@
-use yaml_rust::YamlLoader;
+use yaml_rust::{Yaml, YamlLoader};
 
 use reader;
 
 static NTHREADS: i64 = 1;
 static NITERATIONS: i64 = 1;
+static NRAMPUP: i64 = 0;
 
 pub struct Config {
   pub base: String,
   pub threads: i64,
   pub iterations: i64,
   pub no_check_certificate: bool,
+  pub rampup: i64,
 }
 
 impl Config {
@@ -19,24 +21,9 @@ impl Config {
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
     let config_doc = &config_docs[0];
 
-    let threads = match config_doc["threads"].as_i64() {
-      Some(value) => value,
-      None => {
-        println!("Invalid threads value!");
-
-        NTHREADS
-      },
-    };
-
-    let iterations = match config_doc["iterations"].as_i64() {
-      Some(value) => value,
-      None => {
-        println!("Invalid iterations value!");
-
-        NITERATIONS
-      },
-    };
-
+    let threads = read_i64_configuration(config_doc, "threads", NTHREADS);
+    let iterations = read_i64_configuration(config_doc, "iterations", NITERATIONS);
+    let rampup = read_i64_configuration(config_doc, "rampup", NRAMPUP);
     let base = config_doc["base"].as_str().unwrap().to_owned();
 
     Config{
@@ -44,6 +31,18 @@ impl Config {
       threads: threads,
       iterations: iterations,
       no_check_certificate: no_check_certificate,
+      rampup: rampup,
     }
+  }
+}
+
+fn read_i64_configuration(config_doc: &Yaml, name: &str, default: i64) -> i64 {
+  match config_doc[name].as_i64() {
+    Some(value) => value,
+    None => {
+      println!("Invalid {} value!", name);
+
+      default
+    },
   }
 }

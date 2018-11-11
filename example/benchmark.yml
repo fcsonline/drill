@@ -1,8 +1,9 @@
 ---
 
-threads: 2
+threads: 20
 base: 'http://localhost:9000'
 iterations: 3
+rampup: 2
 
 plan:
   - name: Include comments

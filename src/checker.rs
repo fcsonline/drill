@@ -7,7 +7,7 @@ use yaml_rust::YamlLoader;
 
 use actions::Report;
 
-pub fn compare(list_reports: Vec<Vec<Report>>, filepath: &str, threshold: &str) -> Result<(), i32> {
+pub fn compare(list_reports: &Vec<Vec<Report>>, filepath: &str, threshold: &str) -> Result<(), i32> {
   let threshold_value = match threshold.parse::<f64>() {
     Ok(v) => v,
     Err(_) => panic!("arrrgh"),
@@ -36,7 +36,7 @@ pub fn compare(list_reports: Vec<Vec<Report>>, filepath: &str, threshold: &str) 
 
   println!("");
 
-  for report in &list_reports {
+  for report in list_reports {
     for (i, report_item) in report.iter().enumerate() {
       let recorded_duration = items[i]["duration"].as_f64().unwrap();
       let delta_ms = report_item.duration - recorded_duration;

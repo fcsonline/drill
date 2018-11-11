@@ -1,4 +1,5 @@
 use std::thread;
+use std::time;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -12,10 +13,13 @@ use writer;
 
 use colored::*;
 
-fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, iterations: i64, thread: i64, config: Arc<config::Config>) -> Vec<Report> {
+fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
+  let delay = config.rampup / config.threads;
+  thread::sleep(time::Duration::new((delay * thread) as u64, 0));
+
   let mut global_reports = Vec::new();
 
-  for iteration in 0..iterations {
+  for iteration in 0..config.iterations {
     let mut responses:HashMap<String, Value> = HashMap::new();
     let mut context:HashMap<String, Yaml> = HashMap::new();
     let mut reports:Vec<Report> = Vec::new();
@@ -44,16 +48,19 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_
   let config = Arc::new(config::Config::new(benchmark_path, no_check_certificate));
   let threads: i64;
   let iterations: i64;
+  let rampup: i64;
 
   if report_path_option.is_some() {
     threads = 1;
-    iterations = 1;
+    rampup = 0;
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "threads".yellow(), "iterations".yellow());
   } else {
     threads = config.threads;
     iterations = config.iterations;
+    rampup = config.rampup;
     println!("{} {}", "Threads".yellow(), threads.to_string().purple());
     println!("{} {}", "Iterations".yellow(), iterations.to_string().purple());
+    println!("{} {}", "Rampup".yellow(), rampup.to_string().purple());
   }
 
   println!("{} {}", "Base URL".yellow(), config.base.purple());
@@ -68,16 +75,18 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_
   let mut list_reports:Vec<Vec<Report>> = vec![];
 
   if let Some(report_path) = report_path_option {
-    let reports = thread_func(list_arc.clone(), iterations, 0, config);
+    let reports = thread_func(list_arc.clone(), config, 0);
 
     writer::write_file(report_path, join(reports, ""));
 
     Ok(list_reports)
   } else {
+    let delay = rampup / threads;
+
     for index in 0..threads {
       let list_clone = list_arc.clone();
       let config_clone = config.clone();
-      children.push(thread::spawn(move || thread_func(list_clone, iterations, index, config_clone)));
+      children.push(thread::spawn(move || thread_func(list_clone, config_clone, index)));
     }
 
     for child in children {

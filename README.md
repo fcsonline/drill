@@ -18,6 +18,7 @@ Here is an example for **benchmark.yml**:
 threads: 4
 base: 'http://localhost:9000'
 iterations: 5
+rampup: 2
 
 plan:
   - name: Include comments
@@ -144,6 +145,7 @@ This is the list of all features supported by the current version of `drill`:
 
 - **Multi thread:** run your benchmarks setting as many concurrent threads as you want.
 - **Multi iterations:** specify the number of iterations you want to run the benchmark.
+- **Ramp-up:** specify the the amount of time it will take `drill` to add start all threads.
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)
 - **Request dependencies:** create dependencies between requests with `assign` and url interpolations.
