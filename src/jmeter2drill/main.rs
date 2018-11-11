@@ -1,132 +1,78 @@
 extern crate colored;
 extern crate yaml_rust;
-extern crate hyper;
-extern crate hyper_native_tls;
-extern crate time;
-extern crate csv;
-extern crate regex;
-extern crate clap;
-extern crate serde_json;
+extern crate sxd_document;
+extern crate sxd_xpath;
 
-mod config;
-mod interpolator;
-mod benchmark;
-mod reader;
-mod checker;
-mod writer;
-mod actions;
-mod expandable;
-
-use self::clap::{Arg, App};
-use colored::*;
 use std::process;
-use std::collections::HashMap;
-use std::f64;
+use sxd_document::parser;
+use sxd_xpath::evaluate_xpath;
+use std::collections::BTreeMap;
+use yaml_rust::{Yaml, YamlEmitter};
 
 fn main() {
+  let input = include_str!("jmeter.jmx");
+  let package = parser::parse(input).expect("failed to parse XML");
+  let document = package.as_document();
 
-  let matches = App::new("drill")
-                      .version("0.3.5")
-                      .about("HTTP load testing application written in Rust inspired by Ansible syntax")
-                      .arg(Arg::with_name("benchmark")
-                                  .help("Sets the benchmark file")
-                                  .long("benchmark")
-                                  .short("b")
-                                  .required(true)
-                                  .takes_value(true))
-                      .arg(Arg::with_name("stats")
-                                  .short("s")
-                                  .long("stats")
-                                  .help("Shows request statistics")
-                                  .takes_value(false)
-                                  .conflicts_with("compare"))
-                      .arg(Arg::with_name("report")
-                                  .short("r")
-                                  .long("report")
-                                  .help("Sets a report file")
-                                  .takes_value(true)
-                                  .conflicts_with("compare"))
-                      .arg(Arg::with_name("compare")
-                                  .short("c")
-                                  .long("compare")
-                                  .help("Sets a compare file")
-                                  .takes_value(true)
-                                  .conflicts_with("report"))
-                      .arg(Arg::with_name("threshold")
-                                  .short("t")
-                                  .long("threshold")
-                                  .help("Sets a threshold value in ms amongst the compared file")
-                                  .takes_value(true)
-                                  .conflicts_with("report"))
-                      .get_matches();
+  let value1 = evaluate_xpath(&document, "//ThreadGroup/elementProp/intProp[@name='LoopController.loops']").expect("XPath evaluation failed");
+  let value2 = evaluate_xpath(&document, "//ThreadGroup/stringProp[@name='ThreadGroup.num_threads']").expect("XPath evaluation failed");
 
-  let benchmark_file = matches.value_of("benchmark").unwrap();
-  let report_path_option = matches.value_of("report");
-  let stats_option = matches.is_present("stats");
-  let compare_path_option = matches.value_of("compare");
-  let threshold_option = matches.value_of("threshold");
+  let mut doc = BTreeMap::new();
+  let mut plan = Vec::new();
 
-  let begin = time::precise_time_s();
-  let list_reports_result = benchmark::execute(benchmark_file, report_path_option);
-  let duration = time::precise_time_s() - begin;
+  doc.insert(
+    Yaml::String("iterations".to_string()),
+    Yaml::Real(value1.into_string())
+  );
 
-  match list_reports_result {
-    Ok(list_reports) => {
+  doc.insert(
+    Yaml::String("threads".to_string()),
+    Yaml::Real(value2.into_string())
+  );
 
-      if stats_option {
-        let mut group_by_status = HashMap::new();
+  let mut req = BTreeMap::new();
 
-        for req in list_reports.concat() {
-          group_by_status.entry(req.status / 100).or_insert(Vec::new()).push(req);
-        }
+  req.insert(
+    Yaml::String("name".to_string()),
+    Yaml::String("kaka".to_string())
+  );
 
-        let durations = list_reports.concat().iter().map(|r| r.duration).collect::<Vec<f64>>();
-        let mean = durations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64;
-        let deviations = durations.iter().map(|a| (mean - a).powf(2.0)).collect::<Vec<f64>>();
-        let stdev = (deviations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64).sqrt();
+  req.insert(
+    Yaml::String("request".to_string()),
+    Yaml::String("kaka".to_string())
+  );
 
-        let mut sorted = durations.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let durlen = sorted.len();
-        let median = if durlen % 2 == 0 {
-          sorted[durlen / 2]
-        } else {
-          (sorted[durlen / 2] + sorted[durlen / 2 + 1]) / 2f64
-        };
+  plan.push(Yaml::Hash(req));
 
-        let total_requests = list_reports.concat().len();
-        let successful_requests = group_by_status.entry(2).or_insert(Vec::new()).len();
-        let failed_requests = total_requests - successful_requests;
-        let requests_per_second = total_requests as f64 / duration;
 
-        println!("");
-        println!("{} {}", "Concurrency Level".yellow(), list_reports.len().to_string().purple());
-        println!("{} {} {}", "Time taken for tests".yellow(), format!("{:.1}", duration).to_string().purple(), "seconds".purple());
-        println!("{} {}", "Total requests".yellow(), total_requests.to_string().purple());
-        println!("{} {}", "Successful requests".yellow(), successful_requests.to_string().purple());
-        println!("{} {}", "Failed requests".yellow(), failed_requests.to_string().purple());
-        println!("{} {} {}", "Requests per second".yellow(), format!("{:.3}", requests_per_second).to_string().purple(), "[#/sec]".purple());
-        println!("{} {}{}", "Median time per request".yellow(), median.round().to_string().purple(), "ms".purple());
-        println!("{} {}{}", "Average time per request".yellow(), mean.round().to_string().purple(), "ms".purple());
-        println!("{} {}{}", "Sample standard deviation".yellow(), stdev.round().to_string().purple(), "ms".purple());
+  let mut req1 = BTreeMap::new();
 
-      }
+  req1.insert(
+    Yaml::String("name".to_string()),
+    Yaml::String("kaka".to_string())
+  );
 
-      if let Some(compare_path) = compare_path_option {
-        if let Some(threshold) = threshold_option {
-          let compare_result = checker::compare(list_reports, compare_path, threshold);
+  req1.insert(
+    Yaml::String("request".to_string()),
+    Yaml::String("kaka".to_string())
+  );
 
-          match compare_result {
-            Ok(_) => process::exit(0),
-            Err(_) => process::exit(1),
-          }
-        } else {
-          panic!("Threshold needed!");
-        }
-      }
+  plan.push(Yaml::Hash(req1));
 
-      process::exit(0)
-    },
-    Err(_) => process::exit(1),
+  let plan2 = evaluate_xpath(&document, "//HTTPSampler").expect("XPath evaluation failed");
+  println!("FCS: {:?}", plan2.array());
+
+  doc.insert(
+    Yaml::String("plan".to_string()),
+    Yaml::Array(plan)
+  );
+
+  let mut out_str = String::new();
+  {
+      let mut emitter = YamlEmitter::new(&mut out_str);
+      emitter.dump(&Yaml::Hash(doc)).unwrap(); // dump the YAML object to a String
   }
+  println!("{}", out_str);
+
+  process::exit(0)
 }
