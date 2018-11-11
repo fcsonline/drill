@@ -22,11 +22,12 @@ use colored::*;
 use std::process;
 use std::collections::HashMap;
 use std::f64;
+use clap::crate_version;
 
 fn main() {
 
   let matches = App::new("drill")
-                      .version("0.3.5")
+                      .version(crate_version!())
                       .about("HTTP load testing application written in Rust inspired by Ansible syntax")
                       .arg(Arg::with_name("benchmark")
                                   .help("Sets the benchmark file")
