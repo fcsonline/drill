@@ -17,3 +17,11 @@ regex = "0.2.1"
 serde_json = "1.0.2"
 time = "0.1.37"
 yaml-rust = "0.3.5"
+
+[[bin]]
+name = "drill"
+path = "src/main.rs"
+
+[[bin]]
+name = "jmeter2drill"
+path = "src/jmeter2drill/main.rs"
