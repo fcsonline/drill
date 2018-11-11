@@ -6,13 +6,13 @@ Compile drill:
 cargo build --release
 ```
 
-### Example 1
+### Example 1 (Delayed responses)
 
-Start a HTTP server from `responses` directory in another terminal:
+Start a Node HTTP server from `server` directory in another terminal:
 
 ```
-cd example/responses
-python server.py
+cd example/server
+DELAY_MS=100 node server.js
 ```
 
 and then run:
@@ -22,7 +22,7 @@ cd example
 ../target/release/drill --benchmark benchmark.yml
 ```
 
-### Example 2
+### Example 2 (Cookies)
 
 Start a Node HTTP server from `server` directory in another terminal:
 
@@ -39,7 +39,7 @@ cd example
 ../target/release/drill --benchmark cookies.yml
 ```
 
-### Example 3
+### Example 3 (Custom headers)
 
 Start a Node HTTP server from `server` directory in another terminal:
 
