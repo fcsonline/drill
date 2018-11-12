@@ -4,6 +4,8 @@ use yaml_rust::Yaml;
 use colored::*;
 use serde_json::Value;
 
+use config;
+
 use actions::{Runnable, Report};
 
 #[derive(Clone)]
@@ -28,7 +30,7 @@ impl Assign {
 }
 
 impl Runnable for Assign {
-  fn execute(&self, context: &mut HashMap<String, Yaml>, _responses: &mut HashMap<String, Value>, _reports: &mut Vec<Report>) {
+  fn execute(&self, context: &mut HashMap<String, Yaml>, _responses: &mut HashMap<String, Value>, _reports: &mut Vec<Report>, _config: &config::Config) {
     println!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width=25);
 
     context.insert(self.key.to_owned(), Yaml::String(self.value.to_owned()));
