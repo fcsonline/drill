@@ -83,7 +83,7 @@ fn main() {
 
         for req in list_reports.concat() {
           group_by_status.entry(req.status / 100).or_insert(Vec::new()).push(req);
-        }
+        } 
 
         let durations = list_reports.concat().iter().map(|r| r.duration).collect::<Vec<f64>>();
         let mean = durations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64;
