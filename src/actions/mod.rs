@@ -3,6 +3,7 @@ mod request;
 
 pub use self::assign::Assign;
 pub use self::request::Request;
+use config;
 
 use std::fmt;
 use std::collections::HashMap;
@@ -11,7 +12,7 @@ use yaml_rust::Yaml;
 use serde_json::Value;
 
 pub trait Runnable {
-  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>);
+  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>, config: &config::Config);
 }
 
 #[derive(Clone)]

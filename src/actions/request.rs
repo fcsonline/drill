@@ -11,8 +11,10 @@ use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
 use hyper::header::{UserAgent, Headers, Cookie, SetCookie};
 use hyper::method::Method;
+use hyper_native_tls::native_tls::TlsConnector;
 
 use interpolator;
+use config;
 
 use actions::{Runnable, Report};
 
@@ -70,8 +72,12 @@ impl Request {
     }
   }
 
-  fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>) -> (Response, f64) {
-    let ssl = NativeTlsClient::new().unwrap();
+  fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Response, f64) {
+    // Build a TSL connector
+    let mut connector_builder = TlsConnector::builder();
+    connector_builder.danger_accept_invalid_certs(config.no_check_certificate);
+
+    let ssl = NativeTlsClient::from(connector_builder.build().unwrap());
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
 
@@ -150,12 +156,12 @@ impl Request {
 }
 
 impl Runnable for Request {
-  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>) {
+  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>, config: &config::Config) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), self.with_item.clone().unwrap());
     }
 
-    let (mut response, duration_ms) = self.send_request(context, responses);
+    let (mut response, duration_ms) = self.send_request(context, responses, config);
 
     reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: response.status.to_u16() });
 

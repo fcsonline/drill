@@ -12,7 +12,7 @@ use writer;
 
 use colored::*;
 
-fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, iterations: i64, base: String, thread: i64) -> Vec<Report> {
+fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, iterations: i64, thread: i64, config: Arc<config::Config>) -> Vec<Report> {
   let mut global_reports = Vec::new();
 
   for iteration in 0..iterations {
@@ -22,10 +22,10 @@ fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, iterations: i
 
     context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
     context.insert("thread".to_string(), Yaml::String(thread.to_string()));
-    context.insert("base".to_string(), Yaml::String(base.to_string()));
+    context.insert("base".to_string(), Yaml::String(config.base.to_string()));
 
     for item in benchmark.iter() {
-      item.execute(&mut context, &mut responses, &mut reports);
+      item.execute(&mut context, &mut responses, &mut reports, &config);
     }
 
     global_reports.push(reports);
@@ -40,11 +40,10 @@ fn join<S:ToString> (l: Vec<S>, sep: &str) -> String {
                   )
 }
 
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
-  let config = config::Config::new(benchmark_path);
+pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_certificate: bool) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
+  let config = Arc::new(config::Config::new(benchmark_path, no_check_certificate));
   let threads: i64;
   let iterations: i64;
-  let base: String = config.base;
 
   if report_path_option.is_some() {
     threads = 1;
@@ -57,7 +56,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>) -> Result
     println!("{} {}", "Iterations".yellow(), iterations.to_string().purple());
   }
 
-  println!("{} {}", "Base URL".yellow(), base.to_string().purple());
+  println!("{} {}", "Base URL".yellow(), config.base.purple());
   println!("");
 
   let mut list: Vec<Box<(Runnable + Sync + Send)>> = Vec::new();
@@ -69,17 +68,16 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>) -> Result
   let mut list_reports:Vec<Vec<Report>> = vec![];
 
   if let Some(report_path) = report_path_option {
-    let reports = thread_func(list_arc.clone(), iterations, base, 0);
+    let reports = thread_func(list_arc.clone(), iterations, 0, config);
 
     writer::write_file(report_path, join(reports, ""));
 
     Ok(list_reports)
   } else {
     for index in 0..threads {
-      let base_clone = base.to_owned();
       let list_clone = list_arc.clone();
-
-      children.push(thread::spawn(move || thread_func(list_clone, iterations, base_clone, index)));
+      let config_clone = config.clone();
+      children.push(thread::spawn(move || thread_func(list_clone, iterations, index, config_clone)));
     }
 
     for child in children {

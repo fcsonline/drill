@@ -59,6 +59,10 @@ fn main() {
                                   .help("Sets a threshold value in ms amongst the compared file")
                                   .takes_value(true)
                                   .conflicts_with("report"))
+                      .arg(Arg::with_name("no-check-certificate")
+                                  .long("no-check-certificate")
+                                  .help("Disables SSL certification check. (Not recommended)")
+                                  .takes_value(false))
                       .get_matches();
 
   let benchmark_file = matches.value_of("benchmark").unwrap();
@@ -66,9 +70,10 @@ fn main() {
   let stats_option = matches.is_present("stats");
   let compare_path_option = matches.value_of("compare");
   let threshold_option = matches.value_of("threshold");
+  let no_check_certificate = matches.is_present("no-check-certificate");
 
   let begin = time::precise_time_s();
-  let list_reports_result = benchmark::execute(benchmark_file, report_path_option);
+  let list_reports_result = benchmark::execute(benchmark_file, report_path_option, no_check_certificate);
   let duration = time::precise_time_s() - begin;
 
   match list_reports_result {
@@ -79,7 +84,7 @@ fn main() {
 
         for req in list_reports.concat() {
           group_by_status.entry(req.status / 100).or_insert(Vec::new()).push(req);
-        }
+        } 
 
         let durations = list_reports.concat().iter().map(|r| r.duration).collect::<Vec<f64>>();
         let mean = durations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64;
