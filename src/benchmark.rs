@@ -46,21 +46,13 @@ fn join<S:ToString> (l: Vec<S>, sep: &str) -> String {
 
 pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_certificate: bool) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
   let config = Arc::new(config::Config::new(benchmark_path, no_check_certificate));
-  let threads: i64;
-  let iterations: i64;
-  let rampup: i64;
 
   if report_path_option.is_some() {
-    threads = 1;
-    rampup = 0;
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "threads".yellow(), "iterations".yellow());
   } else {
-    threads = config.threads;
-    iterations = config.iterations;
-    rampup = config.rampup;
-    println!("{} {}", "Threads".yellow(), threads.to_string().purple());
-    println!("{} {}", "Iterations".yellow(), iterations.to_string().purple());
-    println!("{} {}", "Rampup".yellow(), rampup.to_string().purple());
+    println!("{} {}", "Threads".yellow(), config.threads.to_string().purple());
+    println!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple());
+    println!("{} {}", "Rampup".yellow(), config.rampup.to_string().purple());
   }
 
   println!("{} {}", "Base URL".yellow(), config.base.purple());
@@ -81,9 +73,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_
 
     Ok(list_reports)
   } else {
-    let delay = rampup / threads;
-
-    for index in 0..threads {
+    for index in 0..config.threads {
       let list_clone = list_arc.clone();
       let config_clone = config.clone();
       children.push(thread::spawn(move || thread_func(list_clone, config_clone, index)));
