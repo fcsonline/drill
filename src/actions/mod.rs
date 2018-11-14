@@ -1,8 +1,10 @@
 mod assign;
 mod request;
+mod ws_message;
 
 pub use self::assign::Assign;
 pub use self::request::Request;
+pub use self::ws_message::WSMessage;
 use config;
 
 use std::fmt;

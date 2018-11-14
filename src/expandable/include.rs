@@ -51,6 +51,8 @@ pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(Runnable 
       list.push(Box::new(actions::Assign::new(item, None)));
     } else if actions::Request::is_that_you(item){
       list.push(Box::new(actions::Request::new(item, None)));
+    } else if actions::WSMessage::is_that_you(item){
+      list.push(Box::new(actions::WSMessage::new(item, None)));
     }
   }
 }

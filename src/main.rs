@@ -7,6 +7,8 @@ extern crate csv;
 extern crate regex;
 extern crate clap;
 extern crate serde_json;
+extern crate ws;
+extern crate env_logger;
 
 mod config;
 mod interpolator;
@@ -25,6 +27,8 @@ use std::f64;
 use clap::crate_version;
 
 fn main() {
+
+  env_logger::init();
 
   let matches = App::new("drill")
                       .version(crate_version!())
