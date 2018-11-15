@@ -8,6 +8,7 @@ extern crate regex;
 extern crate clap;
 extern crate serde_json;
 extern crate ws;
+#[cfg(debug_assertions)]
 extern crate env_logger;
 
 mod config;
