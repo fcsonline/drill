@@ -27,7 +27,8 @@ use std::f64;
 use clap::crate_version;
 
 fn main() {
-
+  
+  #[cfg(debug_assertions)]
   env_logger::init();
 
   let matches = App::new("drill")
