@@ -1,5 +1,8 @@
 # Drill
 
+![](http://meritbadge.herokuapp.com/drill)](https://crates.io/crates/drill)
+![](https://travis-ci.com/fcsonline/drill.svg?branch=master)
+
 Drill is a HTTP load testing application written in Rust. The main goal
 for this project is to build a really lightweight tool as alternative to other
 that require JVM and other stuff.
