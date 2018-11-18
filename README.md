@@ -177,6 +177,7 @@ USAGE:
 
 FLAGS:
     -h, --help       Prints help information
+        --no-check-certificate    Disables SSL certification check. (Not recommended)
     -s, --stats      Shows request statistics
     -V, --version    Prints version information
 
