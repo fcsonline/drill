@@ -145,6 +145,8 @@ impl Request {
 
     let status_text = if response.status.is_server_error() {
       response.status.to_string().red()
+    } else if response.status.is_client_error() {
+      response.status.to_string().purple()
     } else {
       response.status.to_string().yellow()
     };
