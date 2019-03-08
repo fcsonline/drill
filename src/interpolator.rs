@@ -187,3 +187,32 @@ mod tests {
     interpolator.resolve(&url);
   }
 }
+
+#[test]
+  fn interpolates_numnamed_variables() {
+    let mut context: HashMap<String, Yaml> = HashMap::new();
+    let responses: HashMap<String, Value> = HashMap::new();
+
+    context.insert(String::from("zip5"), Yaml::String(String::from("90210")));
+
+    let interpolator = Interpolator{ context: &context, responses: &responses };
+    let url = String::from("http://example.com/postalcode/{{ zip5 }}/view/{{ zip5 }}");
+    let interpolated = interpolator.resolve(&url);
+
+    assert_eq!(interpolated, "http://example.com/postalcode/90210/view/90210");
+  }
+
+#[test]
+  fn interpolates_bad_numnamed_variable_names() {
+    let mut context: HashMap<String, Yaml> = HashMap::new();
+    let responses: HashMap<String, Value> = HashMap::new();
+
+    context.insert(String::from("5digitzip"), Yaml::String(String::from("90210")));
+
+    let interpolator = Interpolator{ context: &context, responses: &responses };
+    let url = String::from("http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
+    let interpolated = interpolator.resolve(&url);
+
+    assert_eq!(interpolated, "http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
+  }
+
