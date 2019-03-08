@@ -19,7 +19,7 @@ impl<'a> Interpolator<'a> {
   }
 
   pub fn resolve(&self, url: &String) -> String {
-    let re = Regex::new(r"\{\{ *([a-zA-Z\._]+) *\}\}").unwrap();
+    let re = Regex::new(r"\{\{ *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *\}\}").unwrap();
 
     let result = re.replace_all(url.as_str(), |caps: &Captures| {
       let capture = &caps[1];
