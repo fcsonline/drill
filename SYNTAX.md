@@ -44,6 +44,6 @@ All those three items can be combined with `name` property to be show in logs.
 - `method`: HTTP method in the requests. Valid methods are GET, POST, PUT, PATCH or DELETE. (default: GET)
 - `body`: Request body for methods like POST, PUT or PATCH.
 - `with_items`: List of items to be interpolated in the given request url.
-- `with_items_iter`: Generates items from an iterator from start, step, stop.
+- `with_items_range`: Generates items from an iterator from start, step, stop.
 - `with_items_from_csv`: Read the given CSV values and go through all of them as items.
 - `assign`: save the response in the thread context to be interpolated later.

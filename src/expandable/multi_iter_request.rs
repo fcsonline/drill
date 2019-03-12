@@ -4,17 +4,15 @@ use actions::{Request, Runnable};
 
 pub fn is_that_you(item: &Yaml) -> bool{
   item["request"].as_hash().is_some() &&
-  item["with_items_iter"].as_hash().is_some()
+  item["with_items_range"].as_hash().is_some()
 }
 
 pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
-  let with_items_iter_option = item["with_items_iter"].as_hash();
+  let with_items_range_option = item["with_items_range"].as_hash();
 
-  if with_items_iter_option.is_some() {
-    let with_iter_items = with_items_iter_option.unwrap();
+  if with_items_range_option.is_some() {
+    let with_iter_items = with_items_range_option.unwrap();
 
-    let mut step = 1usize;
-    let mut stop = 1i64;
     let init = Yaml::Integer(1);
     let ystart = Yaml::String("start".into());
     let ystep = Yaml::String("step".into());
