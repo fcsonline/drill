@@ -182,6 +182,8 @@ FLAGS:
     -h, --help       Prints help information
         --no-check-certificate    Disables SSL certification check. (Not recommended)
     -s, --stats      Shows request statistics
+    -q, --quiet      Skips output of individual request statistics
+    -n, --nanosec    Shows statistics in nanoseconds
     -V, --version    Prints version information
 
 OPTIONS:
