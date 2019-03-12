@@ -41,7 +41,7 @@ All those three items can be combined with `name` property to be show in logs.
 
 - `url`: Url to be request for this item
 - `headers`: List of custom headers you want to add in the requests.
-- `method`: HTTP method in the requests. Valid methods are GET, POST, PUT, PATCH or DELETE. (default: GET)
+- `method`: HTTP method in the requests. Valid methods are GET, POST, PUT, PATCH, HEAD or DELETE. (default: GET)
 - `body`: Request body for methods like POST, PUT or PATCH.
 - `with_items`: List of items to be interpolated in the given request url.
 - `with_items_from_csv`: Read the given CSV values and go through all of them as items.

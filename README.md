@@ -154,7 +154,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Request dependencies:** create dependencies between requests with `assign` and url interpolations.
 - **Split files:** organize your benchmarks in multiple files and include them.
 - **CSV support:** read CSV files and build N requests fill dynamic interpolations with CSV data.
-- **HTTP methods:** build request with different http methods like GET, POST, PUT, PATCH or DELETE.
+- **HTTP methods:** build request with different http methods like GET, POST, PUT, PATCH, HEAD or DELETE.
 - **Cookie support:** create benchmarks with sessions because cookies are propagates between requests.
 - **Stats:** get nice statistics about all the requests. Example: [cookies.yml](./example/cookies.yml)
 - **Thresholds:** compare the current benchmark performance against a stored one session and fail if a threshold is exceeded.
