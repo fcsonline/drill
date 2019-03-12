@@ -2,7 +2,7 @@ use std::process;
 use yaml_rust::{YamlLoader, Yaml};
 use std::path::Path;
 
-use expandable::{multi_request, multi_csv_request, include};
+use expandable::{multi_request, multi_csv_request, multi_iter_request, include};
 use actions;
 use actions::Runnable;
 
