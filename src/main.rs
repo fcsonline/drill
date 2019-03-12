@@ -153,12 +153,12 @@ fn show_stats (list_reports: &Vec<Vec<Report>>, stats_option: bool, duration: f6
   for (name, reports) in group_by_name {
     let substats = compute_stats(&reports);
     println!("");
-    println!("{} {} {}", name.green(), "Total requests".yellow(), substats.total_requests.to_string().purple());
-    println!("{} {} {}", name.green(), "Successful requests".yellow(), substats.successful_requests.to_string().purple());
-    println!("{} {} {}", name.green(), "Failed requests".yellow(), substats.failed_requests.to_string().purple());
-    println!("{} {} {}{}", name.green(), "Median time per request".yellow(), substats.median_duration.round().to_string().purple(), "ms".purple());
-    println!("{} {} {}{}", name.green(), "Average time per request".yellow(), substats.mean_duration.round().to_string().purple(), "ms".purple());
-    println!("{} {} {}{}", name.green(), "Sample standard deviation".yellow(), substats.stdev_duration.round().to_string().purple(), "ms".purple());
+    println!("{:width$} {:width2$} {}", name.green(), "Total requests".yellow(), substats.total_requests.to_string().purple(), width=25, width2=25);
+    println!("{:width$} {:width2$} {}", name.green(), "Successful requests".yellow(), substats.successful_requests.to_string().purple(), width=25, width2=25);
+    println!("{:width$} {:width2$} {}", name.green(), "Failed requests".yellow(), substats.failed_requests.to_string().purple(), width=25, width2=25);
+    println!("{:width$} {:width2$} {}{}", name.green(), "Median time per request".yellow(), substats.median_duration.round().to_string().purple(), "ms".purple(), width=25, width2=25);
+    println!("{:width$} {:width2$} {}{}", name.green(), "Average time per request".yellow(), substats.mean_duration.round().to_string().purple(), "ms".purple(), width=25, width2=25);
+    println!("{:width$} {:width2$} {}{}", name.green(), "Sample standard deviation".yellow(), substats.stdev_duration.round().to_string().purple(), "ms".purple(), width=25, width2=25);
   }
 
   // compute global stats
@@ -167,15 +167,15 @@ fn show_stats (list_reports: &Vec<Vec<Report>>, stats_option: bool, duration: f6
   let requests_per_second = global_stats.total_requests as f64 / duration;
 
   println!("");
-  println!("{} {}", "Concurrency Level".yellow(), list_reports.len().to_string().purple());
-  println!("{} {} {}", "Time taken for tests".yellow(), format!("{:.1}", duration).to_string().purple(), "seconds".purple());
-  println!("{} {}", "Total requests".yellow(), global_stats.total_requests.to_string().purple());
-  println!("{} {}", "Successful requests".yellow(), global_stats.successful_requests.to_string().purple());
-  println!("{} {}", "Failed requests".yellow(), global_stats.failed_requests.to_string().purple());
-  println!("{} {}{}", "Median time per request".yellow(), global_stats.median_duration.round().to_string().purple(), "ms".purple());
-  println!("{} {}{}", "Average time per request".yellow(), global_stats.mean_duration.round().to_string().purple(), "ms".purple());
-  println!("{} {}{}", "Sample standard deviation".yellow(), global_stats.stdev_duration.round().to_string().purple(), "ms".purple());
-  println!("{} {} {}", "Requests per second".yellow(), format!("{:.2}", requests_per_second).to_string().purple(), "[#/sec]".purple());
+  println!("{:width2$} {}", "Concurrency Level".yellow(), list_reports.len().to_string().purple(), width2=25);
+  println!("{:width2$} {} {}", "Time taken for tests".yellow(), format!("{:.1}", duration).to_string().purple(), "seconds".purple(), width2=25);
+  println!("{:width2$} {}", "Total requests".yellow(), global_stats.total_requests.to_string().purple(), width2=25);
+  println!("{:width2$} {}", "Successful requests".yellow(), global_stats.successful_requests.to_string().purple(), width2=25);
+  println!("{:width2$} {}", "Failed requests".yellow(), global_stats.failed_requests.to_string().purple(), width2=25);
+  println!("{:width2$} {} {}", "Requests per second".yellow(), format!("{:.2}", requests_per_second).to_string().purple(), "[#/sec]".purple(), width2=25);
+  println!("{:width2$} {}{}", "Median time per request".yellow(), global_stats.median_duration.round().to_string().purple(), "ms".purple(), width2=25);
+  println!("{:width2$} {}{}", "Average time per request".yellow(), global_stats.mean_duration.round().to_string().purple(), "ms".purple(), width2=25);
+  println!("{:width2$} {}{}", "Sample standard deviation".yellow(), global_stats.stdev_duration.round().to_string().purple(), "ms".purple(), width2=25);
 }
 
 fn compare_benchmark (list_reports: &Vec<Vec<Report>>, compare_path_option: Option<&str>, threshold_option: Option<&str>) {
