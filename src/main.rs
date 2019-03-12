@@ -90,6 +90,35 @@ fn app_args<'a> () -> clap::ArgMatches<'a> {
     .get_matches();
 }
 
+fn compute_stats (list_reports: &Vec<Report>) -> (usize, usize, usize, f64) {
+  let mut group_by_status = HashMap::new();
+
+  for req in list_reports.concat() {
+    group_by_status.entry(req.status / 100).or_insert(Vec::new()).push(req);
+  }
+
+  let durations = list_reports.concat().iter().map(|r| r.duration).collect::<Vec<f64>>();
+  let mean = durations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64;
+  let deviations = durations.iter().map(|a| (mean - a).powf(2.0)).collect::<Vec<f64>>();
+  let stdev = (deviations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64).sqrt();
+
+  let mut sorted = durations.clone();
+  sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+  let durlen = sorted.len();
+  let median = if durlen % 2 == 0 {
+    sorted[durlen / 2]
+  } else {
+    (sorted[durlen / 2] + sorted[durlen / 2 + 1]) / 2f64
+  };
+
+  let total_requests = list_reports.concat().len();
+  let successful_requests = group_by_status.entry(2).or_insert(Vec::new()).len();
+  let failed_requests = total_requests - successful_requests;
+  let requests_per_second = total_requests as f64 / duration;
+
+  (total_requests, successful_requests, failed_requests, requests_per_second)
+}
+
 fn show_stats (list_reports: &Vec<Vec<Report>>, stats_option: bool, duration: f64) {
   if !stats_option { return }
 
