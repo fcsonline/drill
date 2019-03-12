@@ -44,8 +44,8 @@ fn join<S:ToString> (l: Vec<S>, sep: &str) -> String {
                   )
 }
 
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_certificate: bool) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
-  let config = Arc::new(config::Config::new(benchmark_path, no_check_certificate));
+pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_certificate: bool, quiet: bool) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
+  let config = Arc::new(config::Config::new(benchmark_path, no_check_certificate, quiet));
 
   if report_path_option.is_some() {
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "threads".yellow(), "iterations".yellow());
