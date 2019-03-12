@@ -50,6 +50,14 @@ plan:
       - { id: 73 }
       - { id: 75 }
 
+  - name: Fetch some users by iter
+    request:
+      url: /api/users/{{ item }}
+    with_items_iter:
+      start: 70
+      step: 5
+      stop: 76
+
   - name: Fetch some users from CSV
     request:
       url: /api/users/contacts/{{ item.id }}
