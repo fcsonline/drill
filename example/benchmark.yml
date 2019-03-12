@@ -55,8 +55,8 @@ plan:
       url: /api/users/{{ item }}
     with_items_iter:
       start: 70
-      step: 2
-      stop: 75
+      step: 5
+      stop: 76
 
   - name: Fetch some users from CSV
     request:
