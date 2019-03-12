@@ -37,7 +37,7 @@ fn main() {
   let nanosec = matches.is_present("nanosec");
 
   let begin = time::precise_time_s();
-  let list_reports_result = benchmark::execute(benchmark_file, report_path_option, no_check_certificate, quiet);
+  let list_reports_result = benchmark::execute(benchmark_file, report_path_option, no_check_certificate, quiet, nanosec);
   let duration = time::precise_time_s() - begin;
 
   match list_reports_result {

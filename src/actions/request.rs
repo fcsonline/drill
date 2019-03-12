@@ -72,6 +72,14 @@ impl Request {
     }
   }
 
+  fn format_time(tdiff: f64, nanosec: bool) -> String {
+    if nanosec {
+      (1_000_000.0 * tdiff).round().to_string() + "ns"
+    } else {
+      tdiff.round().to_string() + "ms"
+    }
+  }
+
   fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Response, f64) {
     // Build a TSL connector
     let mut connector_builder = TlsConnector::builder();
@@ -152,7 +160,7 @@ impl Request {
     };
 
     if !config.quiet {
-      println!("{:width$} {} {} {}{}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
+      println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width=25);
     }
     (response, duration_ms)
   }
