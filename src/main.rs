@@ -34,6 +34,7 @@ fn main() {
   let threshold_option = matches.value_of("threshold");
   let no_check_certificate = matches.is_present("no-check-certificate");
   let quiet = matches.is_present("quiet");
+  let nanosec = matches.is_present("nanosec");
 
   let begin = time::precise_time_s();
   let list_reports_result = benchmark::execute(benchmark_file, report_path_option, no_check_certificate, quiet);
@@ -41,7 +42,7 @@ fn main() {
 
   match list_reports_result {
     Ok(list_reports) => {
-      show_stats(&list_reports, stats_option, duration);
+      show_stats(&list_reports, stats_option, nanosec, duration);
       compare_benchmark(&list_reports, compare_path_option, threshold_option);
 
       process::exit(0)
@@ -93,6 +94,11 @@ fn app_args<'a> () -> clap::ArgMatches<'a> {
                 .long("quiet")
                 .help("Disables output")
                 .takes_value(false))
+    .arg(Arg::with_name("nanosec")
+                .short("n")
+                .long("nanosec")
+                .help("Shows statistics in nanoseconds")
+                .takes_value(false))
     .get_matches();
 }
 
@@ -140,7 +146,15 @@ fn compute_stats (sub_reports: &Vec<Report>) -> DrillStats {
   }
 }
 
-fn show_stats (list_reports: &Vec<Vec<Report>>, stats_option: bool, duration: f64) {
+fn format_time(tdiff: f64, nanosec: bool) -> String {
+  if nanosec {
+    (1_000_000.0 * tdiff).round().to_string() + "ns"
+  } else {
+    tdiff.round().to_string() + "ms"
+  }
+}
+
+fn show_stats (list_reports: &Vec<Vec<Report>>, stats_option: bool, nanosec: bool, duration: f64) {
   if !stats_option { return }
 
   let mut group_by_name = HashMap::new();
@@ -156,9 +170,9 @@ fn show_stats (list_reports: &Vec<Vec<Report>>, stats_option: bool, duration: f6
     println!("{:width$} {:width2$} {}", name.green(), "Total requests".yellow(), substats.total_requests.to_string().purple(), width=25, width2=25);
     println!("{:width$} {:width2$} {}", name.green(), "Successful requests".yellow(), substats.successful_requests.to_string().purple(), width=25, width2=25);
     println!("{:width$} {:width2$} {}", name.green(), "Failed requests".yellow(), substats.failed_requests.to_string().purple(), width=25, width2=25);
-    println!("{:width$} {:width2$} {}{}", name.green(), "Median time per request".yellow(), substats.median_duration.round().to_string().purple(), "ms".purple(), width=25, width2=25);
-    println!("{:width$} {:width2$} {}{}", name.green(), "Average time per request".yellow(), substats.mean_duration.round().to_string().purple(), "ms".purple(), width=25, width2=25);
-    println!("{:width$} {:width2$} {}{}", name.green(), "Sample standard deviation".yellow(), substats.stdev_duration.round().to_string().purple(), "ms".purple(), width=25, width2=25);
+    println!("{:width$} {:width2$} {}", name.green(), "Median time per request".yellow(), format_time(substats.median_duration, nanosec).purple(), width=25, width2=25);
+    println!("{:width$} {:width2$} {}", name.green(), "Average time per request".yellow(), format_time(substats.mean_duration, nanosec).purple(),  width=25, width2=25);
+    println!("{:width$} {:width2$} {}", name.green(), "Sample standard deviation".yellow(), format_time(substats.stdev_duration, nanosec).purple(), width=25, width2=25);
   }
 
   // compute global stats
@@ -173,9 +187,9 @@ fn show_stats (list_reports: &Vec<Vec<Report>>, stats_option: bool, duration: f6
   println!("{:width2$} {}", "Successful requests".yellow(), global_stats.successful_requests.to_string().purple(), width2=25);
   println!("{:width2$} {}", "Failed requests".yellow(), global_stats.failed_requests.to_string().purple(), width2=25);
   println!("{:width2$} {} {}", "Requests per second".yellow(), format!("{:.2}", requests_per_second).to_string().purple(), "[#/sec]".purple(), width2=25);
-  println!("{:width2$} {}{}", "Median time per request".yellow(), global_stats.median_duration.round().to_string().purple(), "ms".purple(), width2=25);
-  println!("{:width2$} {}{}", "Average time per request".yellow(), global_stats.mean_duration.round().to_string().purple(), "ms".purple(), width2=25);
-  println!("{:width2$} {}{}", "Sample standard deviation".yellow(), global_stats.stdev_duration.round().to_string().purple(), "ms".purple(), width2=25);
+  println!("{:width2$} {}", "Median time per request".yellow(), format_time(global_stats.median_duration, nanosec).purple(), width2=25);
+  println!("{:width2$} {}", "Average time per request".yellow(), format_time(global_stats.mean_duration, nanosec).purple(), width2=25);
+  println!("{:width2$} {}", "Sample standard deviation".yellow(), format_time(global_stats.stdev_duration, nanosec).purple(), width2=25);
 }
 
 fn compare_benchmark (list_reports: &Vec<Vec<Report>>, compare_path_option: Option<&str>, threshold_option: Option<&str>) {
