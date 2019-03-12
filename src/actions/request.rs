@@ -152,8 +152,9 @@ impl Request {
       response.status.to_string().yellow()
     };
 
-    println!("{:width$} {} {} {}{}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
-
+    if !config.quiet {
+      println!("{:width$} {} {} {}{}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, duration_ms.round().to_string().cyan(), "ms".cyan(), width=25);
+    }
     (response, duration_ms)
   }
 }

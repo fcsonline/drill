@@ -12,10 +12,11 @@ pub struct Config {
   pub iterations: i64,
   pub no_check_certificate: bool,
   pub rampup: i64,
+  pub quiet: bool,
 }
 
 impl Config {
-  pub fn new(path: &str, no_check_certificate: bool) -> Config {
+  pub fn new(path: &str, no_check_certificate: bool, quiet: bool) -> Config {
     let config_file = reader::read_file(path);
 
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
@@ -32,6 +33,7 @@ impl Config {
       iterations: iterations,
       no_check_certificate: no_check_certificate,
       rampup: rampup,
+      quiet: quiet,
     }
   }
 }
