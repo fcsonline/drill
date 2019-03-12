@@ -102,6 +102,7 @@ impl Request {
       "PUT" => Method::Put,
       "PATCH" => Method::Patch,
       "DELETE" => Method::Delete,
+      "HEAD" => Method::Head,
       _ => panic!("Unknown method '{}'", self.method),
     };
 
