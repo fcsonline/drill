@@ -80,6 +80,7 @@ impl Request {
     }
   }
 
+
   fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Option<Response>, f64) {
     // Build a TSL connector
     let mut connector_builder = TlsConnector::builder();
@@ -167,6 +168,8 @@ impl Request {
         (Some(response), duration_ms)
       }
     }
+  }
+}
 
 impl Runnable for Request {
   fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>, config: &config::Config) {
