@@ -80,7 +80,7 @@ impl Request {
     }
   }
 
-  fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Response, f64) {
+  fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Option<Response>, f64) {
     // Build a TSL connector
     let mut connector_builder = TlsConnector::builder();
     connector_builder.danger_accept_invalid_certs(config.no_check_certificate);
@@ -88,8 +88,6 @@ impl Request {
     let ssl = NativeTlsClient::from(connector_builder.build().unwrap());
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
-
-    let begin = time::precise_time_s();
 
     let interpolated_name;
     let interpolated_url;
@@ -143,27 +141,34 @@ impl Request {
       headers.set_raw(key.to_owned(), vec![interpolated_header.clone().into_bytes()]);
     }
 
+    let begin = time::precise_time_s();
     let response_result = request.headers(headers).send();
-
-    if let Err(e) = response_result {
-      panic!("Error connecting '{}': {:?}", interpolated_url, e);
-    }
-
-    let response = response_result.unwrap();
     let duration_ms = (time::precise_time_s() - begin) * 1000.0;
 
-    let status_text = if response.status.is_server_error() {
-      response.status.to_string().red()
-    } else if response.status.is_client_error() {
-      response.status.to_string().purple()
-    } else {
-      response.status.to_string().yellow()
-    };
+    match response_result {
+      Err(e) => {
+        if !config.quiet {
+          println!("Error connecting '{}': {:?}", interpolated_url, e);
+        }
+        (None, duration_ms)
+      },
+      Ok(response) => {
+        let status_text = if response.status.is_server_error() {
+          response.status.to_string().red()
+        } else if response.status.is_client_error() {
+          response.status.to_string().purple()
+        } else {
+          response.status.to_string().yellow()
+        };
 
-    if !config.quiet {
-      println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width=25);
+        if !config.quiet {
+          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width=25);
+        }
+        (Some(response), duration_ms)
+      }
     }
-    (response, duration_ms)
+
+    
   }
 }
 
@@ -173,26 +178,32 @@ impl Runnable for Request {
       context.insert("item".to_string(), self.with_item.clone().unwrap());
     }
 
-    let (mut response, duration_ms) = self.send_request(context, responses, config);
+    let (res, duration_ms) = self.send_request(context, responses, config);
 
-    reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: response.status.to_u16() });
+    match res {
+      None => reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: 520u16 }),
+      Some(mut response) => {
+        reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: response.status.to_u16() });
 
-    if let Some(&SetCookie(ref cookies)) = response.headers.get::<SetCookie>() {
-      if let Some(cookie) = cookies.iter().next() {
-        let value = String::from(cookie.split(";").next().unwrap());
-        context.insert("cookie".to_string(), Yaml::String(value));
+        if let Some(&SetCookie(ref cookies)) = response.headers.get::<SetCookie>() {
+          if let Some(cookie) = cookies.iter().next() {
+            let value = String::from(cookie.split(";").next().unwrap());
+            context.insert("cookie".to_string(), Yaml::String(value));
+          }
+        }
+
+        if let Some(ref key) = self.assign {
+          let mut data = String::new();
+
+          response.read_to_string(&mut data).unwrap();
+
+          let value: serde_json::Value = serde_json::from_str(&data).unwrap();
+
+          responses.insert(key.to_owned(), value);
+        }
       }
     }
-
-    if let Some(ref key) = self.assign {
-      let mut data = String::new();
-
-      response.read_to_string(&mut data).unwrap();
-
-      let value: serde_json::Value = serde_json::from_str(&data).unwrap();
-
-      responses.insert(key.to_owned(), value);
-    }
+    
   }
 
 }
