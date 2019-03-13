@@ -8,10 +8,7 @@ pub fn is_that_you(item: &Yaml) -> bool{
 }
 
 pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
-  let with_items_range_option = item["with_items_range"].as_hash();
-
-  if with_items_range_option.is_some() {
-    let with_iter_items = with_items_range_option.unwrap();
+  if let Some(with_iter_items) = item["with_items_range"].as_hash() {
 
     let init = Yaml::Integer(1);
     let ystart = Yaml::String("start".into());
@@ -22,11 +19,10 @@ pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
     let step : usize = with_iter_items.get(&ystep).unwrap_or(&init).as_i64().unwrap_or(1) as usize;
     let stop : i64 = with_iter_items.get(&ystop).unwrap_or(&init).as_i64().unwrap_or(1) + 1; // making stop inclusive
 
-    if stop > start {
+    if stop > start && start > 0 {
       for i in (start .. stop).step_by(step) {
         list.push(Box::new(Request::new(item, Some(Yaml::Integer(i)))));
       }
     }
-
   }
 }
