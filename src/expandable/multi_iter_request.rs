@@ -18,11 +18,11 @@ pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
     let ystep = Yaml::String("step".into());
     let ystop = Yaml::String("stop".into());
     
-    let start : i64 = with_iter_items.get(&ystart).unwrap_or(&init).as_i64().unwrap_or(1);
+    let start : usize = with_iter_items.get(&ystart).unwrap_or(&init).as_i64().unwrap_or(1);
     let step : usize = with_iter_items.get(&ystep).unwrap_or(&init).as_i64().unwrap_or(1) as usize;
-    let stop : i64 = with_iter_items.get(&ystop).unwrap_or(&init).as_i64().unwrap_or(1) + 1; // making stop inclusive
+    let stop : usize = with_iter_items.get(&ystop).unwrap_or(&init).as_i64().unwrap_or(1) + 1; // making stop inclusive
 
-    if stop > start {
+    if stop > start && start > 0 {
       for i in (start .. stop).step_by(step) {
         list.push(Box::new(Request::new(item, Some(Yaml::Integer(i)))));
       }
