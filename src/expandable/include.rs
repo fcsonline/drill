@@ -2,7 +2,7 @@ use std::process;
 use yaml_rust::{YamlLoader, Yaml};
 use std::path::Path;
 
-use expandable::{multi_request, multi_csv_request, include};
+use expandable::{multi_request, multi_csv_request, multi_iter_request, include};
 use actions;
 use actions::Runnable;
 
@@ -43,6 +43,8 @@ pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(Runnable 
   for item in items {
     if multi_request::is_that_you(item) {
       multi_request::expand(item, &mut list);
+    } else if multi_iter_request::is_that_you(item) {
+      multi_iter_request::expand(item, &mut list);
     } else if multi_csv_request::is_that_you(item) {
       multi_csv_request::expand(parent_path, item, &mut list);
     } else if include::is_that_you(item) {
