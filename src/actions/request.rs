@@ -168,10 +168,6 @@ impl Request {
       }
     }
 
-    
-  }
-}
-
 impl Runnable for Request {
   fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>, config: &config::Config) {
     if self.with_item.is_some() {

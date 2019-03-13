@@ -24,3 +24,22 @@ pub fn expand(parent_path: &str, item: &Yaml, list: &mut Vec<Box<(Runnable + Syn
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use actions::Runnable;
+
+  #[test]
+  fn expand_multi () {
+    let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: example/fixtures/users.csv";
+    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let doc = &docs[0];
+    let mut list: Vec<Box<(Runnable + Sync + Send)>> = Vec::new();
+
+    expand("./", &doc, &mut list);
+
+    assert_eq!(is_that_you(&doc), true);
+    assert_eq!(list.len(), 2);
+  }
+}
