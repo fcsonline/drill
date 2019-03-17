@@ -39,7 +39,6 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
     Ok(file) => file,
   };
 
-  //println!("DEBUG: quote_char={}", quote);
   let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
         .quote(quote)
