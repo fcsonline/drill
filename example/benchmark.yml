@@ -63,6 +63,13 @@ plan:
       url: /api/users/contacts/{{ item.id }}
     with_items_from_csv: ./fixtures/users.csv
 
+  - name: Fetch some users from CSV (alternate syntax)
+    request:
+      url: /api/users/contacts/{{ item.id }}
+    with_items_from_csv: 
+      file_name: ./fixtures/users.csv
+      quote_char: "\'"
+
   - name: Fetch no relative url
     request:
       url: http://localhost:9000/api/users.json

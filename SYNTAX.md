@@ -47,3 +47,12 @@ All those three items can be combined with `name` property to be show in logs.
 - `with_items_range`: Generates items from an iterator from start, step, stop.
 - `with_items_from_csv`: Read the given CSV values and go through all of them as items.
 - `assign`: save the response in the thread context to be interpolated later.
+
+#### with_items_from_csv item properties
+
+This item can be specified one of two ways.  First, as a simple string specifying the csv file name.
+
+Second, it can be a hash with the following properties:
+
+ - `file_name`: csv file containing the records to be used as items
+ - `quote_char`: character to use as quote in csv parsing.  Defaults to `"\""`, but can be set to `"\'"`.  If your csv file has quoted strings that contain commas and that causes parse errors, make sure this value is set correctly.

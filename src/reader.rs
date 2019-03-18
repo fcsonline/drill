@@ -28,7 +28,7 @@ pub fn read_file(filepath: &str) -> String {
 }
 
 // TODO: Try to split this fn into two
-pub fn read_csv_file_as_yml(filepath: &str) -> yaml_rust::yaml::Array {
+pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array {
   // Create a path to the desired file
   let path = Path::new(filepath);
   let display = path.display();
@@ -41,6 +41,7 @@ pub fn read_csv_file_as_yml(filepath: &str) -> yaml_rust::yaml::Array {
 
   let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
+        .quote(quote)
         .from_reader(file);
 
   let mut items = yaml_rust::yaml::Array::new();
