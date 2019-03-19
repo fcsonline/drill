@@ -11,6 +11,7 @@ This is a basic benchmark with 2 requests, run concurrently in 4 threads against
 threads: 4
 base: 'http://example.com'
 iterations: 5
+rampup: 5
 
 plan:
   - name: Fetch users
@@ -27,6 +28,7 @@ plan:
 - `threads`: Number of threads running your plan concurrently. (Optional, default: 1)
 - `base`: Base url for all relative URL's in your plan. (Optional)
 - `iterations`: Number of loops is going to do each thread (Optional, default: 1)
+- `rampup`: Amount of time it will take to start all threads. (Optional)
 - `plan`: List of items to do in your benchmark. (Required)
 
 #### Plan items
