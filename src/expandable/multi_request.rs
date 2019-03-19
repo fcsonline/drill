@@ -2,9 +2,8 @@ use yaml_rust::Yaml;
 
 use actions::{Request, Runnable};
 
-pub fn is_that_you(item: &Yaml) -> bool{
-  item["request"].as_hash().is_some() &&
-  item["with_items"].as_vec().is_some()
+pub fn is_that_you(item: &Yaml) -> bool {
+  item["request"].as_hash().is_some() && item["with_items"].as_vec().is_some()
 }
 
 pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
@@ -25,7 +24,7 @@ mod tests {
   use actions::Runnable;
 
   #[test]
-  fn expand_multi () {
+  fn expand_multi() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - 3";
     let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
     let doc = &docs[0];

@@ -42,7 +42,7 @@ pub fn compare(list_reports: &Vec<Vec<Report>>, filepath: &str, threshold: &str)
       let delta_ms = report_item.duration - recorded_duration;
 
       if delta_ms > threshold_value {
-        println!("{:width$} is {}{} slower than before", report_item.name.green(), delta_ms.round().to_string().red(), "ms".red(), width=25);
+        println!("{:width$} is {}{} slower than before", report_item.name.green(), delta_ms.round().to_string().red(), "ms".red(), width = 25);
 
         slow_counter += 1;
       }

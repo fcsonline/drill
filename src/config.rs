@@ -28,7 +28,7 @@ impl Config {
     let rampup = read_i64_configuration(config_doc, "rampup", NRAMPUP);
     let base = config_doc["base"].as_str().unwrap().to_owned();
 
-    Config{
+    Config {
       base: base,
       threads: threads,
       iterations: iterations,
@@ -47,6 +47,6 @@ fn read_i64_configuration(config_doc: &Yaml, name: &str, default: i64) -> i64 {
       println!("Invalid {} value!", name);
 
       default
-    },
+    }
   }
 }

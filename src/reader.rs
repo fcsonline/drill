@@ -1,10 +1,10 @@
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use std::collections::BTreeMap;
 
-use yaml_rust;
 use csv;
+use yaml_rust;
 
 pub fn read_file(filepath: &str) -> String {
   // Create a path to the desired file
@@ -21,7 +21,7 @@ pub fn read_file(filepath: &str) -> String {
   let mut content = String::new();
   match file.read_to_string(&mut content) {
     Err(why) => panic!("couldn't read {}: {}", display, why),
-    Ok(_) => {},
+    Ok(_) => {}
   }
 
   content
@@ -39,10 +39,7 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
     Ok(file) => file,
   };
 
-  let mut rdr = csv::ReaderBuilder::new()
-        .has_headers(true)
-        .quote(quote)
-        .from_reader(file);
+  let mut rdr = csv::ReaderBuilder::new().has_headers(true).quote(quote).from_reader(file);
 
   let mut items = yaml_rust::yaml::Array::new();
 
@@ -52,21 +49,21 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
   };
 
   for result in rdr.records() {
-      match result {
-        Ok(record) => {
-          let mut item_tree = BTreeMap::new();
+    match result {
+      Ok(record) => {
+        let mut item_tree = BTreeMap::new();
 
-          for (i, header) in headers.iter().enumerate() {
-            let item_key = yaml_rust::Yaml::String(header.to_string());
-            let item_value = yaml_rust::Yaml::String(record.get(i).unwrap().to_string());
+        for (i, header) in headers.iter().enumerate() {
+          let item_key = yaml_rust::Yaml::String(header.to_string());
+          let item_value = yaml_rust::Yaml::String(record.get(i).unwrap().to_string());
 
-            item_tree.insert(item_key, item_value);
-          }
+          item_tree.insert(item_key, item_value);
+        }
 
-          items.push(yaml_rust::Yaml::Hash(item_tree));
-        },
-        Err(e) => println!("error parsing header: {:?}", e),
+        items.push(yaml_rust::Yaml::Hash(item_tree));
       }
+      Err(e) => println!("error parsing header: {:?}", e),
+    }
   }
 
   items
