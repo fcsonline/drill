@@ -1,14 +1,14 @@
-use std::process;
-use yaml_rust::{YamlLoader, Yaml};
 use std::path::Path;
+use std::process;
+use yaml_rust::{Yaml, YamlLoader};
 
-use expandable::{multi_request, multi_csv_request, multi_iter_request, include};
 use actions;
 use actions::Runnable;
+use expandable::{include, multi_csv_request, multi_iter_request, multi_request};
 
 use reader;
 
-pub fn is_that_you(item: &Yaml) -> bool{
+pub fn is_that_you(item: &Yaml) -> bool {
   item["include"].as_str().is_some()
 }
 
@@ -29,12 +29,12 @@ pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(Runnable 
 
   if let Some(accessor_id) = accessor {
     items = match doc[accessor_id].as_vec() {
-        Some(items) => items,
-        None => {
-            println!("{} {}", "Node missing on config:", accessor_id);
-            println!("{}", "Exiting.");
-            process::exit(1)
-        },
+      Some(items) => items,
+      None => {
+        println!("{} {}", "Node missing on config:", accessor_id);
+        println!("{}", "Exiting.");
+        process::exit(1)
+      }
     }
   } else {
     items = doc.as_vec().unwrap();
@@ -51,7 +51,7 @@ pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(Runnable 
       include::expand(parent_path, item, &mut list);
     } else if actions::Assign::is_that_you(item) {
       list.push(Box::new(actions::Assign::new(item, None)));
-    } else if actions::Request::is_that_you(item){
+    } else if actions::Request::is_that_you(item) {
       list.push(Box::new(actions::Request::new(item, None)));
     }
   }

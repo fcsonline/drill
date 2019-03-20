@@ -1,14 +1,14 @@
-use std::thread;
-use std::time;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::thread;
+use std::time;
 
-use yaml_rust::Yaml;
 use serde_json::Value;
+use yaml_rust::Yaml;
 
+use actions::{Report, Runnable};
 use config;
 use expandable::include;
-use actions::{Runnable, Report};
 use writer;
 
 use colored::*;
@@ -20,9 +20,9 @@ fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, config: Arc<c
   let mut global_reports = Vec::new();
 
   for iteration in 0..config.iterations {
-    let mut responses:HashMap<String, Value> = HashMap::new();
-    let mut context:HashMap<String, Yaml> = HashMap::new();
-    let mut reports:Vec<Report> = Vec::new();
+    let mut responses: HashMap<String, Value> = HashMap::new();
+    let mut context: HashMap<String, Yaml> = HashMap::new();
+    let mut reports: Vec<Report> = Vec::new();
 
     context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
     context.insert("thread".to_string(), Yaml::String(thread.to_string()));
@@ -38,8 +38,8 @@ fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, config: Arc<c
   global_reports.concat()
 }
 
-fn join<S:ToString> (l: Vec<S>, sep: &str) -> String {
-    l.iter().fold("".to_string(),
+fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
+  l.iter().fold("".to_string(),
                   |a,b| if !a.is_empty() {a+sep} else {a} + &b.to_string()
                   )
 }
@@ -64,7 +64,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_
 
   let list_arc = Arc::new(list);
   let mut children = vec![];
-  let mut list_reports:Vec<Vec<Report>> = vec![];
+  let mut list_reports: Vec<Vec<Report>> = vec![];
 
   if let Some(report_path) = report_path_option {
     let reports = thread_func(list_arc.clone(), config, 0);

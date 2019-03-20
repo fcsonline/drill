@@ -1,22 +1,22 @@
 use std::collections::HashMap;
 use std::io::Read;
 
-use yaml_rust::Yaml;
 use colored::*;
 use serde_json;
 use time;
+use yaml_rust::Yaml;
 
 use hyper::client::{Client, Response};
-use hyper::net::HttpsConnector;
-use hyper_native_tls::NativeTlsClient;
-use hyper::header::{UserAgent, Headers, Cookie, SetCookie};
+use hyper::header::{Cookie, Headers, SetCookie, UserAgent};
 use hyper::method::Method;
+use hyper::net::HttpsConnector;
 use hyper_native_tls::native_tls::TlsConnector;
+use hyper_native_tls::NativeTlsClient;
 
-use interpolator;
 use config;
+use interpolator;
 
-use actions::{Runnable, Report};
+use actions::{Report, Runnable};
 
 static USER_AGENT: &'static str = "drill";
 
@@ -33,7 +33,7 @@ pub struct Request {
 }
 
 impl Request {
-  pub fn is_that_you(item: &Yaml) -> bool{
+  pub fn is_that_you(item: &Yaml) -> bool {
     item["request"].as_hash().is_some()
   }
 
@@ -80,7 +80,6 @@ impl Request {
     }
   }
 
-
   fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Option<Response>, f64) {
     // Build a TSL connector
     let mut connector_builder = TlsConnector::builder();
@@ -119,9 +118,7 @@ impl Request {
       let interpolator = interpolator::Interpolator::new(context, responses);
       interpolated_body = interpolator.resolve(body).to_owned();
 
-      request = client
-        .request(method, &interpolated_url)
-        .body(&interpolated_body);
+      request = client.request(method, &interpolated_url).body(&interpolated_body);
     } else {
       request = client.request(method, &interpolated_url);
     }
@@ -152,7 +149,7 @@ impl Request {
           println!("Error connecting '{}': {:?}", interpolated_url, e);
         }
         (None, duration_ms)
-      },
+      }
       Ok(response) => {
         let status_text = if response.status.is_server_error() {
           response.status.to_string().red()
@@ -163,7 +160,7 @@ impl Request {
         };
 
         if !config.quiet {
-          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width=25);
+          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
         }
         (Some(response), duration_ms)
       }
@@ -180,9 +177,17 @@ impl Runnable for Request {
     let (res, duration_ms) = self.send_request(context, responses, config);
 
     match res {
-      None => reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: 520u16 }),
+      None => reports.push(Report {
+        name: self.name.to_owned(),
+        duration: duration_ms,
+        status: 520u16,
+      }),
       Some(mut response) => {
-        reports.push(Report { name: self.name.to_owned(), duration: duration_ms, status: response.status.to_u16() });
+        reports.push(Report {
+          name: self.name.to_owned(),
+          duration: duration_ms,
+          status: response.status.to_u16(),
+        });
 
         if let Some(&SetCookie(ref cookies)) = response.headers.get::<SetCookie>() {
           if let Some(cookie) = cookies.iter().next() {
@@ -202,7 +207,5 @@ impl Runnable for Request {
         }
       }
     }
-    
   }
-
 }
