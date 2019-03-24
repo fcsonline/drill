@@ -24,3 +24,22 @@ pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
     }
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use actions::Runnable;
+
+  #[test]
+  fn expand_multi_range() {
+    let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items_range:\n  start: 2\n  step: 2\n  stop: 20";
+    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let doc = &docs[0];
+    let mut list: Vec<Box<(Runnable + Sync + Send)>> = Vec::new();
+
+    expand(&doc, &mut list);
+
+    assert_eq!(is_that_you(&doc), true);
+    assert_eq!(list.len(), 10);
+  }
+}
