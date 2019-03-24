@@ -18,7 +18,7 @@ mod reader;
 mod writer;
 
 use self::clap::{App, Arg};
-use actions::Report;
+use crate::actions::Report;
 use clap::crate_version;
 use colored::*;
 use std::collections::HashMap;

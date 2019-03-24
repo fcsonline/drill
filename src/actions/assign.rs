@@ -4,9 +4,9 @@ use colored::*;
 use serde_json::Value;
 use yaml_rust::Yaml;
 
-use config;
+use crate::config;
 
-use actions::{Report, Runnable};
+use crate::actions::{Report, Runnable};
 
 #[derive(Clone)]
 pub struct Assign {

@@ -5,7 +5,7 @@ use std::path::Path;
 use colored::*;
 use yaml_rust::YamlLoader;
 
-use actions::Report;
+use crate::actions::Report;
 
 pub fn compare(list_reports: &Vec<Vec<Report>>, filepath: &str, threshold: &str) -> Result<(), i32> {
   let threshold_value = match threshold.parse::<f64>() {

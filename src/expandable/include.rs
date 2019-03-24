@@ -2,11 +2,11 @@ use std::path::Path;
 use std::process;
 use yaml_rust::{Yaml, YamlLoader};
 
-use actions;
-use actions::Runnable;
-use expandable::{include, multi_csv_request, multi_iter_request, multi_request};
+use crate::actions;
+use crate::actions::Runnable;
+use crate::expandable::{include, multi_csv_request, multi_iter_request, multi_request};
 
-use reader;
+use crate::reader;
 
 pub fn is_that_you(item: &Yaml) -> bool {
   item["include"].as_str().is_some()

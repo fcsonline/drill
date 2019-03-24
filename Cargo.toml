@@ -6,6 +6,7 @@ description = "Drill is a HTTP load testing application written in Rust inspired
 repository = "https://github.com/fcsonline/drill"
 keywords = ["performance", "http", "ansible", "jmeter"]
 license = "GPL-3.0"
+edition = "2018"
 
 [dependencies]
 clap = "2.24.2"

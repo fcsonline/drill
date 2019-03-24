@@ -1,6 +1,6 @@
 use yaml_rust::Yaml;
 
-use actions::{Request, Runnable};
+use crate::actions::{Request, Runnable};
 
 pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && item["with_items_range"].as_hash().is_some()
@@ -28,7 +28,7 @@ pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use actions::Runnable;
+  use crate::actions::Runnable;
 
   #[test]
   fn expand_multi_range() {

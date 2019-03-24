@@ -13,10 +13,10 @@ use hyper::net::HttpsConnector;
 use hyper_native_tls::native_tls::TlsConnector;
 use hyper_native_tls::NativeTlsClient;
 
-use config;
-use interpolator;
+use crate::config;
+use crate::interpolator;
 
-use actions::{Report, Runnable};
+use crate::actions::{Report, Runnable};
 
 static USER_AGENT: &'static str = "drill";
 
