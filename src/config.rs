@@ -42,9 +42,19 @@ impl Config {
 
 fn read_i64_configuration(config_doc: &Yaml, name: &str, default: i64) -> i64 {
   match config_doc[name].as_i64() {
-    Some(value) => value,
+    Some(value) => {
+      if value < 0 {
+        println!("Invalid negative {} value!", name);
+
+        default
+      } else {
+        value
+      }
+    }
     None => {
-      println!("Invalid {} value!", name);
+      if config_doc[name].as_str().is_some() {
+        println!("Invalid {} value!", name);
+      }
 
       default
     }
