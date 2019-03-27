@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
@@ -51,16 +50,16 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
   for result in rdr.records() {
     match result {
       Ok(record) => {
-        let mut item_tree = BTreeMap::new();
+        let mut linked_hash_map = linked_hash_map::LinkedHashMap::new();
 
         for (i, header) in headers.iter().enumerate() {
           let item_key = yaml_rust::Yaml::String(header.to_string());
           let item_value = yaml_rust::Yaml::String(record.get(i).unwrap().to_string());
 
-          item_tree.insert(item_key, item_value);
+          linked_hash_map.insert(item_key, item_value);
         }
 
-        items.push(yaml_rust::Yaml::Hash(item_tree));
+        items.push(yaml_rust::Yaml::Hash(linked_hash_map));
       }
       Err(e) => println!("error parsing header: {:?}", e),
     }
