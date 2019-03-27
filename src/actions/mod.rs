@@ -3,7 +3,7 @@ mod request;
 
 pub use self::assign::Assign;
 pub use self::request::Request;
-use config;
+use crate::config;
 
 use std::collections::HashMap;
 use std::fmt;

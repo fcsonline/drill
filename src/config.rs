@@ -1,6 +1,6 @@
 use yaml_rust::{Yaml, YamlLoader};
 
-use reader;
+use crate::reader;
 
 static NTHREADS: i64 = 1;
 static NITERATIONS: i64 = 1;
