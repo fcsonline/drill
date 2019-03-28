@@ -1,0 +1,10 @@
+---
+
+threads: 1
+base: 'http://localhost:9000'
+iterations: 10000
+
+plan:
+  - name: Fetch users
+    request:
+      url: /api/users.json

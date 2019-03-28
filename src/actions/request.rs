@@ -81,25 +81,50 @@ impl Request {
   }
 
   fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Option<Response>, f64) {
-    // Build a TSL connector
-    let mut connector_builder = TlsConnector::builder();
-    connector_builder.danger_accept_invalid_certs(config.no_check_certificate);
-
-    let ssl = NativeTlsClient::from(connector_builder.build().unwrap());
-    let connector = HttpsConnector::new(ssl);
-    let client = Client::with_connector(connector);
-
-    let interpolated_name;
-    let interpolated_url;
-    let interpolated_body;
-    let request;
+    let begin = time::precise_time_s();
 
     // Resolve the url
-    {
+    let (interpolated_name, interpolated_url) = if self.name.contains("{") || self.url.contains("{") {
       let interpolator = interpolator::Interpolator::new(context, responses);
-      interpolated_name = interpolator.resolve(&self.name);
-      interpolated_url = interpolator.resolve(&self.url);
-    }
+
+      (interpolator.resolve(&self.name), interpolator.resolve(&self.url))
+    } else {
+      (self.name.clone(), self.url.clone())
+    };
+
+    // Resolve relative urls
+    let interpolated_base_url = if &interpolated_url[..1] == "/" {
+      match context.get("base") {
+        Some(value) => {
+          if let Some(vs) = value.as_str() {
+            format!("{}{}", vs.to_string(), interpolated_url)
+          } else {
+            panic!("{} Wrong type 'base' variable!", "WARNING!".yellow().bold());
+          }
+        }
+        _ => {
+          panic!("{} Unknown 'base' variable!", "WARNING!".yellow().bold());
+        }
+      }
+    } else {
+      interpolated_url
+    };
+
+    let client = if interpolated_base_url.starts_with("https") {
+      // Build a TSL connector
+      let mut connector_builder = TlsConnector::builder();
+      connector_builder.danger_accept_invalid_certs(config.no_check_certificate);
+
+      let ssl = NativeTlsClient::from(connector_builder.build().unwrap());
+      let connector = HttpsConnector::new(ssl);
+
+      Client::with_connector(connector)
+    } else {
+      Client::new()
+    };
+
+    let interpolated_body;
+    let request;
 
     // Method
     let method = match self.method.to_uppercase().as_ref() {
@@ -118,9 +143,9 @@ impl Request {
       let interpolator = interpolator::Interpolator::new(context, responses);
       interpolated_body = interpolator.resolve(body).to_owned();
 
-      request = client.request(method, &interpolated_url).body(&interpolated_body);
+      request = client.request(method, interpolated_base_url.as_str()).body(&interpolated_body);
     } else {
-      request = client.request(method, &interpolated_url);
+      request = client.request(method, interpolated_base_url.as_str());
     }
 
     // Headers
@@ -139,14 +164,13 @@ impl Request {
       headers.set_raw(key.to_owned(), vec![interpolated_header.clone().into_bytes()]);
     }
 
-    let begin = time::precise_time_s();
     let response_result = request.headers(headers).send();
     let duration_ms = (time::precise_time_s() - begin) * 1000.0;
 
     match response_result {
       Err(e) => {
         if !config.quiet {
-          println!("Error connecting '{}': {:?}", interpolated_url, e);
+          println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
         }
         (None, duration_ms)
       }
@@ -160,7 +184,7 @@ impl Request {
         };
 
         if !config.quiet {
-          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
+          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
         }
         (Some(response), duration_ms)
       }

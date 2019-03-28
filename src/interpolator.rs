@@ -21,38 +21,20 @@ impl<'a> Interpolator<'a> {
   pub fn resolve(&self, url: &String) -> String {
     let re = Regex::new(r"\{\{ *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *\}\}").unwrap();
 
-    let result = re
-      .replace_all(url.as_str(), |caps: &Captures| {
-        let capture = &caps[1];
+    re.replace_all(url.as_str(), |caps: &Captures| {
+      let capture = &caps[1];
 
-        if let Some(item) = self.resolve_context_interpolation(&capture) {
-          return item.to_string();
-        }
-
-        if let Some(item) = self.resolve_responses_interpolation(&capture) {
-          return item.to_string();
-        }
-
-        panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
-      })
-      .to_string();
-
-    if &result[..1] == "/" {
-      match self.context.get("base") {
-        Some(value) => {
-          if let Some(vs) = value.as_str() {
-            return vs.to_string() + &result;
-          }
-
-          panic!("{} Wrong type 'base' variable!", "WARNING!".yellow().bold());
-        }
-        _ => {
-          panic!("{} Unknown 'base' variable!", "WARNING!".yellow().bold());
-        }
+      if let Some(item) = self.resolve_context_interpolation(&capture) {
+        return item.to_string();
       }
-    } else {
-      result
-    }
+
+      if let Some(item) = self.resolve_responses_interpolation(&capture) {
+        return item.to_string();
+      }
+
+      panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+    })
+    .to_string()
   }
 
   // TODO: Refactor this function to support multiple levels
@@ -156,23 +138,6 @@ mod tests {
   }
 
   #[test]
-  fn interpolates_relatives() {
-    let mut context: HashMap<String, Yaml> = HashMap::new();
-    let responses: HashMap<String, Value> = HashMap::new();
-
-    context.insert(String::from("base"), Yaml::String(String::from("http://example.com")));
-
-    let interpolator = Interpolator {
-      context: &context,
-      responses: &responses,
-    };
-    let url = String::from("/users/1");
-    let interpolated = interpolator.resolve(&url);
-
-    assert_eq!(interpolated, "http://example.com/users/1");
-  }
-
-  #[test]
   #[should_panic]
   fn interpolates_missing_variable() {
     let context: HashMap<String, Yaml> = HashMap::new();
@@ -183,20 +148,6 @@ mod tests {
       responses: &responses,
     };
     let url = String::from("/users/{{ userId }}");
-    interpolator.resolve(&url);
-  }
-
-  #[test]
-  #[should_panic]
-  fn interpolates_missing_base() {
-    let context: HashMap<String, Yaml> = HashMap::new();
-    let responses: HashMap<String, Value> = HashMap::new();
-
-    let interpolator = Interpolator {
-      context: &context,
-      responses: &responses,
-    };
-    let url = String::from("/users/1");
     interpolator.resolve(&url);
   }
 }
