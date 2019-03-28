@@ -92,8 +92,10 @@ fn compute_stats(sub_reports: &Vec<Report>) -> DrillStats {
   let durlen = sorted.len();
   let median_duration = if durlen % 2 == 0 {
     sorted[durlen / 2]
-  } else {
+  } else if durlen > 1 {
     (sorted[durlen / 2] + sorted[durlen / 2 + 1]) / 2f64
+  } else {
+    sorted[0]
   };
 
   let total_requests = sub_reports.len();
