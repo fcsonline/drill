@@ -138,6 +138,8 @@ cargo build --release
 ./target/release/drill --benchmark benchmark.yml --stats
 ```
 
+**Note:** You will need to install `libssl-dev` and `pkg-config` packages.
+
 ## Demo
 
 [![demo](https://asciinema.org/a/164615.png)](https://asciinema.org/a/164615?autoplay=1)
