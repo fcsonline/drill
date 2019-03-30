@@ -40,15 +40,13 @@ impl Request {
   pub fn new(item: &Yaml, with_item: Option<Yaml>) -> Request {
     let reference: Option<&str> = item["assign"].as_str();
     let body: Option<&str> = item["request"]["body"].as_str();
-    let method;
+    let method = if let Some(v) = item["request"]["method"].as_str() {
+      v.to_string().to_uppercase()
+    } else {
+      "GET".to_string()
+    };
 
     let mut headers = HashMap::new();
-
-    if let Some(v) = item["request"]["method"].as_str() {
-      method = v.to_string().to_uppercase();
-    } else {
-      method = "GET".to_string();
-    }
 
     if let Some(hash) = item["request"]["headers"].as_hash() {
       for (key, val) in hash.iter() {
