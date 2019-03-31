@@ -175,17 +175,18 @@ impl Request {
         (None, duration_ms)
       }
       Ok(response) => {
-        let status_text = if response.status.is_server_error() {
-          response.status.to_string().red()
-        } else if response.status.is_client_error() {
-          response.status.to_string().purple()
-        } else {
-          response.status.to_string().yellow()
-        };
-
         if !config.quiet {
+          let status_text = if response.status.is_server_error() {
+            response.status.to_string().red()
+          } else if response.status.is_client_error() {
+            response.status.to_string().purple()
+          } else {
+            response.status.to_string().yellow()
+          };
+
           println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
         }
+
         (Some(response), duration_ms)
       }
     }
