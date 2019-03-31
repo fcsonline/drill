@@ -1,18 +1,28 @@
 mod assign;
+mod delay;
 mod request;
 
 pub use self::assign::Assign;
+pub use self::delay::Delay;
 pub use self::request::Request;
-use crate::config;
 
+use futures::Future;
 use std::collections::HashMap;
 use std::fmt;
-
-use serde_json::Value;
+use std::sync::{Arc, Mutex};
 use yaml_rust::Yaml;
 
+use crate::config;
+
 pub trait Runnable {
-  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>, config: &config::Config);
+  fn execute<'a>(
+    &'a self,
+    context: &'a Arc<Mutex<HashMap<String, Yaml>>>,
+    responses: &'a Arc<Mutex<HashMap<String, serde_json::Value>>>,
+    reports: &'a Arc<Mutex<Vec<Report>>>,
+    config: &'a config::Config,
+  ) -> (Box<Future<Item = (), Error = ()> + Send + 'a>);
+  fn has_interpolations(&self) -> bool;
 }
 
 #[derive(Clone)]

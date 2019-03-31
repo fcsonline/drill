@@ -1,0 +1,26 @@
+---
+
+threads: 1
+base: 'http://localhost:9000'
+iterations: 1
+rampup: 0
+
+plan:
+  - name: Waiting some seconds
+    delay:
+      seconds: 3
+
+  - name: Assign value foo
+    assign:
+      key: foo
+      value: "2"
+
+  - name: Assign value bar
+    assign:
+      key: bar
+      value: "3"
+
+  - name: Assign value lol
+    assign:
+      key: lol
+      value: "4"

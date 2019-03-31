@@ -151,6 +151,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Multi thread:** run your benchmarks setting as many concurrent threads as you want.
 - **Multi iterations:** specify the number of iterations you want to run the benchmark.
 - **Ramp-up:** specify the the amount of time it will take `drill` to start all threads.
+- **Delay:** introduce controlled delay between requests. Example: [assigns.yml](./example/assigns.yml)
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)
 - **Request dependencies:** create dependencies between requests with `assign` and url interpolations.
@@ -195,6 +196,39 @@ OPTIONS:
     -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
 
 ```
+
+## Modes
+
+### Normal mode
+
+In normal mode, `drill` is going to execute the each specified iteration
+sequentially. All requests in each iteration are executed sequentially too.
+This lets us have dependencies between steps, like interpolations or cookie
+sessions.
+
+This is a visual representation how this mode is going to execute the test plan:
+
+<img src="./doc/normal.svg">
+
+### Parallel mode
+
+In parallel mode, `drill` is going to execute the all specified iterations in
+in parallel. This mode lets us have dependencies between steps too, because all
+steps in each iterations are executed sequentially.
+
+This is a visual representation how this mode is going to execute the test plan:
+
+<img src="./doc/parallel.svg">
+
+### Extreme mode
+
+In extreme mode, `drill` is going to execute all specified steps in all
+specified iterations in in parallel. This mode **doesn't** lets us have
+dependencies between steps.
+
+This is a visual representation how this mode is going to execute the test plan:
+
+<img src="./doc/extreme.svg">
 
 ## Roadmap
 

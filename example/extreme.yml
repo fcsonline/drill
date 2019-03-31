@@ -1,0 +1,17 @@
+---
+
+threads: 20
+iterations: 500
+
+plan:
+  - name: Fetch users
+    request:
+      url: http://localhost:9000/api/users.json
+
+  - name: Fetch organizations
+    request:
+      url: http://localhost:9000/api/organizations
+
+  - name: Fetch comments
+    request:
+      url: http://localhost:9000/api/subcomments.json

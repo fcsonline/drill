@@ -5,6 +5,9 @@ use regex::{Captures, Regex};
 use serde_json::Value;
 use yaml_rust::Yaml;
 
+static INTERPOLATION_PREFIX: &'static str = "{{";
+static INTERPOLATION_SUFFIX: &'static str = "}}";
+
 pub struct Interpolator<'a> {
   context: &'a HashMap<String, Yaml>,
   responses: &'a HashMap<String, Value>,
@@ -13,11 +16,16 @@ pub struct Interpolator<'a> {
 
 impl<'a> Interpolator<'a> {
   pub fn new(context: &'a HashMap<String, Yaml>, responses: &'a HashMap<String, Value>) -> Interpolator<'a> {
+    let regexp = format!("{}{}{}", regex::escape(INTERPOLATION_PREFIX), r" *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *", regex::escape(INTERPOLATION_SUFFIX));
     Interpolator {
       context: context,
       responses: responses,
-      regexp: Regex::new(r"\{\{ *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *\}\}").unwrap(),
+      regexp: Regex::new(regexp.as_str()).unwrap(),
     }
+  }
+
+  pub fn has_interpolations(text: &String) -> bool {
+    text.contains(INTERPOLATION_SUFFIX)
   }
 
   pub fn resolve(&self, url: &String) -> String {

@@ -1,10 +1,18 @@
 ---
 
-threads: 1
+threads: 5
 base: 'http://localhost:9000'
-iterations: 10000
+iterations: 500
 
 plan:
   - name: Fetch users
     request:
       url: /api/users.json
+
+  - name: Fetch organizations
+    request:
+      url: /api/organizations
+
+  - name: Fetch comments
+    request:
+      url: /api/subcomments.json

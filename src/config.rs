@@ -14,10 +14,12 @@ pub struct Config {
   pub rampup: i64,
   pub quiet: bool,
   pub nanosec: bool,
+  pub parallel: bool,
+  pub extreme: bool,
 }
 
 impl Config {
-  pub fn new(path: &str, no_check_certificate: bool, quiet: bool, nanosec: bool) -> Config {
+  pub fn new(path: &str, no_check_certificate: bool, quiet: bool, nanosec: bool, parallel: bool, extreme: bool) -> Config {
     let config_file = reader::read_file(path);
 
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
@@ -26,7 +28,7 @@ impl Config {
     let threads = read_i64_configuration(config_doc, "threads", NTHREADS);
     let iterations = read_i64_configuration(config_doc, "iterations", NITERATIONS);
     let rampup = read_i64_configuration(config_doc, "rampup", NRAMPUP);
-    let base = config_doc["base"].as_str().unwrap().to_owned();
+    let base = config_doc["base"].as_str().unwrap_or("").to_owned();
 
     Config {
       base: base,
@@ -36,6 +38,8 @@ impl Config {
       rampup: rampup,
       quiet: quiet,
       nanosec: nanosec,
+      parallel: parallel,
+      extreme: extreme,
     }
   }
 }

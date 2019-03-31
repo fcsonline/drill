@@ -49,6 +49,8 @@ pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(Runnable 
       multi_csv_request::expand(parent_path, item, &mut list);
     } else if include::is_that_you(item) {
       include::expand(parent_path, item, &mut list);
+    } else if actions::Delay::is_that_you(item) {
+      list.push(Box::new(actions::Delay::new(item, None)));
     } else if actions::Assign::is_that_you(item) {
       list.push(Box::new(actions::Assign::new(item, None)));
     } else if actions::Request::is_that_you(item) {
