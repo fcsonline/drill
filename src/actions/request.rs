@@ -40,15 +40,13 @@ impl Request {
   pub fn new(item: &Yaml, with_item: Option<Yaml>) -> Request {
     let reference: Option<&str> = item["assign"].as_str();
     let body: Option<&str> = item["request"]["body"].as_str();
-    let method;
+    let method = if let Some(v) = item["request"]["method"].as_str() {
+      v.to_string().to_uppercase()
+    } else {
+      "GET".to_string()
+    };
 
     let mut headers = HashMap::new();
-
-    if let Some(v) = item["request"]["method"].as_str() {
-      method = v.to_string().to_uppercase();
-    } else {
-      method = "GET".to_string();
-    }
 
     if let Some(hash) = item["request"]["headers"].as_hash() {
       for (key, val) in hash.iter() {
@@ -82,14 +80,20 @@ impl Request {
 
   fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Option<Response>, f64) {
     let begin = time::precise_time_s();
+    let mut uninterpolator = None;
+
+    // Resolve the name
+    let interpolated_name = if self.name.contains("{") {
+      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.name)
+    } else {
+      self.name.clone()
+    };
 
     // Resolve the url
-    let (interpolated_name, interpolated_url) = if self.name.contains("{") || self.url.contains("{") {
-      let interpolator = interpolator::Interpolator::new(context, responses);
-
-      (interpolator.resolve(&self.name), interpolator.resolve(&self.url))
+    let interpolated_url = if self.url.contains("{") {
+      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.url)
     } else {
-      (self.name.clone(), self.url.clone())
+      self.url.clone()
     };
 
     // Resolve relative urls
@@ -124,7 +128,6 @@ impl Request {
     };
 
     let interpolated_body;
-    let request;
 
     // Method
     let method = match self.method.to_uppercase().as_ref() {
@@ -137,16 +140,14 @@ impl Request {
       _ => panic!("Unknown method '{}'", self.method),
     };
 
-    // Body
-    if let Some(body) = self.body.as_ref() {
-      // Resolve the body
-      let interpolator = interpolator::Interpolator::new(context, responses);
-      interpolated_body = interpolator.resolve(body).to_owned();
+    // Resolve the body
+    let request = if let Some(body) = self.body.as_ref() {
+      interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(body);
 
-      request = client.request(method, interpolated_base_url.as_str()).body(&interpolated_body);
+      client.request(method, interpolated_base_url.as_str()).body(&interpolated_body)
     } else {
-      request = client.request(method, interpolated_base_url.as_str());
-    }
+      client.request(method, interpolated_base_url.as_str())
+    };
 
     // Headers
     let mut headers = Headers::new();
@@ -156,10 +157,9 @@ impl Request {
       headers.set(Cookie(vec![String::from(cookie.as_str().unwrap())]));
     }
 
+    // Resolve headers
     for (key, val) in self.headers.iter() {
-      // Resolve the body
-      let interpolator = interpolator::Interpolator::new(context, responses);
-      let interpolated_header = interpolator.resolve(val).to_owned();
+      let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(val);
 
       headers.set_raw(key.to_owned(), vec![interpolated_header.clone().into_bytes()]);
     }
@@ -175,17 +175,18 @@ impl Request {
         (None, duration_ms)
       }
       Ok(response) => {
-        let status_text = if response.status.is_server_error() {
-          response.status.to_string().red()
-        } else if response.status.is_client_error() {
-          response.status.to_string().purple()
-        } else {
-          response.status.to_string().yellow()
-        };
-
         if !config.quiet {
+          let status_text = if response.status.is_server_error() {
+            response.status.to_string().red()
+          } else if response.status.is_client_error() {
+            response.status.to_string().purple()
+          } else {
+            response.status.to_string().yellow()
+          };
+
           println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
         }
+
         (Some(response), duration_ms)
       }
     }
