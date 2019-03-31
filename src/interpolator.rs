@@ -108,10 +108,7 @@ mod tests {
 
     context.insert(String::from("user_Id"), Yaml::String(String::from("12")));
 
-    let interpolator = Interpolator {
-      context: &context,
-      responses: &responses,
-    };
+    let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/users/{{ user_Id }}/view/{{ user_Id }}");
     let interpolated = interpolator.resolve(&url);
 
@@ -127,10 +124,7 @@ mod tests {
     let value: serde_json::Value = serde_json::from_str(&data).unwrap();
     responses.insert(String::from("foo"), value);
 
-    let interpolator = Interpolator {
-      context: &context,
-      responses: &responses,
-    };
+    let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/users/{{ foo.bar }}");
     let interpolated = interpolator.resolve(&url);
 
@@ -143,10 +137,7 @@ mod tests {
     let context: HashMap<String, Yaml> = HashMap::new();
     let responses: HashMap<String, Value> = HashMap::new();
 
-    let interpolator = Interpolator {
-      context: &context,
-      responses: &responses,
-    };
+    let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("/users/{{ userId }}");
     interpolator.resolve(&url);
   }
@@ -158,10 +149,7 @@ mod tests {
 
     context.insert(String::from("zip5"), Yaml::String(String::from("90210")));
 
-    let interpolator = Interpolator {
-      context: &context,
-      responses: &responses,
-    };
+    let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/postalcode/{{ zip5 }}/view/{{ zip5 }}");
     let interpolated = interpolator.resolve(&url);
 
@@ -175,10 +163,7 @@ mod tests {
 
     context.insert(String::from("5digitzip"), Yaml::String(String::from("90210")));
 
-    let interpolator = Interpolator {
-      context: &context,
-      responses: &responses,
-    };
+    let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
     let interpolated = interpolator.resolve(&url);
 
