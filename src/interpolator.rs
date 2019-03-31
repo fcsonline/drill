@@ -8,6 +8,7 @@ use yaml_rust::Yaml;
 pub struct Interpolator<'a> {
   context: &'a HashMap<String, Yaml>,
   responses: &'a HashMap<String, Value>,
+  regexp: Regex,
 }
 
 impl<'a> Interpolator<'a> {
@@ -15,26 +16,27 @@ impl<'a> Interpolator<'a> {
     Interpolator {
       context: context,
       responses: responses,
+      regexp: Regex::new(r"\{\{ *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *\}\}").unwrap(),
     }
   }
 
   pub fn resolve(&self, url: &String) -> String {
-    let re = Regex::new(r"\{\{ *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *\}\}").unwrap();
+    self
+      .regexp
+      .replace_all(url.as_str(), |caps: &Captures| {
+        let capture = &caps[1];
 
-    re.replace_all(url.as_str(), |caps: &Captures| {
-      let capture = &caps[1];
+        if let Some(item) = self.resolve_context_interpolation(&capture) {
+          return item.to_string();
+        }
 
-      if let Some(item) = self.resolve_context_interpolation(&capture) {
-        return item.to_string();
-      }
+        if let Some(item) = self.resolve_responses_interpolation(&capture) {
+          return item.to_string();
+        }
 
-      if let Some(item) = self.resolve_responses_interpolation(&capture) {
-        return item.to_string();
-      }
-
-      panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
-    })
-    .to_string()
+        panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+      })
+      .to_string()
   }
 
   // TODO: Refactor this function to support multiple levels
