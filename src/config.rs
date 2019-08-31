@@ -14,6 +14,7 @@ pub struct Config {
   pub rampup: i64,
   pub quiet: bool,
   pub nanosec: bool,
+  pub cookies: bool,
 }
 
 impl Config {
@@ -27,6 +28,7 @@ impl Config {
     let iterations = read_i64_configuration(config_doc, "iterations", NITERATIONS);
     let rampup = read_i64_configuration(config_doc, "rampup", NRAMPUP);
     let base = config_doc["base"].as_str().unwrap().to_owned();
+    let cookies = config_doc["cookies"].as_bool().unwrap_or(true);
 
     Config {
       base: base,
@@ -36,6 +38,7 @@ impl Config {
       rampup: rampup,
       quiet: quiet,
       nanosec: nanosec,
+      cookies: cookies,
     }
   }
 }

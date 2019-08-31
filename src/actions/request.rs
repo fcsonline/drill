@@ -154,8 +154,10 @@ impl Request {
     let mut headers = Headers::new();
     headers.set(UserAgent(USER_AGENT.to_string()));
 
-    if let Some(Yaml::Hash(cookies)) = context.get("cookies") {
-      headers.set(Cookie(cookies.iter().map(|(key, value)| format!("{}={}", key.as_str().unwrap(), value.as_str().unwrap())).collect()));
+    if config.cookies {
+      if let Some(Yaml::Hash(cookies)) = context.get("cookies") {
+        headers.set(Cookie(cookies.iter().map(|(key, value)| format!("{}={}", key.as_str().unwrap(), value.as_str().unwrap())).collect()));
+      }
     }
 
     // Resolve headers
@@ -215,25 +217,27 @@ impl Runnable for Request {
           status: response.status.to_u16(),
         });
 
-        if let Some(&SetCookie(ref cookies)) = response.headers.get::<SetCookie>() {
-          let context_cookies = context.entry("cookies".to_string()).or_insert_with(|| Yaml::Hash(yaml::Hash::new()));
-          if let Yaml::Hash(hash) = context_cookies {
-            for cookie in cookies.iter() {
-              let pair = cookie.split(';').next();
-              if let Some(pair) = pair {
-                let parts: Vec<&str> = pair.splitn(2, '=').collect();
-                if parts.len() == 2 {
-                  let (key, value) = (parts[0].trim(), parts[1].trim());
-                  hash.insert(Yaml::String(key.to_string()), Yaml::String(value.to_string()));
+        if config.cookies {
+          if let Some(&SetCookie(ref cookies)) = response.headers.get::<SetCookie>() {
+            let context_cookies = context.entry("cookies".to_string()).or_insert_with(|| Yaml::Hash(yaml::Hash::new()));
+            if let Yaml::Hash(hash) = context_cookies {
+              for cookie in cookies.iter() {
+                let pair = cookie.split(';').next();
+                if let Some(pair) = pair {
+                  let parts: Vec<&str> = pair.splitn(2, '=').collect();
+                  if parts.len() == 2 {
+                    let (key, value) = (parts[0].trim(), parts[1].trim());
+                    hash.insert(Yaml::String(key.to_string()), Yaml::String(value.to_string()));
+                  } else {
+                    panic!("Invalid cookie pair {}", pair);
+                  }
                 } else {
-                  panic!("Invalid cookie pair {}", pair);
+                  panic!("Cookie pair not found");
                 }
-              } else {
-                panic!("Cookie pair not found");
               }
+            } else {
+              panic!("The cookies context must be an array");
             }
-          } else {
-            panic!("The cookies context must be an array");
           }
         }
 

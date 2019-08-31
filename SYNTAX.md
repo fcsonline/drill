@@ -30,6 +30,7 @@ plan:
 - `iterations`: Number of loops is going to do each thread (Optional, default: 1)
 - `rampup`: Amount of time it will take to start all threads. (Optional)
 - `plan`: List of items to do in your benchmark. (Required)
+- `cookies`: Enable or disable cookie propagation. (Optional, default: true)
 
 #### Plan items
 
