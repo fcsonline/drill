@@ -7,7 +7,7 @@ Drill is a HTTP load testing application written in Rust. The main goal
 for this project is to build a really lightweight tool as alternative to other
 that require JVM and other stuff.
 
-You can write brenchmark files, in YAML format, describing all the stuff you
+You can write benchmark files, in YAML format, describing all the stuff you
 want to test.
 
 It was inspired by [Ansible](http://docs.ansible.com/ansible/playbooks_intro.html)
@@ -116,10 +116,10 @@ plan:
 ```
 
 As you can see, you can play with interpolations in different ways. This
-will let you specify a benchmank with different requests and
+will let you specify a benchmark with different requests and
 dependencies between them.
 
-If you want to know more about the benchmank file syntax, [read this](./SYNTAX.md)
+If you want to know more about the benchmark file syntax, [read this](./SYNTAX.md)
 
 ## Install
 
@@ -163,10 +163,10 @@ This is the list of all features supported by the current version of `drill`:
 
 ## Test it
 
-Go to the `example` directorty and you'll find a [README](./example) how
+Go to the `example` directory and you'll find a [README](./example) how
 to test it in a safe environment.
 
-**Disclaimer**: We really recommend not to run intensive benchmanks against
+**Disclaimer**: We really recommend not to run intensive benchmarks against
 production environments.
 
 ## Command line interface
@@ -205,5 +205,5 @@ OPTIONS:
 
 This project started as a side project to learn Rust, so I'm sure that is full
 of mistakes and areas to be improve. If you think you can tweak the code to
-make it better, I'll really appreaciate a pull request. ;)
+make it better, I'll really appreciate a pull request. ;)
 
