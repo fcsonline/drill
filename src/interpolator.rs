@@ -26,11 +26,11 @@ impl<'a> Interpolator<'a> {
       .replace_all(url.as_str(), |caps: &Captures| {
         let capture = &caps[1];
 
-        if let Some(item) = self.resolve_context_interpolation(&capture) {
+        if let Some(item) = self.resolve_context_interpolation(capture.split('.').collect()) {
           return item.to_string();
         }
 
-        if let Some(item) = self.resolve_responses_interpolation(&capture) {
+        if let Some(item) = self.resolve_responses_interpolation(capture.split('.').collect()) {
           return item.to_string();
         }
 
@@ -39,61 +39,31 @@ impl<'a> Interpolator<'a> {
       .to_string()
   }
 
-  // TODO: Refactor this function to support multiple levels
-  fn resolve_responses_interpolation(&self, capture: &str) -> Option<String> {
-    let cap_path: Vec<&str> = capture.split('.').collect();
-
+  fn resolve_responses_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
-    match self.responses.get(cap_root[0]) {
-      Some(value) => {
-        return Some(value[cap_tail[0]].to_string());
-      }
-      _ => None,
-    }
+    cap_tail
+      .into_iter()
+      .fold(self.responses.get(cap_root[0]), |json, k| match json {
+        Some(json) => json.get(k),
+        _ => None,
+      })
+      .map(Value::to_string)
   }
 
-  // TODO: Refactor this function to support multiple levels
-  fn resolve_context_interpolation(&self, capture: &str) -> Option<String> {
-    let cap_path: Vec<&str> = capture.split('.').collect();
-
+  fn resolve_context_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
-    match self.context.get(cap_root[0]) {
-      Some(value) => {
-        if let Some(vs) = value.as_str() {
-          return Some(vs.to_string());
-        }
-
-        if let Some(vi) = value.as_i64() {
-          return Some(vi.to_string());
-        }
-
-        if let Some(vh) = value.as_hash() {
-          let item_key = Yaml::String(cap_tail[0].to_string());
-
-          match vh.get(&item_key) {
-            Some(value) => {
-              if let Some(vs) = value.as_str() {
-                return Some(vs.to_string());
-              }
-
-              if let Some(vi) = value.as_i64() {
-                return Some(vi.to_string());
-              }
-
-              panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &capture);
-            }
-            _ => {
-              panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
-            }
-          }
-        }
-
-        panic!("{} Unknown type for '{}' variable!", "WARNING!".yellow().bold(), &capture);
-      }
-      _ => None,
-    }
+    cap_tail
+      .into_iter()
+      .fold(self.context.get(cap_root[0]), |yaml, k| match yaml {
+        Some(yaml) => match yaml.as_hash() {
+          Some(yaml) => yaml.get(&Yaml::from_str(k)),
+          _ => None,
+        },
+        _ => None,
+      })
+      .map(|val| val.as_str().map(String::from).or(val.as_i64().map(|x| x.to_string())).unwrap_or("".to_string()))
   }
 }
 
