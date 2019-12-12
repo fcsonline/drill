@@ -26,6 +26,10 @@ plan:
     request:
       url: /api/users/{{ foo.manager_id }}
 
+  - name: Fetch manager location
+    request:
+      url: /api/users/at/{{ foo.address.floor }}/{{ foo.address.room }}
+
   - name: Assign values
     assign:
       key: bar
