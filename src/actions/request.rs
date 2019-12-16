@@ -242,7 +242,7 @@ impl Runnable for Request {
 
           response.read_to_string(&mut data).unwrap();
 
-          let value: serde_json::Value = serde_json::from_str(&data).unwrap();
+          let value: serde_json::Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
 
           responses.insert(key.to_owned(), value);
         }

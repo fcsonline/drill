@@ -34,7 +34,9 @@ impl<'a> Interpolator<'a> {
           return item.to_string();
         }
 
-        panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+        println!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+
+        "".to_string()
       })
       .to_string()
   }
@@ -48,7 +50,7 @@ impl<'a> Interpolator<'a> {
         Some(json) => json.get(k),
         _ => None,
       })
-      .map(Value::to_string)
+      .map(|val| val.as_str().map(String::from).or(val.as_i64().map(|x| x.to_string())).unwrap_or("".to_string()))
   }
 
   fn resolve_context_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
