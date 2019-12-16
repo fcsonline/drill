@@ -34,7 +34,9 @@ impl<'a> Interpolator<'a> {
           return item.to_string();
         }
 
-        panic!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+        println!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+
+        "".to_string()
       })
       .to_string()
   }
