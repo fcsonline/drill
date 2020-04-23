@@ -47,6 +47,14 @@ impl Request {
       "GET".to_string()
     };
 
+    if method == "POST" && body.is_none() {
+      if item["request"]["body"].as_hash().is_some() {
+        panic!("Body needs to be a string. Try adding quotes");
+      } else {
+        panic!("POST requests require a body attribute");
+      }
+    }
+
     let mut headers = HashMap::new();
 
     if let Some(hash) = item["request"]["headers"].as_hash() {
