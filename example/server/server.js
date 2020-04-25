@@ -1,12 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const bodyParser = require('body-parser')
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 
 const app = express();
 const delay = process.env.DELAY_MS || 0;
 
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({ extended: true }))
 app.use(cookieParser());
 app.use(session({
   secret: "driiilll!",
@@ -39,6 +42,16 @@ const randomFailedHandler = function(req, res) {
   }
 };
 
+const transactionsHander = function(req, res) {
+  const body = req.body
+
+  if (body.a + body.b === '123') {
+    res.json({ status: ':D' });
+  } else {
+    res.status(500).json({ status: ':/' });
+  }
+};
+
 // Standard test plan
 app.get('/api/organizations', handler);
 app.get('/api/users.json', handler);
@@ -49,6 +62,7 @@ app.get('/api/users/:id', handler);
 app.get('/api/users/at/:floor/:room', handler);
 app.post('/api/users', randomFailedHandler);
 app.get('/api/account', handler);
+app.post('/api/transactions', transactionsHander);
 
 // Sessions test plan
 app.get('/login', function(req, res){

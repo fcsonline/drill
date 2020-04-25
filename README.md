@@ -74,6 +74,17 @@ plan:
       url: /api/users/contacts/{{ item.id }}
     with_items_from_csv: ./fixtures/users.csv
 
+  - name: POST some crafted JSONs stored in CSV
+    request:
+      url: /api/transactions
+      method: POST
+      body: '{{ item.txn }}'
+      headers:
+        Content-Type: 'application/json'
+    with_items_from_csv:
+      file_name: ./fixtures/transactions.csv
+      quote_char: "\'"
+
   - name: Fetch no relative url
     request:
       url: http://localhost:9000/api/users.json
