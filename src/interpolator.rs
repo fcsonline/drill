@@ -48,7 +48,13 @@ impl<'a> Interpolator<'a> {
         Some(json) => json.get(k),
         _ => None,
       })
-      .map(Value::to_string)
+      .map(|value| {
+        if value.is_string() {
+          String::from(value.as_str().unwrap())
+        } else {
+          value.to_string()
+        }
+      })
   }
 
   fn resolve_context_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {

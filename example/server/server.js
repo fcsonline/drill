@@ -58,6 +58,7 @@ app.get('/api/users.json', handler);
 app.get('/api/users/contacts/:id', handler);
 app.get('/api/subcomments.json', handler);
 app.get('/api/comments.json', handler);
+app.get('/api/tokens/:id', handler);
 app.get('/api/users/:id', handler);
 app.get('/api/users/at/:floor/:room', handler);
 app.post('/api/users', randomFailedHandler);
