@@ -12,7 +12,7 @@ pub fn is_that_you(item: &Yaml) -> bool {
   item["include"].as_str().is_some()
 }
 
-pub fn expand(parent_path: &str, item: &Yaml, mut list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
+pub fn expand(parent_path: &str, item: &Yaml, mut list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>) {
   let include_path = item["include"].as_str().unwrap();
   let include_filepath = Path::new(parent_path).with_file_name(include_path);
   let final_path = include_filepath.to_str().unwrap();
@@ -20,7 +20,7 @@ pub fn expand(parent_path: &str, item: &Yaml, mut list: &mut Vec<Box<(Runnable +
   expand_from_filepath(final_path, &mut list, None);
 }
 
-pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(Runnable + Sync + Send)>>, accessor: Option<&str>) {
+pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>, accessor: Option<&str>) {
   let benchmark_file = reader::read_file(parent_path);
 
   let docs = YamlLoader::load_from_str(benchmark_file.as_str()).unwrap();

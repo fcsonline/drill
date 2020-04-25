@@ -6,7 +6,7 @@ pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && item["with_items_range"].as_hash().is_some()
 }
 
-pub fn expand(item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
+pub fn expand(item: &Yaml, list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>) {
   if let Some(with_iter_items) = item["with_items_range"].as_hash() {
     let init = Yaml::Integer(1);
     let ystart = Yaml::String("start".into());
