@@ -26,6 +26,10 @@ plan:
     request:
       url: /api/users/{{ foo.manager_id }}
 
+  - name: Fetch string token
+    request:
+      url: /api/tokens/{{ foo.token }}
+
   - name: Fetch manager location
     request:
       url: /api/users/at/{{ foo.address.floor }}/{{ foo.address.room }}
