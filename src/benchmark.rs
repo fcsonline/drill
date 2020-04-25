@@ -13,7 +13,7 @@ use crate::writer;
 
 use colored::*;
 
-fn thread_func(benchmark: Arc<Vec<Box<(Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
+fn thread_func(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
   let delay = config.rampup / config.threads;
   thread::sleep(time::Duration::new((delay * thread) as u64, 0));
 
@@ -58,7 +58,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_
   println!("{} {}", "Base URL".yellow(), config.base.purple());
   println!("");
 
-  let mut list: Vec<Box<(Runnable + Sync + Send)>> = Vec::new();
+  let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
 
   include::expand_from_filepath(benchmark_path, &mut list, Some("plan"));
 

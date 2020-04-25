@@ -8,7 +8,7 @@ pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && (item["with_items_from_csv"].as_str().is_some() || item["with_items_from_csv"].as_hash().is_some())
 }
 
-pub fn expand(parent_path: &str, item: &Yaml, list: &mut Vec<Box<(Runnable + Sync + Send)>>) {
+pub fn expand(parent_path: &str, item: &Yaml, list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>) {
   let (with_items_path, quote_char) = if let Some(with_items_path) = item["with_items_from_csv"].as_str() {
     (with_items_path, '\"' as u8)
   } else if let Some(_with_items_hash) = item["with_items_from_csv"].as_hash() {
