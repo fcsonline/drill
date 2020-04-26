@@ -194,6 +194,7 @@ USAGE:
 FLAGS:
     -h, --help       Prints help information
         --no-check-certificate    Disables SSL certification check. (Not recommended)
+        --relaxed-interpolations    Do not panic if an interpolation is not present. (Not recommended)
     -s, --stats      Shows request statistics
     -q, --quiet      Skips output of individual request statistics
     -n, --nanosec    Shows statistics in nanoseconds

@@ -91,14 +91,14 @@ impl Request {
 
     // Resolve the name
     let interpolated_name = if self.name.contains('{') {
-      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.name)
+      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.name, !config.relaxed_interpolations)
     } else {
       self.name.clone()
     };
 
     // Resolve the url
     let interpolated_url = if self.url.contains('{') {
-      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.url)
+      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.url, !config.relaxed_interpolations)
     } else {
       self.url.clone()
     };
@@ -149,7 +149,7 @@ impl Request {
 
     // Resolve the body
     let request = if let Some(body) = self.body.as_ref() {
-      interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(body);
+      interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(body, !config.relaxed_interpolations);
 
       client.request(method, interpolated_base_url.as_str()).body(&interpolated_body)
     } else {
@@ -166,7 +166,7 @@ impl Request {
 
     // Resolve headers
     for (key, val) in self.headers.iter() {
-      let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(val);
+      let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(val, !config.relaxed_interpolations);
 
       headers.set_raw(key.to_owned(), vec![interpolated_header.clone().into_bytes()]);
     }
