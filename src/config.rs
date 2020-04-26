@@ -10,6 +10,7 @@ pub struct Config {
   pub base: String,
   pub threads: i64,
   pub iterations: i64,
+  pub relaxed_interpolations: bool,
   pub no_check_certificate: bool,
   pub rampup: i64,
   pub quiet: bool,
@@ -17,7 +18,7 @@ pub struct Config {
 }
 
 impl Config {
-  pub fn new(path: &str, no_check_certificate: bool, quiet: bool, nanosec: bool) -> Config {
+  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool) -> Config {
     let config_file = reader::read_file(path);
 
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
@@ -32,6 +33,7 @@ impl Config {
       base,
       threads,
       iterations,
+      relaxed_interpolations,
       no_check_certificate,
       rampup,
       quiet,

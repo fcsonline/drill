@@ -20,7 +20,7 @@ impl<'a> Interpolator<'a> {
     }
   }
 
-  pub fn resolve(&self, url: &str) -> String {
+  pub fn resolve(&self, url: &str, strict: bool) -> String {
     self
       .regexp
       .replace_all(url, |caps: &Captures| {
@@ -32,6 +32,10 @@ impl<'a> Interpolator<'a> {
 
         if let Some(item) = self.resolve_responses_interpolation(capture.split('.').collect()) {
           return item;
+        }
+
+        if strict {
+          panic!("Unknown '{}' variable!", &capture);
         }
 
         eprintln!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
@@ -90,7 +94,7 @@ mod tests {
 
     let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/users/{{ user_Id }}/view/{{ user_Id }}");
-    let interpolated = interpolator.resolve(&url);
+    let interpolated = interpolator.resolve(&url, true);
 
     assert_eq!(interpolated, "http://example.com/users/12/view/12");
   }
@@ -106,7 +110,7 @@ mod tests {
 
     let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/users/{{ foo.bar }}");
-    let interpolated = interpolator.resolve(&url);
+    let interpolated = interpolator.resolve(&url, true);
 
     assert_eq!(interpolated, "http://example.com/users/12");
   }
@@ -119,7 +123,19 @@ mod tests {
 
     let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("/users/{{ userId }}");
-    interpolator.resolve(&url);
+    interpolator.resolve(&url, true);
+  }
+
+  #[test]
+  fn interpolates_relaxed() {
+    let context: HashMap<String, Yaml> = HashMap::new();
+    let responses: HashMap<String, Value> = HashMap::new();
+
+    let interpolator = Interpolator::new(&context, &responses);
+    let url = String::from("/users/{{ userId }}");
+    let interpolated = interpolator.resolve(&url, false);
+
+    assert_eq!(interpolated, "/users/");
   }
 
   #[test]
@@ -131,7 +147,7 @@ mod tests {
 
     let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/postalcode/{{ zip5 }}/view/{{ zip5 }}");
-    let interpolated = interpolator.resolve(&url);
+    let interpolated = interpolator.resolve(&url, true);
 
     assert_eq!(interpolated, "http://example.com/postalcode/90210/view/90210");
   }
@@ -145,7 +161,7 @@ mod tests {
 
     let interpolator = Interpolator::new(&context, &responses);
     let url = String::from("http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
-    let interpolated = interpolator.resolve(&url);
+    let interpolated = interpolator.resolve(&url, true);
 
     assert_eq!(interpolated, "http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
   }
