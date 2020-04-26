@@ -161,7 +161,7 @@ This is the list of all features supported by the current version of `drill`:
 
 - **Multi thread:** run your benchmarks setting as many concurrent threads as you want.
 - **Multi iterations:** specify the number of iterations you want to run the benchmark.
-- **Ramp-up:** specify the the amount of time it will take `drill` to start all threads.
+- **Ramp-up:** specify the amount of time it will take `drill` to start all threads.
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)
 - **Request dependencies:** create dependencies between requests with `assign` and url interpolations.
@@ -185,7 +185,7 @@ production environments.
 Full list of cli options, which is available under `drill --help`
 
 ```
-drill 0.5.0
+drill 0.5.1
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
