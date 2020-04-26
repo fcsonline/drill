@@ -56,7 +56,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_
   }
 
   println!("{} {}", "Base URL".yellow(), config.base.purple());
-  println!("");
+  println!();
 
   let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
 
@@ -85,7 +85,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, no_check_
 
       match thread_result {
         Ok(v) => list_reports.push(v),
-        Err(_) => panic!("arrrgh"),
+        _ => panic!("arrrgh"),
       }
     }
 

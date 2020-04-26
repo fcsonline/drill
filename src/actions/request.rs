@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::io::Read;
 
 use colored::*;
-use serde_json;
-use time;
 use yaml_rust::yaml;
 use yaml_rust::Yaml;
 
@@ -19,7 +17,7 @@ use crate::interpolator;
 
 use crate::actions::{Report, Runnable};
 
-static USER_AGENT: &'static str = "drill";
+static USER_AGENT: &str = "drill";
 
 #[derive(Clone)]
 pub struct Request {
@@ -71,10 +69,10 @@ impl Request {
       name: item["name"].as_str().unwrap().to_string(),
       url: item["request"]["url"].as_str().unwrap().to_string(),
       time: 0.0,
-      method: method,
-      headers: headers,
+      method,
+      headers,
       body: body.map(str::to_string),
-      with_item: with_item,
+      with_item,
       assign: reference.map(str::to_string),
     }
   }
@@ -92,14 +90,14 @@ impl Request {
     let mut uninterpolator = None;
 
     // Resolve the name
-    let interpolated_name = if self.name.contains("{") {
+    let interpolated_name = if self.name.contains('{') {
       uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.name)
     } else {
       self.name.clone()
     };
 
     // Resolve the url
-    let interpolated_url = if self.url.contains("{") {
+    let interpolated_url = if self.url.contains('{') {
       uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.url)
     } else {
       self.url.clone()

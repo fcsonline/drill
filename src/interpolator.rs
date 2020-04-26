@@ -14,24 +14,24 @@ pub struct Interpolator<'a> {
 impl<'a> Interpolator<'a> {
   pub fn new(context: &'a HashMap<String, Yaml>, responses: &'a HashMap<String, Value>) -> Interpolator<'a> {
     Interpolator {
-      context: context,
-      responses: responses,
+      context,
+      responses,
       regexp: Regex::new(r"\{\{ *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *\}\}").unwrap(),
     }
   }
 
-  pub fn resolve(&self, url: &String) -> String {
+  pub fn resolve(&self, url: &str) -> String {
     self
       .regexp
-      .replace_all(url.as_str(), |caps: &Captures| {
+      .replace_all(url, |caps: &Captures| {
         let capture = &caps[1];
 
         if let Some(item) = self.resolve_context_interpolation(capture.split('.').collect()) {
-          return item.to_string();
+          return item;
         }
 
         if let Some(item) = self.resolve_responses_interpolation(capture.split('.').collect()) {
-          return item.to_string();
+          return item;
         }
 
         eprintln!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
@@ -45,7 +45,7 @@ impl<'a> Interpolator<'a> {
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
     cap_tail
-      .into_iter()
+      .iter()
       .fold(self.responses.get(cap_root[0]), |json, k| match json {
         Some(json) => json.get(k),
         _ => None,
@@ -63,7 +63,7 @@ impl<'a> Interpolator<'a> {
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
     cap_tail
-      .into_iter()
+      .iter()
       .fold(self.context.get(cap_root[0]), |yaml, k| match yaml {
         Some(yaml) => match yaml.as_hash() {
           Some(yaml) => yaml.get(&Yaml::from_str(k)),
@@ -71,7 +71,7 @@ impl<'a> Interpolator<'a> {
         },
         _ => None,
       })
-      .map(|val| val.as_str().map(String::from).or(val.as_i64().map(|x| x.to_string())).unwrap_or("".to_string()))
+      .map(|val| val.as_str().map(String::from).or_else(|| val.as_i64().map(|x| x.to_string())).unwrap_or_else(|| "".to_string()))
   }
 }
 

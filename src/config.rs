@@ -29,13 +29,13 @@ impl Config {
     let base = config_doc["base"].as_str().unwrap().to_owned();
 
     Config {
-      base: base,
-      threads: threads,
-      iterations: iterations,
-      no_check_certificate: no_check_certificate,
-      rampup: rampup,
-      quiet: quiet,
-      nanosec: nanosec,
+      base,
+      threads,
+      iterations,
+      no_check_certificate,
+      rampup,
+      quiet,
+      nanosec,
     }
   }
 }

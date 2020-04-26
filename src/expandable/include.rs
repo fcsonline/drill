@@ -31,8 +31,8 @@ pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(dyn Runna
     items = match doc[accessor_id].as_vec() {
       Some(items) => items,
       None => {
-        println!("{} {}", "Node missing on config:", accessor_id);
-        println!("{}", "Exiting.");
+        println!("Node missing on config: {}", accessor_id);
+        println!("Exiting.");
         process::exit(1)
       }
     }

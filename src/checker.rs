@@ -7,10 +7,10 @@ use yaml_rust::YamlLoader;
 
 use crate::actions::Report;
 
-pub fn compare(list_reports: &Vec<Vec<Report>>, filepath: &str, threshold: &str) -> Result<(), i32> {
+pub fn compare(list_reports: &[Vec<Report>], filepath: &str, threshold: &str) -> Result<(), i32> {
   let threshold_value = match threshold.parse::<f64>() {
     Ok(v) => v,
-    Err(_) => panic!("arrrgh"),
+    _ => panic!("arrrgh"),
   };
 
   // Create a path to the desired file
@@ -34,7 +34,7 @@ pub fn compare(list_reports: &Vec<Vec<Report>>, filepath: &str, threshold: &str)
   let items = doc.as_vec().unwrap();
   let mut slow_counter = 0;
 
-  println!("");
+  println!();
 
   for report in list_reports {
     for (i, report_item) in report.iter().enumerate() {

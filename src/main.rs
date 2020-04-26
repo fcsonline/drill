@@ -52,7 +52,7 @@ fn main() {
 }
 
 fn app_args<'a>() -> clap::ArgMatches<'a> {
-  return App::new("drill")
+  App::new("drill")
     .version(crate_version!())
     .about("HTTP load testing application written in Rust inspired by Ansible syntax")
     .arg(Arg::with_name("benchmark").help("Sets the benchmark file").long("benchmark").short("b").required(true).takes_value(true))
@@ -63,7 +63,7 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("no-check-certificate").long("no-check-certificate").help("Disables SSL certification check. (Not recommended)").takes_value(false))
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
-    .get_matches();
+    .get_matches()
 }
 
 struct DrillStats {
@@ -75,31 +75,30 @@ struct DrillStats {
   stdev_duration: f64,
 }
 
-fn compute_stats(sub_reports: &Vec<Report>) -> DrillStats {
+fn compute_stats(sub_reports: &[Report]) -> DrillStats {
   let mut group_by_status = HashMap::new();
 
   for req in sub_reports {
-    group_by_status.entry(req.status / 100).or_insert(Vec::new()).push(req);
+    group_by_status.entry(req.status / 100).or_insert_with(Vec::new).push(req);
   }
 
-  let durations = sub_reports.iter().map(|r| r.duration).collect::<Vec<f64>>();
+  let mut durations = sub_reports.iter().map(|r| r.duration).collect::<Vec<f64>>();
   let mean_duration = durations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64;
   let deviations = durations.iter().map(|a| (mean_duration - a).powf(2.0)).collect::<Vec<f64>>();
   let stdev_duration = (deviations.iter().fold(0f64, |a, &b| a + b) / durations.len() as f64).sqrt();
 
-  let mut sorted = durations.clone();
-  sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-  let durlen = sorted.len();
+  durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
+  let durlen = durations.len();
   let median_duration = if durlen % 2 == 0 {
-    sorted[durlen / 2]
+    durations[durlen / 2]
   } else if durlen > 1 {
-    (sorted[durlen / 2] + sorted[durlen / 2 + 1]) / 2f64
+    (durations[durlen / 2] + durations[durlen / 2 + 1]) / 2f64
   } else {
-    sorted[0]
+    durations[0]
   };
 
   let total_requests = sub_reports.len();
-  let successful_requests = group_by_status.entry(2).or_insert(Vec::new()).len();
+  let successful_requests = group_by_status.entry(2).or_insert_with(Vec::new).len();
   let failed_requests = total_requests - successful_requests;
 
   DrillStats {
@@ -120,7 +119,7 @@ fn format_time(tdiff: f64, nanosec: bool) -> String {
   }
 }
 
-fn show_stats(list_reports: &Vec<Vec<Report>>, stats_option: bool, nanosec: bool, duration: f64) {
+fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, duration: f64) {
   if !stats_option {
     return;
   }
@@ -128,13 +127,13 @@ fn show_stats(list_reports: &Vec<Vec<Report>>, stats_option: bool, nanosec: bool
   let mut group_by_name = HashMap::new();
 
   for req in list_reports.concat() {
-    group_by_name.entry(req.name.clone()).or_insert(Vec::new()).push(req);
+    group_by_name.entry(req.name.clone()).or_insert_with(Vec::new).push(req);
   }
 
   // compute stats per name
   for (name, reports) in group_by_name {
     let substats = compute_stats(&reports);
-    println!("");
+    println!();
     println!("{:width$} {:width2$} {}", name.green(), "Total requests".yellow(), substats.total_requests.to_string().purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "Successful requests".yellow(), substats.successful_requests.to_string().purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "Failed requests".yellow(), substats.failed_requests.to_string().purple(), width = 25, width2 = 25);
@@ -148,19 +147,19 @@ fn show_stats(list_reports: &Vec<Vec<Report>>, stats_option: bool, nanosec: bool
   let global_stats = compute_stats(&allreports);
   let requests_per_second = global_stats.total_requests as f64 / duration;
 
-  println!("");
+  println!();
   println!("{:width2$} {}", "Concurrency Level".yellow(), list_reports.len().to_string().purple(), width2 = 25);
-  println!("{:width2$} {} {}", "Time taken for tests".yellow(), format!("{:.1}", duration).to_string().purple(), "seconds".purple(), width2 = 25);
+  println!("{:width2$} {} {}", "Time taken for tests".yellow(), format!("{:.1}", duration).purple(), "seconds".purple(), width2 = 25);
   println!("{:width2$} {}", "Total requests".yellow(), global_stats.total_requests.to_string().purple(), width2 = 25);
   println!("{:width2$} {}", "Successful requests".yellow(), global_stats.successful_requests.to_string().purple(), width2 = 25);
   println!("{:width2$} {}", "Failed requests".yellow(), global_stats.failed_requests.to_string().purple(), width2 = 25);
-  println!("{:width2$} {} {}", "Requests per second".yellow(), format!("{:.2}", requests_per_second).to_string().purple(), "[#/sec]".purple(), width2 = 25);
+  println!("{:width2$} {} {}", "Requests per second".yellow(), format!("{:.2}", requests_per_second).purple(), "[#/sec]".purple(), width2 = 25);
   println!("{:width2$} {}", "Median time per request".yellow(), format_time(global_stats.median_duration, nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "Average time per request".yellow(), format_time(global_stats.mean_duration, nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "Sample standard deviation".yellow(), format_time(global_stats.stdev_duration, nanosec).purple(), width2 = 25);
 }
 
-fn compare_benchmark(list_reports: &Vec<Vec<Report>>, compare_path_option: Option<&str>, threshold_option: Option<&str>) {
+fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<&str>) {
   if let Some(compare_path) = compare_path_option {
     if let Some(threshold) = threshold_option {
       let compare_result = checker::compare(&list_reports, compare_path, threshold);
