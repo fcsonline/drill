@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "drill"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "colored 1.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
