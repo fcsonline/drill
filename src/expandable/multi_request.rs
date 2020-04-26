@@ -24,7 +24,7 @@ mod tests {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - 3";
     let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
     let doc = &docs[0];
-    let mut list: Vec<Box<(Runnable + Sync + Send)>> = Vec::new();
+    let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
 
     expand(&doc, &mut list);
 
