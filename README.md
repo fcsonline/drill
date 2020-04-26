@@ -1,6 +1,6 @@
 # Drill
 
-[![](http://meritbadge.herokuapp.com/drill?ts=1)](https://crates.io/crates/drill)
+[![](http://meritbadge.herokuapp.com/drill?ts=2)](https://crates.io/crates/drill)
 ![](https://travis-ci.com/fcsonline/drill.svg?branch=master)
 
 Drill is a HTTP load testing application written in Rust. The main goal
@@ -185,7 +185,7 @@ production environments.
 Full list of cli options, which is available under `drill --help`
 
 ```
-drill 0.5.1
+drill 0.5.2
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
