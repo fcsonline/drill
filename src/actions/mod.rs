@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 
 mod assign;
+mod delay;
 mod request;
 
 pub use self::assign::Assign;
+pub use self::delay::Delay;
 pub use self::request::Request;
 use crate::config;
 

@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::process;
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
 use crate::actions;
 use crate::actions::Runnable;
@@ -49,10 +49,17 @@ pub fn expand_from_filepath(parent_path: &str, mut list: &mut Vec<Box<(dyn Runna
       multi_csv_request::expand(parent_path, item, &mut list);
     } else if include::is_that_you(item) {
       include::expand(parent_path, item, &mut list);
+    } else if actions::Delay::is_that_you(item) {
+      list.push(Box::new(actions::Delay::new(item, None)));
     } else if actions::Assign::is_that_you(item) {
       list.push(Box::new(actions::Assign::new(item, None)));
     } else if actions::Request::is_that_you(item) {
       list.push(Box::new(actions::Request::new(item, None)));
+    } else {
+      let mut out_str = String::new();
+      let mut emitter = YamlEmitter::new(&mut out_str);
+      emitter.dump(item).unwrap();
+      panic!("Unknown node:\n\n{}\n\n", out_str);
     }
   }
 }
