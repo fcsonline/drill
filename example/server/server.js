@@ -17,20 +17,25 @@ app.use(session({
   saveUninitialized: false
 }));
 
-const handler = function(req, res) {
-  setTimeout(function () {
-    const filename = path.join(__dirname, 'responses', req.path)
-    fs.readFile(filename, 'utf8', function(err, data) {
-      if (err) {
-        res.status(404);
-        res.end();
-      } else {
-        res.write(data);
-        res.end();
-      }
-    });
-  }, delay);
-};
+
+const logger_handler = (character) => {
+  return (req, res) => {
+    setTimeout(() => {
+      const filename = path.join(__dirname, 'responses', req.path)
+      fs.readFile(filename, 'utf8', function(err, data) {
+        process.stdout.write(character);
+
+        if (err) {
+          res.status(404);
+          res.end();
+        } else {
+          res.write(data);
+          res.end();
+        }
+      });
+    }, delay);
+  };
+}
 
 const randomFailedHandler = function(req, res) {
   const number = Math.round(Math.random() * 50);
@@ -53,16 +58,17 @@ const transactionsHander = function(req, res) {
 };
 
 // Standard test plan
-app.get('/api/organizations', handler);
-app.get('/api/users.json', handler);
-app.get('/api/users/contacts/:id', handler);
-app.get('/api/subcomments.json', handler);
-app.get('/api/comments.json', handler);
-app.get('/api/tokens/:id', handler);
-app.get('/api/users/:id', handler);
-app.get('/api/users/at/:floor/:room', handler);
+app.get('/api/organizations', logger_handler('O'));
+app.get('/api/users.json',  logger_handler('U'));
+app.get('/api/users/contacts/:id', logger_handler('X'));
+app.get('/api/subcomments.json', logger_handler('S'));
+app.get('/api/comments.json', logger_handler('C'));
+app.get('/api/tokens/:id', logger_handler('T'));
+app.get('/api/users/:id', logger_handler('I'));
+app.get('/api/users/at/:floor/:room', logger_handler('R'));
+app.get('/api/account', logger_handler('A'));
+
 app.post('/api/users', randomFailedHandler);
-app.get('/api/account', handler);
 app.post('/api/transactions', transactionsHander);
 
 // Sessions test plan
