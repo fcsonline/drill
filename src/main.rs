@@ -1,13 +1,3 @@
-extern crate clap;
-extern crate colored;
-extern crate csv;
-extern crate hyper;
-extern crate hyper_native_tls;
-extern crate regex;
-extern crate serde_json;
-extern crate time;
-extern crate yaml_rust;
-
 mod actions;
 mod benchmark;
 mod checker;
@@ -17,9 +7,9 @@ mod interpolator;
 mod reader;
 mod writer;
 
-use self::clap::{App, Arg};
 use crate::actions::Report;
 use clap::crate_version;
+use clap::{App, Arg};
 use colored::*;
 use std::collections::HashMap;
 use std::f64;

@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 mod assign;
 mod request;
 
@@ -11,8 +13,9 @@ use std::fmt;
 use serde_json::Value;
 use yaml_rust::Yaml;
 
+#[async_trait]
 pub trait Runnable {
-  fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>, config: &config::Config);
+  async fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>, config: &config::Config);
 }
 
 #[derive(Clone)]
