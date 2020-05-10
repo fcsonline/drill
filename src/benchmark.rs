@@ -4,6 +4,7 @@ use std::thread;
 use std::time;
 
 use serde_json::Value;
+use tokio::runtime;
 use yaml_rust::Yaml;
 
 use crate::actions::{Report, Runnable};
@@ -17,6 +18,8 @@ fn thread_func(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: A
   let delay = config.rampup / config.threads;
   thread::sleep(time::Duration::new((delay * thread) as u64, 0));
 
+  let mut rt = runtime::Builder::new().basic_scheduler().enable_io().enable_time().build().unwrap();
+
   let mut global_reports = Vec::new();
 
   for iteration in 0..config.iterations {
@@ -28,9 +31,11 @@ fn thread_func(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: A
     context.insert("thread".to_string(), Yaml::String(thread.to_string()));
     context.insert("base".to_string(), Yaml::String(config.base.to_string()));
 
-    for item in benchmark.iter() {
-      item.execute(&mut context, &mut responses, &mut reports, &config);
-    }
+    rt.block_on(async {
+      for item in benchmark.iter() {
+        item.execute(&mut context, &mut responses, &mut reports, &config).await;
+      }
+    });
 
     global_reports.push(reports);
   }
