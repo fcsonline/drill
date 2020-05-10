@@ -11,8 +11,11 @@ rust:
 
 before_script:
   - rustup component add rustfmt
+  - cargo install --force cargo-audit
+  - cargo generate-lockfile
 
 script:
   - cargo fmt --all -- --check
   - cargo build
   - cargo test
+  - cargo audit
