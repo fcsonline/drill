@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use colored::*;
@@ -83,7 +84,6 @@ impl Request {
   }
 
   async fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Option<Response>, f64) {
-    let begin = time::precise_time_s();
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -156,7 +156,8 @@ impl Request {
       headers.insert(HeaderName::from_bytes(key.as_bytes()).unwrap(), HeaderValue::from_str(&interpolated_header).unwrap());
     }
 
-    let response_result = request.headers(headers).send().await;
+    let begin = time::precise_time_s();
+    let response_result = request.headers(headers).timeout(Duration::from_secs(10)).send().await;
     let duration_ms = (time::precise_time_s() - begin) * 1000.0;
 
     match response_result {

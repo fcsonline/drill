@@ -4,7 +4,7 @@ use std::thread;
 use std::time;
 
 use serde_json::Value;
-use tokio::runtime;
+use tokio::{runtime, time::delay_for};
 use yaml_rust::Yaml;
 
 use crate::actions::{Report, Runnable};
@@ -43,6 +43,31 @@ fn thread_func(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: A
   global_reports.concat()
 }
 
+async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
+  let delay = config.rampup / config.threads;
+  delay_for(time::Duration::new((delay * thread) as u64, 0)).await;
+
+  let mut global_reports = Vec::new();
+
+  for iteration in 0..config.iterations {
+    let mut responses: HashMap<String, serde_json::Value> = HashMap::new();
+    let mut context: HashMap<String, Yaml> = HashMap::new();
+    let mut reports: Vec<Report> = Vec::new();
+
+    context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
+    context.insert("thread".to_string(), Yaml::String(thread.to_string()));
+    context.insert("base".to_string(), Yaml::String(config.base.to_string()));
+
+    for item in benchmark.iter() {
+      item.execute(&mut context, &mut responses, &mut reports, &config).await;
+    }
+
+    global_reports.push(reports);
+  }
+
+  global_reports.concat()
+}
+
 fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
   l.iter().fold("".to_string(),
                   |a,b| if !a.is_empty() {a+sep} else {a} + &b.to_string()
@@ -63,37 +88,28 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
   println!("{} {}", "Base URL".yellow(), config.base.purple());
   println!();
 
+  let threads = config.threads as usize;
+  let mut rt = runtime::Builder::new().threaded_scheduler().enable_all().core_threads(threads).max_threads(threads).build().unwrap();
   let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
 
   include::expand_from_filepath(benchmark_path, &mut list, Some("plan"));
 
   let list_arc = Arc::new(list);
   let mut children = vec![];
-  let mut list_reports: Vec<Vec<Report>> = vec![];
 
   if let Some(report_path) = report_path_option {
     let reports = thread_func(list_arc.clone(), config, 0);
 
     writer::write_file(report_path, join(reports, ""));
 
-    Ok(list_reports)
+    Ok(Vec::new())
   } else {
     for index in 0..config.threads {
       let list_clone = list_arc.clone();
       let config_clone = config.clone();
-      children.push(thread::spawn(move || thread_func(list_clone, config_clone, index)));
+      children.push(rt.spawn(async move { run_iterations(list_clone, config_clone, index).await }));
     }
-
-    for child in children {
-      // Wait for the thread to finish. Returns a result.
-      let thread_result = child.join();
-
-      match thread_result {
-        Ok(v) => list_reports.push(v),
-        _ => panic!("arrrgh"),
-      }
-    }
-
+    let list_reports: Vec<Vec<Report>> = rt.block_on(async { futures::future::join_all(children).await.into_iter().map(|x| x.unwrap()).collect() });
     Ok(list_reports)
   }
 }
