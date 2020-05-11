@@ -42,7 +42,7 @@ plan:
 
   - name: Fetch manager user
     request:
-      url: /api/users/{{ foo.manager_id }}
+      url: /api/users/{{ foo.body.manager_id }}
 
   - name: Assign values
     assign:
@@ -111,7 +111,7 @@ plan:
 
   - name: Fetch endpoint
     request:
-      url: /?counter={{ memory.counter }}
+      url: /?counter={{ memory.body.counter }}
 
   - name: Reset counter
     request:
@@ -124,6 +124,7 @@ plan:
       headers:
         Authorization: Basic aHR0cHdhdGNoOmY=
         X-Foo: Bar
+        X-Bar: Bar {{ memory.headers.token }}
 ```
 
 As you can see, you can play with interpolations in different ways. This

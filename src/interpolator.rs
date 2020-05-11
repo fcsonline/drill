@@ -16,7 +16,7 @@ impl<'a> Interpolator<'a> {
     Interpolator {
       context,
       responses,
-      regexp: Regex::new(r"\{\{ *([a-zA-Z\._]+[a-zA-Z\._0-9]*) *\}\}").unwrap(),
+      regexp: Regex::new(r"\{\{ *([a-zA-Z\-\._]+[a-zA-Z\-\._0-9]*) *\}\}").unwrap(),
     }
   }
 
@@ -91,12 +91,13 @@ mod tests {
     let responses: HashMap<String, Value> = HashMap::new();
 
     context.insert(String::from("user_Id"), Yaml::String(String::from("12")));
+    context.insert(String::from("Transfer-Encoding"), Yaml::String(String::from("chunked")));
 
     let interpolator = Interpolator::new(&context, &responses);
-    let url = String::from("http://example.com/users/{{ user_Id }}/view/{{ user_Id }}");
+    let url = String::from("http://example.com/users/{{ user_Id }}/view/{{ user_Id }}/{{ Transfer-Encoding }}");
     let interpolated = interpolator.resolve(&url, true);
 
-    assert_eq!(interpolated, "http://example.com/users/12/view/12");
+    assert_eq!(interpolated, "http://example.com/users/12/view/12/chunked");
   }
 
   #[test]
