@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::thread;
 use std::time;
 
-use serde_json::Value;
 use tokio::{runtime, time::delay_for};
 use yaml_rust::Yaml;
 
@@ -13,35 +11,6 @@ use crate::expandable::include;
 use crate::writer;
 
 use colored::*;
-
-fn thread_func(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
-  let delay = config.rampup / config.threads;
-  thread::sleep(time::Duration::new((delay * thread) as u64, 0));
-
-  let mut rt = runtime::Builder::new().basic_scheduler().enable_io().enable_time().build().unwrap();
-
-  let mut global_reports = Vec::new();
-
-  for iteration in 0..config.iterations {
-    let mut responses: HashMap<String, Value> = HashMap::new();
-    let mut context: HashMap<String, Yaml> = HashMap::new();
-    let mut reports: Vec<Report> = Vec::new();
-
-    context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
-    context.insert("thread".to_string(), Yaml::String(thread.to_string()));
-    context.insert("base".to_string(), Yaml::String(config.base.to_string()));
-
-    rt.block_on(async {
-      for item in benchmark.iter() {
-        item.execute(&mut context, &mut responses, &mut reports, &config).await;
-      }
-    });
-
-    global_reports.push(reports);
-  }
-
-  global_reports.concat()
-}
 
 async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
   let delay = config.rampup / config.threads;
@@ -90,26 +59,28 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
 
   let threads = config.threads as usize;
   let mut rt = runtime::Builder::new().threaded_scheduler().enable_all().core_threads(threads).max_threads(threads).build().unwrap();
-  let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
+  rt.block_on(async {
+    let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
 
-  include::expand_from_filepath(benchmark_path, &mut list, Some("plan"));
+    include::expand_from_filepath(benchmark_path, &mut list, Some("plan"));
 
-  let list_arc = Arc::new(list);
-  let mut children = vec![];
+    let list_arc = Arc::new(list);
+    let mut children = vec![];
 
-  if let Some(report_path) = report_path_option {
-    let reports = thread_func(list_arc.clone(), config, 0);
+    if let Some(report_path) = report_path_option {
+      let reports = run_iterations(list_arc.clone(), config, 0).await;
 
-    writer::write_file(report_path, join(reports, ""));
+      writer::write_file(report_path, join(reports, ""));
 
-    Ok(Vec::new())
-  } else {
-    for index in 0..config.threads {
-      let list_clone = list_arc.clone();
-      let config_clone = config.clone();
-      children.push(rt.spawn(async move { run_iterations(list_clone, config_clone, index).await }));
+      Ok(Vec::new())
+    } else {
+      for index in 0..config.threads {
+        let list_clone = list_arc.clone();
+        let config_clone = config.clone();
+        children.push(tokio::spawn(async move { run_iterations(list_clone, config_clone, index).await }));
+      }
+      let list_reports: Vec<Vec<Report>> = futures::future::join_all(children).await.into_iter().map(|x| x.unwrap()).collect();
+      Ok(list_reports)
     }
-    let list_reports: Vec<Vec<Report>> = rt.block_on(async { futures::future::join_all(children).await.into_iter().map(|x| x.unwrap()).collect() });
-    Ok(list_reports)
-  }
+  })
 }
