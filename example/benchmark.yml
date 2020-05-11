@@ -24,15 +24,15 @@ plan:
 
   - name: Fetch manager user
     request:
-      url: /api/users/{{ foo.manager_id }}
+      url: /api/users/{{ foo.body.manager_id }}
 
   - name: Fetch string token
     request:
-      url: /api/tokens/{{ foo.token }}
+      url: /api/tokens/{{ foo.body.token }}
 
   - name: Fetch manager location
     request:
-      url: /api/users/at/{{ foo.address.floor }}/{{ foo.address.room }}
+      url: /api/users/at/{{ foo.body.address.floor }}/{{ foo.body.address.room }}
 
   - name: Assign values
     assign:

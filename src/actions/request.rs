@@ -12,6 +12,9 @@ use yaml_rust::Yaml;
 
 use url::Url;
 
+use serde::{Deserialize, Serialize};
+use serde_json::value::Value;
+
 use crate::config;
 use crate::interpolator;
 
@@ -29,6 +32,12 @@ pub struct Request {
   pub body: Option<String>,
   pub with_item: Option<Yaml>,
   pub assign: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct AssignedRequest {
+  body: Value,
+  headers: Value,
 }
 
 impl Request {
@@ -224,8 +233,26 @@ impl Runnable for Request {
         }
 
         if let Some(ref key) = self.assign {
+          let mut headers = HashMap::new();
+
+          response.headers().iter().for_each(|(header, value)| {
+            headers.insert(header.to_string(), String::from(value.to_str().unwrap()));
+          });
+
           let data = response.text().await.unwrap();
-          let value: serde_json::Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
+
+          let body: serde_json::Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
+
+          let serialized = serde_json::to_string(&headers).unwrap();
+          let headers: serde_json::Value = serde_json::from_str(&serialized).unwrap_or(serde_json::Value::Null);
+
+          let assigned = AssignedRequest {
+            body,
+            headers,
+          };
+
+          let value = serde_json::to_value(assigned).unwrap();
+
           responses.insert(key.to_owned(), value);
         }
       }
