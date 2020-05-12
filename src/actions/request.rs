@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use colored::*;
 use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
-  ClientBuilder, Method, Response,
+  Client, ClientBuilder, Method, Response,
 };
 use yaml_rust::yaml;
 use yaml_rust::Yaml;
@@ -19,6 +19,7 @@ static USER_AGENT: &str = "drill";
 
 #[derive(Clone)]
 pub struct Request {
+  client: Client,
   name: String,
   url: String,
   time: f64,
@@ -64,6 +65,7 @@ impl Request {
     }
 
     Request {
+      client: Client::new(),
       name: item["name"].as_str().unwrap().to_string(),
       url: item["request"]["url"].as_str().unwrap().to_string(),
       time: 0.0,
@@ -118,7 +120,8 @@ impl Request {
       interpolated_url
     };
 
-    let client = ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap();
+    // let client = ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap();
+    let client = &self.client;
     let interpolated_body;
 
     // Method
