@@ -10,6 +10,8 @@ use crate::config;
 use crate::expandable::include;
 use crate::writer;
 
+use reqwest::Client;
+
 use colored::*;
 
 async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
@@ -17,6 +19,8 @@ async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, 
   delay_for(time::Duration::new((delay * thread) as u64, 0)).await;
 
   let mut global_reports = Vec::new();
+
+  let mut pool: HashMap<String, Client> = HashMap::new();
 
   for iteration in 0..config.iterations {
     let mut responses: HashMap<String, serde_json::Value> = HashMap::new();
@@ -28,7 +32,7 @@ async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, 
     context.insert("base".to_string(), Yaml::String(config.base.to_string()));
 
     for item in benchmark.iter() {
-      item.execute(&mut context, &mut responses, &mut reports, &config).await;
+      item.execute(&mut context, &mut responses, &mut reports, &mut pool, &config).await;
     }
 
     global_reports.push(reports);

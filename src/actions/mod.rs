@@ -7,6 +7,7 @@ pub use self::assign::Assign;
 pub use self::request::Request;
 use crate::config;
 
+use reqwest::Client;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -15,7 +16,7 @@ use yaml_rust::Yaml;
 
 #[async_trait]
 pub trait Runnable {
-  async fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>, config: &config::Config);
+  async fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>, pool: &mut HashMap<String, Client>, config: &config::Config);
 }
 
 #[derive(Clone)]
