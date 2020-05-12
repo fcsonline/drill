@@ -10,6 +10,8 @@ use reqwest::{
 use yaml_rust::yaml;
 use yaml_rust::Yaml;
 
+use url::Url;
+
 use crate::config;
 use crate::interpolator;
 
@@ -19,7 +21,6 @@ static USER_AGENT: &str = "drill";
 
 #[derive(Clone)]
 pub struct Request {
-  client: Client,
   name: String,
   url: String,
   time: f64,
@@ -65,7 +66,6 @@ impl Request {
     }
 
     Request {
-      client: Client::new(),
       name: item["name"].as_str().unwrap().to_string(),
       url: item["request"]["url"].as_str().unwrap().to_string(),
       time: 0.0,
@@ -85,7 +85,7 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, config: &config::Config) -> (Option<Response>, f64) {
+  async fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, pool: &mut HashMap<String, Client>, config: &config::Config) -> (Option<Response>, f64) {
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -120,8 +120,10 @@ impl Request {
       interpolated_url
     };
 
-    // let client = ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap();
-    let client = &self.client;
+    let url = Url::parse(&interpolated_base_url).unwrap();
+    let domain = format!("{}://{}:{}", url.scheme(), url.host_str().unwrap(), url.port().unwrap_or(0)); // Unique domain key for keep-alive
+    let client = pool.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
+
     let interpolated_body;
 
     // Method
@@ -192,12 +194,12 @@ impl Request {
 
 #[async_trait]
 impl Runnable for Request {
-  async fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>, config: &config::Config) {
+  async fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>, pool: &mut HashMap<String, Client>, config: &config::Config) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), self.with_item.clone().unwrap());
     }
 
-    let (res, duration_ms) = self.send_request(context, responses, config).await;
+    let (res, duration_ms) = self.send_request(context, responses, pool, config).await;
 
     match res {
       None => reports.push(Report {
