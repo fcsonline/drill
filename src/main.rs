@@ -14,6 +14,7 @@ use colored::*;
 use std::collections::HashMap;
 use std::f64;
 use std::process;
+use std::time::Instant;
 
 fn main() {
   let matches = app_args();
@@ -27,9 +28,9 @@ fn main() {
   let quiet = matches.is_present("quiet");
   let nanosec = matches.is_present("nanosec");
 
-  let begin = time::precise_time_s();
+  let begin = Instant::now();
   let list_reports_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec);
-  let duration = time::precise_time_s() - begin;
+  let duration = begin.elapsed().as_secs_f64();
 
   match list_reports_result {
     Ok(list_reports) => {

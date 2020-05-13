@@ -15,7 +15,6 @@ colored = "1.7.0"
 csv = "1.0.5"
 regex = "1.1.2"
 serde_json = "1.0.39"
-time = "0.1.42"
 yaml-rust = "0.4.3"
 linked-hash-map = "0.5.2"
 tokio = { version = "0.2.20", features = ["rt-core", "rt-threaded", "time", "net", "io-driver"] }
