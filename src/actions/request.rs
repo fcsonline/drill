@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use colored::*;
@@ -159,9 +159,9 @@ impl Request {
       headers.insert(HeaderName::from_bytes(key.as_bytes()).unwrap(), HeaderValue::from_str(&interpolated_header).unwrap());
     }
 
-    let begin = time::precise_time_s();
+    let begin = Instant::now();
     let response_result = request.headers(headers).timeout(Duration::from_secs(10)).send().await;
-    let duration_ms = (time::precise_time_s() - begin) * 1000.0;
+    let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
 
     match response_result {
       Err(e) => {
