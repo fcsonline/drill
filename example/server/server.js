@@ -7,6 +7,7 @@ const session = require('express-session');
 
 const app = express();
 const delay = process.env.DELAY_MS || 0;
+const output = process.env.OUTPUT;
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
@@ -23,7 +24,9 @@ const logger_handler = (character) => {
     setTimeout(() => {
       const filename = path.join(__dirname, 'responses', req.path)
       fs.readFile(filename, 'utf8', function(err, data) {
-        process.stdout.write(character);
+        if (output) {
+          process.stdout.write(character);
+        }
 
         if (err) {
           res.status(404);
