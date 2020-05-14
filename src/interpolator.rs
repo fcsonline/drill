@@ -1,14 +1,25 @@
 use std::collections::HashMap;
 
 use colored::*;
+use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use serde_json::Value;
 use yaml_rust::Yaml;
 
+static INTERPOLATION_PREFIX: &'static str = "{{";
+static INTERPOLATION_SUFFIX: &'static str = "}}";
+
+lazy_static! {
+  static ref INTERPOLATION_REGEX: Regex = {
+    let regexp = format!("{}{}{}", regex::escape(INTERPOLATION_PREFIX), r" *([a-zA-Z\-\._]+[a-zA-Z\-\._0-9]*) *", regex::escape(INTERPOLATION_SUFFIX));
+
+    Regex::new(regexp.as_str()).unwrap()
+  };
+}
+
 pub struct Interpolator<'a> {
   context: &'a HashMap<String, Yaml>,
   responses: &'a HashMap<String, Value>,
-  regexp: Regex,
 }
 
 impl<'a> Interpolator<'a> {
@@ -16,13 +27,11 @@ impl<'a> Interpolator<'a> {
     Interpolator {
       context,
       responses,
-      regexp: Regex::new(r"\{\{ *([a-zA-Z\-\._]+[a-zA-Z\-\._0-9]*) *\}\}").unwrap(),
     }
   }
 
   pub fn resolve(&self, url: &str, strict: bool) -> String {
-    self
-      .regexp
+    INTERPOLATION_REGEX
       .replace_all(url, |caps: &Captures| {
         let capture = &caps[1];
 
