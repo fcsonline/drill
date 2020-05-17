@@ -78,7 +78,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
 
       Ok(Vec::new())
     } else {
-      for index in 0..config.threads {
+      for index in 0..config.concurrency {
         let list_clone = list_arc.clone();
         let config_clone = config.clone();
         children.push(tokio::spawn(async move { run_iterations(list_clone, config_clone, index).await }));

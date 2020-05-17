@@ -3,12 +3,13 @@
 We're going to go through all of the benchmark options to understand all
 possibilities.
 
-This is a basic benchmark with 2 requests, run concurrently in 4 threads against
+This is a basic benchmark with 2 requests, run 4 requests concurrently in 4 threads against
 `http://example.com` servers, executed 5 times. 40 requests in total.
 
 ```yaml
 ---
 threads: 4
+concurrency: 4
 base: 'http://example.com'
 iterations: 5
 rampup: 5
@@ -26,6 +27,7 @@ plan:
 ### Benchmark main properties
 
 - `threads`: Number of threads running your plan concurrently. (Optional, default: 1)
+- `concurrency`: Number of concurrent requests. (Optional, default: 1)
 - `base`: Base url for all relative URL's in your plan. (Optional)
 - `iterations`: Number of loops is going to do each thread (Optional, default: 1)
 - `rampup`: Amount of time it will take to start all threads. (Optional)
