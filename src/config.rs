@@ -8,6 +8,7 @@ static NRAMPUP: i64 = 0;
 
 pub struct Config {
   pub base: String,
+  pub concurrency: i64,
   pub threads: i64,
   pub iterations: i64,
   pub relaxed_interpolations: bool,
@@ -25,12 +26,14 @@ impl Config {
     let config_doc = &config_docs[0];
 
     let threads = read_i64_configuration(config_doc, "threads", NTHREADS);
+    let concurrency = read_i64_configuration(config_doc, "concurrency", threads);
     let iterations = read_i64_configuration(config_doc, "iterations", NITERATIONS);
     let rampup = read_i64_configuration(config_doc, "rampup", NRAMPUP);
     let base = config_doc["base"].as_str().unwrap().to_owned();
 
     Config {
       base,
+      concurrency,
       threads,
       iterations,
       relaxed_interpolations,
