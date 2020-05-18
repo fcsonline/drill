@@ -1,6 +1,7 @@
 ---
 
 threads: 3
+concurrency: 3
 base: 'http://localhost:9000'
 iterations: 2
 
