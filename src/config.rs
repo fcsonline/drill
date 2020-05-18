@@ -2,9 +2,10 @@ use yaml_rust::{Yaml, YamlLoader};
 
 use crate::reader;
 
-static NTHREADS: i64 = 1;
-static NITERATIONS: i64 = 1;
-static NRAMPUP: i64 = 0;
+const NTHREADS: i64 = 1;
+const NCONCURRENCY: i64 = 1;
+const NITERATIONS: i64 = 1;
+const NRAMPUP: i64 = 0;
 
 pub struct Config {
   pub base: String,
@@ -26,7 +27,7 @@ impl Config {
     let config_doc = &config_docs[0];
 
     let threads = read_i64_configuration(config_doc, "threads", NTHREADS);
-    let concurrency = read_i64_configuration(config_doc, "concurrency", threads);
+    let concurrency = read_i64_configuration(config_doc, "concurrency", NCONCURRENCY);
     let iterations = read_i64_configuration(config_doc, "iterations", NITERATIONS);
     let rampup = read_i64_configuration(config_doc, "rampup", NRAMPUP);
     let base = config_doc["base"].as_str().unwrap().to_owned();
