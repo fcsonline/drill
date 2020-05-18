@@ -1,6 +1,7 @@
 ---
 
-threads: 20
+threads: 2
+concurrency: 20
 base: 'http://localhost:9000'
 iterations: 3
 rampup: 2
