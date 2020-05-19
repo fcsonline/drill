@@ -1,14 +1,10 @@
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 use colored::*;
-use reqwest::Client;
-use serde_json::Value;
 use yaml_rust::Yaml;
 
-use crate::config;
-
-use crate::actions::{Report, Runnable};
+use crate::actions::Runnable;
+use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::config::Config;
 
 #[derive(Clone)]
 pub struct Assign {
@@ -33,8 +29,8 @@ impl Assign {
 
 #[async_trait]
 impl Runnable for Assign {
-  async fn execute(&self, context: &mut HashMap<String, Yaml>, _responses: &mut HashMap<String, Value>, _reports: &mut Vec<Report>, _pool: &mut HashMap<String, Client>, _config: &config::Config) {
-    if !_config.quiet {
+  async fn execute(&self, context: &mut Context, _responses: &mut Responses, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
+    if !config.quiet {
       println!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width = 25);
     }
 

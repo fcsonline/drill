@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use colored::*;
 use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
-  Client, ClientBuilder, Method, Response,
+  ClientBuilder, Method, Response,
 };
 use yaml_rust::yaml;
 use yaml_rust::Yaml;
@@ -15,7 +15,8 @@ use url::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 
-use crate::config;
+use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::config::Config;
 use crate::interpolator;
 
 use crate::actions::{Report, Runnable};
@@ -94,7 +95,7 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, pool: &mut HashMap<String, Client>, config: &config::Config) -> (Option<Response>, f64) {
+  async fn send_request(&self, context: &mut Context, responses: &mut Responses, pool: &mut Pool, config: &Config) -> (Option<Response>, f64) {
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -131,6 +132,7 @@ impl Request {
 
     let url = Url::parse(&interpolated_base_url).unwrap();
     let domain = format!("{}://{}:{}", url.scheme(), url.host_str().unwrap(), url.port().unwrap_or(0)); // Unique domain key for keep-alive
+
     let client = pool.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
 
     let interpolated_body;
@@ -203,7 +205,7 @@ impl Request {
 
 #[async_trait]
 impl Runnable for Request {
-  async fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, serde_json::Value>, reports: &mut Vec<Report>, pool: &mut HashMap<String, Client>, config: &config::Config) {
+  async fn execute(&self, context: &mut Context, responses: &mut Responses, reports: &mut Reports, pool: &mut Pool, config: &Config) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), self.with_item.clone().unwrap());
     }

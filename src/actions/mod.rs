@@ -7,18 +7,15 @@ mod request;
 pub use self::assign::Assign;
 pub use self::delay::Delay;
 pub use self::request::Request;
-use crate::config;
 
-use reqwest::Client;
-use std::collections::HashMap;
+use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::config::Config;
+
 use std::fmt;
-
-use serde_json::Value;
-use yaml_rust::Yaml;
 
 #[async_trait]
 pub trait Runnable {
-  async fn execute(&self, context: &mut HashMap<String, Yaml>, responses: &mut HashMap<String, Value>, reports: &mut Vec<Report>, pool: &mut HashMap<String, Client>, config: &config::Config);
+  async fn execute(&self, context: &mut Context, responses: &mut Responses, reports: &mut Reports, pool: &mut Pool, config: &Config);
 }
 
 #[derive(Clone)]
