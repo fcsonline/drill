@@ -1,13 +1,11 @@
 use async_trait::async_trait;
 use colored::*;
-use reqwest::Client;
-use serde_json::Value;
-use std::collections::HashMap;
 use tokio::time::delay_for;
 use yaml_rust::Yaml;
 
-use crate::actions::{Report, Runnable};
-use crate::config;
+use crate::actions::Runnable;
+use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::config::Config;
 
 use std::convert::TryFrom;
 use std::time::Duration;
@@ -35,7 +33,7 @@ impl Delay {
 
 #[async_trait]
 impl Runnable for Delay {
-  async fn execute(&self, _context: &mut HashMap<String, Yaml>, _responses: &mut HashMap<String, Value>, _reports: &mut Vec<Report>, _pool: &mut HashMap<String, Client>, config: &config::Config) {
+  async fn execute(&self, _context: &mut Context, _responses: &mut Responses, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
     delay_for(Duration::from_secs(self.seconds as u64)).await;
 
     if !config.quiet {

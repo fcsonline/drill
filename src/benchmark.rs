@@ -6,7 +6,7 @@ use tokio::{runtime, time::delay_for};
 use yaml_rust::Yaml;
 
 use crate::actions::{Report, Runnable};
-use crate::config;
+use crate::config::Config;
 use crate::expandable::include;
 use crate::writer;
 
@@ -14,17 +14,23 @@ use reqwest::Client;
 
 use colored::*;
 
-async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, concurrency: i64) -> Vec<Report> {
+pub type Benchmark = Vec<Box<(dyn Runnable + Sync + Send)>>;
+pub type Context = HashMap<String, Yaml>;
+pub type Responses = HashMap<String, serde_json::Value>;
+pub type Reports = Vec<Report>;
+pub type Pool = HashMap<String, Client>;
+
+async fn run_iterations(benchmark: Arc<Benchmark>, config: Arc<Config>, concurrency: i64) -> Vec<Report> {
   let delay = config.rampup / config.concurrency;
   delay_for(time::Duration::new((delay * concurrency) as u64, 0)).await;
 
   let mut global_reports = Vec::new();
 
-  let mut pool: HashMap<String, Client> = HashMap::new();
+  let mut pool: Pool = Pool::new();
 
   for iteration in 0..config.iterations {
-    let mut responses: HashMap<String, serde_json::Value> = HashMap::new();
-    let mut context: HashMap<String, Yaml> = HashMap::new();
+    let mut responses: Responses = Responses::new();
+    let mut context: Context = Context::new();
     let mut reports: Vec<Report> = Vec::new();
 
     context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
@@ -47,7 +53,7 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
 }
 
 pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
-  let config = Arc::new(config::Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec));
+  let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec));
 
   if report_path_option.is_some() {
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "threads".yellow(), "iterations".yellow());
