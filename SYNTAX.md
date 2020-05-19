@@ -3,12 +3,11 @@
 We're going to go through all of the benchmark options to understand all
 possibilities.
 
-This is a basic benchmark with 2 requests, run 4 requests concurrently in 4 threads against
+This is a basic benchmark with 2 requests, run 4 plans concurrently against
 `http://example.com` servers, executed 5 times. 40 requests in total.
 
 ```yaml
 ---
-threads: 4
 concurrency: 4
 base: 'http://example.com'
 iterations: 5
@@ -26,8 +25,7 @@ plan:
 
 ### Benchmark main properties
 
-- `threads`: Number of threads running your plan concurrently. (Optional, default: 1)
-- `concurrency`: Number of concurrent requests. (Optional, default: 1)
+- `concurrency`: Number of concurrent iterations. (Optional, default: 1)
 - `base`: Base url for all relative URL's in your plan. (Optional)
 - `iterations`: Number of loops is going to do each thread (Optional, default: 1)
 - `rampup`: Amount of time it will take to start all threads. (Optional)
@@ -37,7 +35,7 @@ plan:
 
 - `include`: Include all requests in the given file.
 - `request`: Execute a HTTP request.
-- `assign`: Assign a value in the thread context to be interpolated later.
+- `assign`: Assign a value in the context to be interpolated later.
 
 All those three items can be combined with `name` property to be show in logs.
 
@@ -50,7 +48,7 @@ All those three items can be combined with `name` property to be show in logs.
 - `with_items`: List of items to be interpolated in the given request url.
 - `with_items_range`: Generates items from an iterator from start, step, stop.
 - `with_items_from_csv`: Read the given CSV values and go through all of them as items.
-- `assign`: save the response in the thread context to be interpolated later.
+- `assign`: save the response in the context to be interpolated later.
 
 #### with_items_from_csv item properties
 
