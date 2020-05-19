@@ -18,7 +18,7 @@ Here is an example for **benchmark.yml**:
 ```yaml
 ---
 
-threads: 4
+concurrency: 4
 base: 'http://localhost:9000'
 iterations: 5
 rampup: 2

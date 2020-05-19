@@ -14,9 +14,9 @@ use reqwest::Client;
 
 use colored::*;
 
-async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, thread: i64) -> Vec<Report> {
-  let delay = config.rampup / config.threads;
-  delay_for(time::Duration::new((delay * thread) as u64, 0)).await;
+async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, config: Arc<config::Config>, concurrency: i64) -> Vec<Report> {
+  let delay = config.rampup / config.concurrency;
+  delay_for(time::Duration::new((delay * concurrency) as u64, 0)).await;
 
   let mut global_reports = Vec::new();
 
@@ -28,7 +28,6 @@ async fn run_iterations(benchmark: Arc<Vec<Box<(dyn Runnable + Sync + Send)>>>, 
     let mut reports: Vec<Report> = Vec::new();
 
     context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
-    context.insert("thread".to_string(), Yaml::String(thread.to_string()));
     context.insert("base".to_string(), Yaml::String(config.base.to_string()));
 
     for item in benchmark.iter() {
@@ -61,7 +60,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
   println!("{} {}", "Base URL".yellow(), config.base.purple());
   println!();
 
-  let threads = config.threads as usize;
+  let threads = config.threads;
   let mut rt = runtime::Builder::new().threaded_scheduler().enable_all().core_threads(threads).max_threads(threads).build().unwrap();
   rt.block_on(async {
     let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();

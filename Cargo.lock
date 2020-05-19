@@ -223,6 +223,7 @@ dependencies = [
  "futures",
  "lazy_static",
  "linked-hash-map",
+ "num_cpus",
  "regex",
  "reqwest",
  "serde",

@@ -1,6 +1,5 @@
 ---
 
-threads: 10
 concurrency: 50
 base: 'http://localhost:9000'
 iterations: 1000
