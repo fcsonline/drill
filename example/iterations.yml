@@ -1,0 +1,23 @@
+---
+
+concurrency: 3
+base: 'http://localhost:9000'
+iterations: 2
+
+plan:
+  - name: "Fetch 1 - Iteration: {{ iteration }}"
+    request:
+      url: /api/users.json
+
+  - name: "Fetch 2 - Iteration: {{ iteration }}"
+    request:
+      url: /api/organizations
+
+  - name: "Fetch 3 - Iteration: {{ iteration }}"
+    request:
+      url: /api/account
+    assign: foo
+
+  - name: "Fetch 4 - Iteration: {{ iteration }}"
+    request:
+      url: /api/users/{{ foo.body.manager_id }}
