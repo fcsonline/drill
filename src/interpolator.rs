@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-
 use colored::*;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
-use serde_json::Value;
-use yaml_rust::Yaml;
+
+use crate::benchmark::Context;
 
 static INTERPOLATION_PREFIX: &'static str = "{{";
 static INTERPOLATION_SUFFIX: &'static str = "}}";
@@ -18,15 +16,13 @@ lazy_static! {
 }
 
 pub struct Interpolator<'a> {
-  context: &'a HashMap<String, Yaml>,
-  responses: &'a HashMap<String, Value>,
+  context: &'a Context,
 }
 
 impl<'a> Interpolator<'a> {
-  pub fn new(context: &'a HashMap<String, Yaml>, responses: &'a HashMap<String, Value>) -> Interpolator<'a> {
+  pub fn new(context: &'a Context) -> Interpolator<'a> {
     Interpolator {
       context,
-      responses,
     }
   }
 
@@ -36,10 +32,6 @@ impl<'a> Interpolator<'a> {
         let capture = &caps[1];
 
         if let Some(item) = self.resolve_context_interpolation(capture.split('.').collect()) {
-          return item;
-        }
-
-        if let Some(item) = self.resolve_responses_interpolation(capture.split('.').collect()) {
           return item;
         }
 
@@ -54,12 +46,12 @@ impl<'a> Interpolator<'a> {
       .to_string()
   }
 
-  fn resolve_responses_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
+  fn resolve_context_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
     let (cap_root, cap_tail) = cap_path.split_at(1);
 
     cap_tail
       .iter()
-      .fold(self.responses.get(cap_root[0]), |json, k| match json {
+      .fold(self.context.get(cap_root[0]), |json, k| match json {
         Some(json) => json.get(k),
         _ => None,
       })
@@ -71,38 +63,21 @@ impl<'a> Interpolator<'a> {
         }
       })
   }
-
-  fn resolve_context_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
-    let (cap_root, cap_tail) = cap_path.split_at(1);
-
-    cap_tail
-      .iter()
-      .fold(self.context.get(cap_root[0]), |yaml, k| match yaml {
-        Some(yaml) => match yaml.as_hash() {
-          Some(yaml) => yaml.get(&Yaml::from_str(k)),
-          _ => None,
-        },
-        _ => None,
-      })
-      .map(|val| val.as_str().map(String::from).or_else(|| val.as_i64().map(|x| x.to_string())).unwrap_or_else(|| "".to_string()))
-  }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use serde_json;
-  use serde_json::Value;
+  use serde_json::json;
 
   #[test]
   fn interpolates_variables() {
-    let mut context: HashMap<String, Yaml> = HashMap::new();
-    let responses: HashMap<String, Value> = HashMap::new();
+    let mut context: Context = Context::new();
 
-    context.insert(String::from("user_Id"), Yaml::String(String::from("12")));
-    context.insert(String::from("Transfer-Encoding"), Yaml::String(String::from("chunked")));
+    context.insert(String::from("user_Id"), json!(String::from("12")));
+    context.insert(String::from("Transfer-Encoding"), json!(String::from("chunked")));
 
-    let interpolator = Interpolator::new(&context, &responses);
+    let interpolator = Interpolator::new(&context);
     let url = String::from("http://example.com/users/{{ user_Id }}/view/{{ user_Id }}/{{ Transfer-Encoding }}");
     let interpolated = interpolator.resolve(&url, true);
 
@@ -110,38 +85,20 @@ mod tests {
   }
 
   #[test]
-  fn interpolates_responses() {
-    let context: HashMap<String, Yaml> = HashMap::new();
-    let mut responses: HashMap<String, Value> = HashMap::new();
-
-    let data = String::from("{ \"bar\": 12 }");
-    let value: serde_json::Value = serde_json::from_str(&data).unwrap();
-    responses.insert(String::from("foo"), value);
-
-    let interpolator = Interpolator::new(&context, &responses);
-    let url = String::from("http://example.com/users/{{ foo.bar }}");
-    let interpolated = interpolator.resolve(&url, true);
-
-    assert_eq!(interpolated, "http://example.com/users/12");
-  }
-
-  #[test]
   #[should_panic]
   fn interpolates_missing_variable() {
-    let context: HashMap<String, Yaml> = HashMap::new();
-    let responses: HashMap<String, Value> = HashMap::new();
+    let context: Context = Context::new();
 
-    let interpolator = Interpolator::new(&context, &responses);
+    let interpolator = Interpolator::new(&context);
     let url = String::from("/users/{{ userId }}");
     interpolator.resolve(&url, true);
   }
 
   #[test]
   fn interpolates_relaxed() {
-    let context: HashMap<String, Yaml> = HashMap::new();
-    let responses: HashMap<String, Value> = HashMap::new();
+    let context: Context = Context::new();
 
-    let interpolator = Interpolator::new(&context, &responses);
+    let interpolator = Interpolator::new(&context);
     let url = String::from("/users/{{ userId }}");
     let interpolated = interpolator.resolve(&url, false);
 
@@ -150,12 +107,11 @@ mod tests {
 
   #[test]
   fn interpolates_numnamed_variables() {
-    let mut context: HashMap<String, Yaml> = HashMap::new();
-    let responses: HashMap<String, Value> = HashMap::new();
+    let mut context: Context = Context::new();
 
-    context.insert(String::from("zip5"), Yaml::String(String::from("90210")));
+    context.insert(String::from("zip5"), json!(String::from("90210")));
 
-    let interpolator = Interpolator::new(&context, &responses);
+    let interpolator = Interpolator::new(&context);
     let url = String::from("http://example.com/postalcode/{{ zip5 }}/view/{{ zip5 }}");
     let interpolated = interpolator.resolve(&url, true);
 
@@ -164,12 +120,11 @@ mod tests {
 
   #[test]
   fn interpolates_bad_numnamed_variable_names() {
-    let mut context: HashMap<String, Yaml> = HashMap::new();
-    let responses: HashMap<String, Value> = HashMap::new();
+    let mut context: Context = Context::new();
 
-    context.insert(String::from("5digitzip"), Yaml::String(String::from("90210")));
+    context.insert(String::from("5digitzip"), json!(String::from("90210")));
 
-    let interpolator = Interpolator::new(&context, &responses);
+    let interpolator = Interpolator::new(&context);
     let url = String::from("http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
     let interpolated = interpolator.resolve(&url, true);
 

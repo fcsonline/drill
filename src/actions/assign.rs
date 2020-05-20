@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use colored::*;
+use serde_json::json;
 use yaml_rust::Yaml;
 
 use crate::actions::Runnable;
-use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 
 #[derive(Clone)]
@@ -29,11 +30,11 @@ impl Assign {
 
 #[async_trait]
 impl Runnable for Assign {
-  async fn execute(&self, context: &mut Context, _responses: &mut Responses, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
+  async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
     if !config.quiet {
       println!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width = 25);
     }
 
-    context.insert(self.key.to_owned(), Yaml::String(self.value.to_owned()));
+    context.insert(self.key.to_owned(), json!(self.value.to_owned()));
   }
 }
