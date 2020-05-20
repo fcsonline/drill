@@ -21,7 +21,7 @@ plan:
 
   - name: Fetch endpoint
     request:
-      url: /?counter={{ memory.counter }}
+      url: /?counter={{ memory.body.counter }}
 
   - name: Reset counter
     request:
@@ -35,4 +35,4 @@ plan:
 
   - name: Fetch endpoint
     request:
-      url: /?counter={{ memory.counter }}
+      url: /?counter={{ memory.body.counter }}
