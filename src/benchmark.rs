@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time;
 
+use serde_json::{json, Value};
 use tokio::{runtime, time::delay_for};
-use yaml_rust::Yaml;
 
 use crate::actions::{Report, Runnable};
 use crate::config::Config;
@@ -15,8 +15,7 @@ use reqwest::Client;
 use colored::*;
 
 pub type Benchmark = Vec<Box<(dyn Runnable + Sync + Send)>>;
-pub type Context = HashMap<String, Yaml>;
-pub type Responses = HashMap<String, serde_json::Value>;
+pub type Context = HashMap<String, Value>;
 pub type Reports = Vec<Report>;
 pub type Pool = HashMap<String, Client>;
 
@@ -29,15 +28,14 @@ async fn run_iterations(benchmark: Arc<Benchmark>, config: Arc<Config>, concurre
   let mut pool: Pool = Pool::new();
 
   for iteration in 0..config.iterations {
-    let mut responses: Responses = Responses::new();
     let mut context: Context = Context::new();
     let mut reports: Vec<Report> = Vec::new();
 
-    context.insert("iteration".to_string(), Yaml::String(iteration.to_string()));
-    context.insert("base".to_string(), Yaml::String(config.base.to_string()));
+    context.insert("iteration".to_string(), json!(iteration.to_string()));
+    context.insert("base".to_string(), json!(config.base.to_string()));
 
     for item in benchmark.iter() {
-      item.execute(&mut context, &mut responses, &mut reports, &mut pool, &config).await;
+      item.execute(&mut context, &mut reports, &mut pool, &config).await;
     }
 
     global_reports.push(reports);

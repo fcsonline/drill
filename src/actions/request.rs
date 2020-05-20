@@ -7,15 +7,13 @@ use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
 };
-use yaml_rust::yaml;
+use url::Url;
 use yaml_rust::Yaml;
 
-use url::Url;
-
 use serde::{Deserialize, Serialize};
-use serde_json::value::Value;
+use serde_json::{json, Map, Value};
 
-use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
 
@@ -38,7 +36,7 @@ pub struct Request {
 #[derive(Serialize, Deserialize)]
 struct AssignedRequest {
   body: Value,
-  headers: Value,
+  headers: Map<String, Value>,
 }
 
 impl Request {
@@ -95,19 +93,19 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut Context, responses: &mut Responses, pool: &mut Pool, config: &Config) -> (Option<Response>, f64) {
+  async fn send_request(&self, context: &mut Context, pool: &mut Pool, config: &Config) -> (Option<Response>, f64) {
     let mut uninterpolator = None;
 
     // Resolve the name
     let interpolated_name = if self.name.contains('{') {
-      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.name, !config.relaxed_interpolations)
+      uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(&self.name, !config.relaxed_interpolations)
     } else {
       self.name.clone()
     };
 
     // Resolve the url
     let interpolated_url = if self.url.contains('{') {
-      uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(&self.url, !config.relaxed_interpolations)
+      uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(&self.url, !config.relaxed_interpolations)
     } else {
       self.url.clone()
     };
@@ -150,7 +148,7 @@ impl Request {
 
     // Resolve the body
     let request = if let Some(body) = self.body.as_ref() {
-      interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(body, !config.relaxed_interpolations);
+      interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
 
       client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
     } else {
@@ -161,14 +159,16 @@ impl Request {
     let mut headers = HeaderMap::new();
     headers.insert(header::USER_AGENT, HeaderValue::from_str(USER_AGENT).unwrap());
 
-    if let Some(Yaml::Hash(cookies)) = context.get("cookies") {
-      let cookie = cookies.iter().map(|(key, value)| format!("{}={}", key.as_str().unwrap(), value.as_str().unwrap())).collect::<Vec<_>>().join(";");
+    if let Some(cookies) = context.get("cookies") {
+      let cookies: Map<String, Value> = serde_json::from_value(cookies.clone()).unwrap();
+      let cookie = cookies.iter().map(|(key, value)| format!("{}={}", key, value)).collect::<Vec<_>>().join(";");
+
       headers.insert(header::COOKIE, HeaderValue::from_str(&cookie).unwrap());
     }
 
     // Resolve headers
     for (key, val) in self.headers.iter() {
-      let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context, responses)).resolve(val, !config.relaxed_interpolations);
+      let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(val, !config.relaxed_interpolations);
       headers.insert(HeaderName::from_bytes(key.as_bytes()).unwrap(), HeaderValue::from_str(&interpolated_header).unwrap());
     }
 
@@ -203,14 +203,42 @@ impl Request {
   }
 }
 
-#[async_trait]
-impl Runnable for Request {
-  async fn execute(&self, context: &mut Context, responses: &mut Responses, reports: &mut Reports, pool: &mut Pool, config: &Config) {
-    if self.with_item.is_some() {
-      context.insert("item".to_string(), self.with_item.clone().unwrap());
+fn yaml_to_json(data: Yaml) -> Value {
+  if let Some(b) = data.as_bool() {
+    json!(b)
+  } else if let Some(i) = data.as_i64() {
+    json!(i)
+  } else if let Some(s) = data.as_str() {
+    json!(s)
+  } else if let Some(h) = data.as_hash() {
+    let mut map = Map::new();
+
+    for (key, value) in h.iter() {
+      map.entry(key.as_str().unwrap()).or_insert(yaml_to_json(value.clone()));
     }
 
-    let (res, duration_ms) = self.send_request(context, responses, pool, config).await;
+    json!(map)
+  } else if let Some(v) = data.as_vec() {
+    let mut array = Vec::new();
+
+    for value in v.iter() {
+      array.push(yaml_to_json(value.clone()));
+    }
+
+    json!(array)
+  } else {
+    panic!("Unknown Yaml node")
+  }
+}
+
+#[async_trait]
+impl Runnable for Request {
+  async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &mut Pool, config: &Config) {
+    if self.with_item.is_some() {
+      context.insert("item".to_string(), yaml_to_json(self.with_item.clone().unwrap()));
+    }
+
+    let (res, duration_ms) = self.send_request(context, pool, config).await;
 
     match res {
       None => reports.push(Report {
@@ -225,28 +253,26 @@ impl Runnable for Request {
           status: response.status().as_u16(),
         });
 
-        let context_cookies = context.entry("cookies".to_string()).or_insert_with(|| Yaml::Hash(yaml::Hash::new()));
-        if let Yaml::Hash(hash) = context_cookies {
+        if response.cookies().count() > 0 {
+          let mut cookies = Map::new();
+
           for cookie in response.cookies() {
-            hash.insert(Yaml::String(cookie.name().to_string()), Yaml::String(cookie.value().to_string()));
+            cookies.insert(cookie.name().to_string(), json!(cookie.value().to_string()));
           }
-        } else {
-          panic!("The cookies context must be an array");
+
+          context.insert("cookies".to_string(), json!(cookies));
         }
 
         if let Some(ref key) = self.assign {
-          let mut headers = HashMap::new();
+          let mut headers = Map::new();
 
           response.headers().iter().for_each(|(header, value)| {
-            headers.insert(header.to_string(), String::from(value.to_str().unwrap()));
+            headers.insert(header.to_string(), json!(value.to_str().unwrap()));
           });
 
           let data = response.text().await.unwrap();
 
-          let body: serde_json::Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
-
-          let serialized = serde_json::to_string(&headers).unwrap();
-          let headers: serde_json::Value = serde_json::from_str(&serialized).unwrap_or(serde_json::Value::Null);
+          let body: Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
 
           let assigned = AssignedRequest {
             body,
@@ -255,7 +281,7 @@ impl Runnable for Request {
 
           let value = serde_json::to_value(assigned).unwrap();
 
-          responses.insert(key.to_owned(), value);
+          context.insert(key.to_owned(), value);
         }
       }
     }

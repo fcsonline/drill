@@ -8,14 +8,14 @@ pub use self::assign::Assign;
 pub use self::delay::Delay;
 pub use self::request::Request;
 
-use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 
 use std::fmt;
 
 #[async_trait]
 pub trait Runnable {
-  async fn execute(&self, context: &mut Context, responses: &mut Responses, reports: &mut Reports, pool: &mut Pool, config: &Config);
+  async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &mut Pool, config: &Config);
 }
 
 #[derive(Clone)]

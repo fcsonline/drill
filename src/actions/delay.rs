@@ -4,7 +4,7 @@ use tokio::time::delay_for;
 use yaml_rust::Yaml;
 
 use crate::actions::Runnable;
-use crate::benchmark::{Context, Pool, Reports, Responses};
+use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 
 use std::convert::TryFrom;
@@ -33,7 +33,7 @@ impl Delay {
 
 #[async_trait]
 impl Runnable for Delay {
-  async fn execute(&self, _context: &mut Context, _responses: &mut Responses, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
+  async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
     delay_for(Duration::from_secs(self.seconds as u64)).await;
 
     if !config.quiet {
