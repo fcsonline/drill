@@ -4,14 +4,12 @@ use crate::benchmark::Context;
 use crate::interpolator;
 use crate::reader;
 
-const NCONCURRENCY: i64 = 1;
 const NITERATIONS: i64 = 1;
 const NRAMPUP: i64 = 0;
 
 pub struct Config {
   pub base: String,
   pub concurrency: i64,
-  pub threads: usize,
   pub iterations: i64,
   pub relaxed_interpolations: bool,
   pub no_check_certificate: bool,
@@ -30,16 +28,18 @@ impl Config {
     let context: Context = Context::new();
     let interpolator = interpolator::Interpolator::new(&context);
 
-    let concurrency = read_i64_configuration(config_doc, &interpolator, "concurrency", NCONCURRENCY);
-    let threads = std::cmp::min(num_cpus::get(), concurrency as usize);
     let iterations = read_i64_configuration(config_doc, &interpolator, "iterations", NITERATIONS);
+    let concurrency = read_i64_configuration(config_doc, &interpolator, "concurrency", iterations);
     let rampup = read_i64_configuration(config_doc, &interpolator, "rampup", NRAMPUP);
     let base = read_str_configuration(config_doc, &interpolator, "base", "");
+
+    if concurrency > iterations {
+      panic!("The concurrency can not be higher than the number of iterations")
+    }
 
     Config {
       base,
       concurrency,
-      threads,
       iterations,
       relaxed_interpolations,
       no_check_certificate,

@@ -164,9 +164,9 @@ cargo build --release
 
 This is the list of all features supported by the current version of `drill`:
 
-- **Multi thread:** run your benchmarks setting as many concurrent threads as you want.
+- **Concurrency:** run your benchmarks choosing the number of concurrent iterations.
 - **Multi iterations:** specify the number of iterations you want to run the benchmark.
-- **Ramp-up:** specify the amount of time it will take `drill` to start all threads.
+- **Ramp-up:** specify the amount of time it will take `drill` to start all iterations.
 - **Delay:** introduce controlled delay between requests. Example: [assigns.yml](./example/assigns.yml)
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)

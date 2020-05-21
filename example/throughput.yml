@@ -1,8 +1,8 @@
 ---
 
-concurrency: 50
+concurrency: 50000
 base: 'http://localhost:9000'
-iterations: 1000
+iterations: 50000
 
 plan:
   - name: Fetch users
