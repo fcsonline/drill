@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time;
 
+use futures::stream::{self, StreamExt};
+
 use serde_json::{json, Value};
 use tokio::{runtime, time::delay_for};
 
@@ -19,44 +21,39 @@ pub type Context = HashMap<String, Value>;
 pub type Reports = Vec<Report>;
 pub type Pool = HashMap<String, Client>;
 
-async fn run_iterations(benchmark: Arc<Benchmark>, config: Arc<Config>, concurrency: i64) -> Vec<Report> {
-  let delay = config.rampup / config.concurrency;
-  delay_for(time::Duration::new((delay * concurrency) as u64, 0)).await;
+async fn run_iteration(benchmark: Arc<Benchmark>, config: Arc<Config>, iteration: i64) -> Vec<Report> {
+  let delay = config.rampup / config.iterations;
+  delay_for(time::Duration::new((delay * iteration) as u64, 0)).await;
 
-  let mut global_reports = Vec::new();
+  let mut context: Context = Context::new();
+  let mut reports: Vec<Report> = Vec::new();
 
-  let mut pool: Pool = Pool::new();
+  let mut pool: Pool = Pool::new(); // TODO: Share pool between all iterations
 
-  for iteration in 0..config.iterations {
-    let mut context: Context = Context::new();
-    let mut reports: Vec<Report> = Vec::new();
+  context.insert("iteration".to_string(), json!(iteration.to_string()));
+  context.insert("base".to_string(), json!(config.base.to_string()));
 
-    context.insert("iteration".to_string(), json!(iteration.to_string()));
-    context.insert("base".to_string(), json!(config.base.to_string()));
-
-    for item in benchmark.iter() {
-      item.execute(&mut context, &mut reports, &mut pool, &config).await;
-    }
-
-    global_reports.push(reports);
+  for item in benchmark.iter() {
+    item.execute(&mut context, &mut reports, &mut pool, &config).await;
   }
 
-  global_reports.concat()
+  reports
 }
 
 fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
-  l.iter().fold("".to_string(),
-                  |a,b| if !a.is_empty() {a+sep} else {a} + &b.to_string()
-                  )
+  l.iter().fold(
+    "".to_string(),
+    |a,b| if !a.is_empty() {a+sep} else {a} + &b.to_string()
+  )
 }
 
 pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
   let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec));
 
   if report_path_option.is_some() {
-    println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "threads".yellow(), "iterations".yellow());
+    println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow());
   } else {
-    println!("{} {}", "Threads".yellow(), config.threads.to_string().purple());
+    println!("{} {}", "Concurrency".yellow(), config.concurrency.to_string().purple());
     println!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple());
     println!("{} {}", "Rampup".yellow(), config.rampup.to_string().purple());
   }
@@ -64,7 +61,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
   println!("{} {}", "Base URL".yellow(), config.base.purple());
   println!();
 
-  let threads = config.threads;
+  let threads = std::cmp::min(num_cpus::get(), config.concurrency as usize);
   let mut rt = runtime::Builder::new().threaded_scheduler().enable_all().core_threads(threads).max_threads(threads).build().unwrap();
   rt.block_on(async {
     let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
@@ -72,21 +69,24 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
     include::expand_from_filepath(benchmark_path, &mut list, Some("plan"));
 
     let list_arc = Arc::new(list);
-    let mut children = vec![];
 
     if let Some(report_path) = report_path_option {
-      let reports = run_iterations(list_arc.clone(), config, 0).await;
+      let reports = run_iteration(list_arc.clone(), config, 0).await;
 
       writer::write_file(report_path, join(reports, ""));
 
       Ok(Vec::new())
     } else {
-      for index in 0..config.concurrency {
+      let children = (0..config.iterations).map(|iteration| {
         let list_clone = list_arc.clone();
         let config_clone = config.clone();
-        children.push(tokio::spawn(async move { run_iterations(list_clone, config_clone, index).await }));
-      }
-      let list_reports: Vec<Vec<Report>> = futures::future::join_all(children).await.into_iter().map(|x| x.unwrap()).collect();
+
+        run_iteration(list_clone, config_clone, iteration)
+      });
+
+      let buffered = stream::iter(children).buffer_unordered(config.concurrency as usize);
+      let list_reports: Vec<Vec<Report>> = buffered.collect::<Vec<_>>().await;
+
       Ok(list_reports)
     }
   })

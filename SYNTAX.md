@@ -25,10 +25,10 @@ plan:
 
 ### Benchmark main properties
 
-- `concurrency`: Number of concurrent iterations. (Optional, default: 1)
 - `base`: Base url for all relative URL's in your plan. (Optional)
-- `iterations`: Number of loops is going to do each thread (Optional, default: 1)
-- `rampup`: Amount of time it will take to start all threads. (Optional)
+- `iterations`: Number of loops is going to do (Optional, default: 1)
+- `concurrency`: Number of concurrent iterations. (Optional, default: max)
+- `rampup`: Amount of time it will take to start all iterations. (Optional)
 - `plan`: List of items to do in your benchmark. (Required)
 
 #### Plan items
