@@ -13,6 +13,7 @@ use yaml_rust::Yaml;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
+use crate::actions::{extract, extract_optional};
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
@@ -45,21 +46,21 @@ impl Request {
   }
 
   pub fn new(item: &Yaml, with_item: Option<Yaml>) -> Request {
-    let reference: Option<&str> = item["assign"].as_str();
-    let body: Option<&str> = item["request"]["body"].as_str();
-    let method = if let Some(v) = item["request"]["method"].as_str() {
+    let name = extract(item, "name");
+    let url = extract(&item["request"], "url");
+    let assign = extract_optional(item, "assign");
+
+    let method = if let Some(v) = extract_optional(&item["request"], "method") {
       v.to_string().to_uppercase()
     } else {
       "GET".to_string()
     };
 
-    if method == "POST" && body.is_none() {
-      if item["request"]["body"].as_hash().is_some() {
-        panic!("Body needs to be a string. Try adding quotes");
-      } else {
-        panic!("POST requests require a body attribute");
-      }
-    }
+    let body = if method == "POST" {
+      Some(extract(&item["request"], "body"))
+    } else {
+      None
+    };
 
     let mut headers = HashMap::new();
 
@@ -74,14 +75,14 @@ impl Request {
     }
 
     Request {
-      name: item["name"].as_str().unwrap().to_string(),
-      url: item["request"]["url"].as_str().unwrap().to_string(),
+      name: name.to_string(),
+      url: url.to_string(),
       time: 0.0,
       method,
       headers,
       body: body.map(str::to_string),
       with_item,
-      assign: reference.map(str::to_string),
+      assign: assign.map(str::to_string),
     }
   }
 
@@ -128,7 +129,7 @@ impl Request {
       interpolated_url
     };
 
-    let url = Url::parse(&interpolated_base_url).unwrap();
+    let url = Url::parse(&interpolated_base_url).expect("Invalid url!");
     let domain = format!("{}://{}:{}", url.scheme(), url.host_str().unwrap(), url.port().unwrap_or(0)); // Unique domain key for keep-alive
 
     let client = pool.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());

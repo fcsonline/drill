@@ -3,6 +3,7 @@ use colored::*;
 use tokio::time::delay_for;
 use yaml_rust::Yaml;
 
+use crate::actions::extract;
 use crate::actions::Runnable;
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
@@ -22,10 +23,11 @@ impl Delay {
   }
 
   pub fn new(item: &Yaml, _with_item: Option<Yaml>) -> Delay {
+    let name = extract(item, "name");
     let seconds = u64::try_from(item["delay"]["seconds"].as_i64().unwrap()).expect("Invalid number of seconds");
 
     Delay {
-      name: item["name"].as_str().unwrap().to_string(),
+      name: name.to_string(),
       seconds,
     }
   }

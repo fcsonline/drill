@@ -3,6 +3,7 @@ use colored::*;
 use serde_json::json;
 use yaml_rust::Yaml;
 
+use crate::actions::extract;
 use crate::actions::Runnable;
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
@@ -20,10 +21,14 @@ impl Assign {
   }
 
   pub fn new(item: &Yaml, _with_item: Option<Yaml>) -> Assign {
+    let name = extract(item, "name");
+    let key = extract(&item["assign"], "key");
+    let value = extract(&item["assign"], "value");
+
     Assign {
-      name: item["name"].as_str().unwrap().to_string(),
-      key: item["assign"]["key"].as_str().unwrap().to_string(),
-      value: item["assign"]["value"].as_str().unwrap().to_string(),
+      name: name.to_string(),
+      key: key.to_string(),
+      value: value.to_string(),
     }
   }
 }
