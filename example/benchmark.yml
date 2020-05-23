@@ -1,8 +1,11 @@
----
+# Example of a test plan with 100 iterations and ~25 requests each.
+# A plan with 2500 requests in total at 5 iterations at the same time,
+# and a rampup of 2 seconds.
 
-concurrency: 20
+---
 base: 'http://localhost:9000'
-iterations: 3
+iterations: 100
+concurrency: 5
 rampup: 2
 
 plan:
