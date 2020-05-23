@@ -1,8 +1,11 @@
----
+# Example of a test plan with 5 iterations and 4 requests each.
+# A plan with 50 requests in total at 3 iterations at the same time.
+# This is an example of how to interpolate the iteration number.
 
-concurrency: 3
+---
 base: 'http://localhost:9000'
-iterations: 2
+iterations: 5
+concurrency: 3
 
 plan:
   - name: "Fetch 1 - Iteration: {{ iteration }}"

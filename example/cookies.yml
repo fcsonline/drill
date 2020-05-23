@@ -1,6 +1,8 @@
----
+# Example of a test plan with 1 iteration and 7 requests.
+# This is an example of how to store information of previous
+# requests and used in next ones.
 
-concurrency: 1
+---
 base: 'http://localhost:9000'
 iterations: 1
 
