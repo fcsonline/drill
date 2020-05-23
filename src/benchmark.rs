@@ -64,24 +64,22 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
   let threads = std::cmp::min(num_cpus::get(), config.concurrency as usize);
   let mut rt = runtime::Builder::new().threaded_scheduler().enable_all().core_threads(threads).max_threads(threads).build().unwrap();
   rt.block_on(async {
-    let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
+    let mut benchmark: Benchmark = Benchmark::new();
 
-    include::expand_from_filepath(benchmark_path, &mut list, Some("plan"));
+    include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"));
 
-    let list_arc = Arc::new(list);
+    let benchmark = Arc::new(benchmark);
 
     if let Some(report_path) = report_path_option {
-      let reports = run_iteration(list_arc.clone(), config, 0).await;
+      let reports = run_iteration(benchmark.clone(), config, 0).await;
 
       writer::write_file(report_path, join(reports, ""));
 
       Ok(Vec::new())
     } else {
       let children = (0..config.iterations).map(|iteration| {
-        let list_clone = list_arc.clone();
-        let config_clone = config.clone();
 
-        run_iteration(list_clone, config_clone, iteration)
+        run_iteration(benchmark.clone(), config.clone(), iteration)
       });
 
       let buffered = stream::iter(children).buffer_unordered(config.concurrency as usize);

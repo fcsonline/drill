@@ -1,12 +1,13 @@
 use yaml_rust::Yaml;
 
-use crate::actions::{Request, Runnable};
+use crate::benchmark::Benchmark;
+use crate::actions::Request;
 
 pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && item["with_items_range"].as_hash().is_some()
 }
 
-pub fn expand(item: &Yaml, list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>) {
+pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
   if let Some(with_iter_items) = item["with_items_range"].as_hash() {
     let init = Yaml::Integer(1);
     let ystart = Yaml::String("start".into());
@@ -19,7 +20,7 @@ pub fn expand(item: &Yaml, list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>) {
 
     if stop > start && start > 0 {
       for i in (start..stop).step_by(step) {
-        list.push(Box::new(Request::new(item, Some(Yaml::Integer(i)))));
+        benchmark.push(Box::new(Request::new(item, Some(Yaml::Integer(i)))));
       }
     }
   }
@@ -28,18 +29,17 @@ pub fn expand(item: &Yaml, list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>) {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::actions::Runnable;
 
   #[test]
   fn expand_multi_range() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items_range:\n  start: 2\n  step: 2\n  stop: 20";
     let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
     let doc = &docs[0];
-    let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
+    let mut benchmark: Benchmark = Benchmark::new();
 
-    expand(&doc, &mut list);
+    expand(&doc, &mut benchmark);
 
     assert_eq!(is_that_you(&doc), true);
-    assert_eq!(list.len(), 10);
+    assert_eq!(benchmark.len(), 10);
   }
 }

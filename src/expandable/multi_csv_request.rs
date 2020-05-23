@@ -1,14 +1,15 @@
 use std::path::Path;
 use yaml_rust::Yaml;
 
-use crate::actions::{Request, Runnable};
+use crate::benchmark::Benchmark;
+use crate::actions::Request;
 use crate::reader;
 
 pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && (item["with_items_from_csv"].as_str().is_some() || item["with_items_from_csv"].as_hash().is_some())
 }
 
-pub fn expand(parent_path: &str, item: &Yaml, list: &mut Vec<Box<(dyn Runnable + Sync + Send)>>) {
+pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
   let (with_items_path, quote_char) = if let Some(with_items_path) = item["with_items_from_csv"].as_str() {
     (with_items_path, b'\"')
   } else if let Some(_with_items_hash) = item["with_items_from_csv"].as_hash() {
@@ -26,25 +27,24 @@ pub fn expand(parent_path: &str, item: &Yaml, list: &mut Vec<Box<(dyn Runnable +
   let with_items_file = reader::read_csv_file_as_yml(final_path, quote_char);
 
   for with_item in with_items_file {
-    list.push(Box::new(Request::new(item, Some(with_item))));
+    benchmark.push(Box::new(Request::new(item, Some(with_item))));
   }
 }
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::actions::Runnable;
 
   #[test]
   fn expand_multi() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: example/fixtures/users.csv";
     let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
     let doc = &docs[0];
-    let mut list: Vec<Box<(dyn Runnable + Sync + Send)>> = Vec::new();
+    let mut benchmark: Benchmark = Benchmark::new();
 
-    expand("./", &doc, &mut list);
+    expand("./", &doc, &mut benchmark);
 
     assert_eq!(is_that_you(&doc), true);
-    assert_eq!(list.len(), 2);
+    assert_eq!(benchmark.len(), 2);
   }
 }
