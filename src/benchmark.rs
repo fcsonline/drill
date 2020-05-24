@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time;
+use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
 
@@ -21,9 +21,14 @@ pub type Context = HashMap<String, Value>;
 pub type Reports = Vec<Report>;
 pub type Pool = HashMap<String, Client>;
 
+pub struct BenchmarkResult {
+  pub reports: Vec<Reports>,
+  pub duration: f64,
+}
+
 async fn run_iteration(benchmark: Arc<Benchmark>, config: Arc<Config>, iteration: i64) -> Vec<Report> {
   let delay = config.rampup / config.iterations;
-  delay_for(time::Duration::new((delay * iteration) as u64, 0)).await;
+  delay_for(Duration::new((delay * iteration) as u64, 0)).await;
 
   let mut context: Context = Context::new();
   let mut reports: Vec<Report> = Vec::new();
@@ -47,7 +52,7 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
   )
 }
 
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool) -> Result<Vec<Vec<Report>>, Vec<Vec<Report>>> {
+pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool) -> BenchmarkResult {
   let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec));
 
   if report_path_option.is_some() {
@@ -75,17 +80,23 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
 
       writer::write_file(report_path, join(reports, ""));
 
-      Ok(Vec::new())
+      BenchmarkResult {
+        reports: vec![],
+        duration: 0.0,
+      }
     } else {
-      let children = (0..config.iterations).map(|iteration| {
-
-        run_iteration(benchmark.clone(), config.clone(), iteration)
-      });
+      let children = (0..config.iterations).map(|iteration| run_iteration(benchmark.clone(), config.clone(), iteration));
 
       let buffered = stream::iter(children).buffer_unordered(config.concurrency as usize);
-      let list_reports: Vec<Vec<Report>> = buffered.collect::<Vec<_>>().await;
 
-      Ok(list_reports)
+      let begin = Instant::now();
+      let reports: Vec<Vec<Report>> = buffered.collect::<Vec<_>>().await;
+      let duration = begin.elapsed().as_secs_f64();
+
+      BenchmarkResult {
+        reports,
+        duration,
+      }
     }
   })
 }

@@ -15,7 +15,6 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::f64;
 use std::process;
-use std::time::Instant;
 
 fn main() {
   let matches = app_args();
@@ -29,19 +28,14 @@ fn main() {
   let quiet = matches.is_present("quiet");
   let nanosec = matches.is_present("nanosec");
 
-  let begin = Instant::now();
-  let list_reports_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec);
-  let duration = begin.elapsed().as_secs_f64();
+  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec);
+  let list_reports = benchmark_result.reports;
+  let duration = benchmark_result.duration;
 
-  match list_reports_result {
-    Ok(list_reports) => {
-      show_stats(&list_reports, stats_option, nanosec, duration);
-      compare_benchmark(&list_reports, compare_path_option, threshold_option);
+  show_stats(&list_reports, stats_option, nanosec, duration);
+  compare_benchmark(&list_reports, compare_path_option, threshold_option);
 
-      process::exit(0)
-    }
-    Err(_) => process::exit(1),
-  }
+  process::exit(0)
 }
 
 fn app_args<'a>() -> clap::ArgMatches<'a> {
