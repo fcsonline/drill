@@ -18,7 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.39"
 yaml-rust = "0.4.3"
 url = "2.1.1"
-linked-hash-map = "0.5.2"
+linked-hash-map = "0.5.3"
 tokio = { version = "0.2.20", features = ["rt-core", "rt-threaded", "time", "net", "io-driver"] }
 reqwest = { version = "0.10.4", features = ["cookies", "trust-dns"] }
 async-trait = "0.1.30"

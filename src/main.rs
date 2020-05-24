@@ -11,6 +11,7 @@ use crate::actions::Report;
 use clap::crate_version;
 use clap::{App, Arg};
 use colored::*;
+use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::f64;
 use std::process;
@@ -117,7 +118,7 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
     return;
   }
 
-  let mut group_by_name = HashMap::new();
+  let mut group_by_name = LinkedHashMap::new();
 
   for req in list_reports.concat() {
     group_by_name.entry(req.name.clone()).or_insert_with(Vec::new).push(req);
