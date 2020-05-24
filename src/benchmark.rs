@@ -27,8 +27,10 @@ pub struct BenchmarkResult {
 }
 
 async fn run_iteration(benchmark: Arc<Benchmark>, config: Arc<Config>, iteration: i64) -> Vec<Report> {
-  let delay = config.rampup / config.iterations;
-  delay_for(Duration::new((delay * iteration) as u64, 0)).await;
+  if config.rampup > 0 {
+    let delay = config.rampup / config.iterations;
+    delay_for(Duration::new((delay * iteration) as u64, 0)).await;
+  }
 
   let mut context: Context = Context::new();
   let mut reports: Vec<Report> = Vec::new();
