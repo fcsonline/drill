@@ -1,7 +1,7 @@
 use yaml_rust::Yaml;
 
-use crate::benchmark::Benchmark;
 use crate::actions::Request;
+use crate::benchmark::Benchmark;
 
 pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && item["with_items_range"].as_hash().is_some()
