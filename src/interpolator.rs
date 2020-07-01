@@ -35,6 +35,10 @@ impl<'a> Interpolator<'a> {
           return item;
         }
 
+        if let Some(item) = self.resolve_environment_interpolation(capture) {
+          return item;
+        }
+
         if strict {
           panic!("Unknown '{}' variable!", &capture);
         }
@@ -44,6 +48,13 @@ impl<'a> Interpolator<'a> {
         "".to_string()
       })
       .to_string()
+  }
+
+  fn resolve_environment_interpolation(&self, value: &str) -> Option<String> {
+    match std::env::vars().find(|tuple| tuple.0 == value) {
+      Some(tuple) => Some(tuple.1),
+      _ => None,
+    }
   }
 
   fn resolve_context_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
@@ -129,5 +140,17 @@ mod tests {
     let interpolated = interpolator.resolve(&url, true);
 
     assert_eq!(interpolated, "http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
+  }
+
+  #[test]
+  fn interpolates_environment_variables() {
+    std::env::set_var("FOO", "BAR");
+
+    let context: Context = Context::new();
+    let interpolator = Interpolator::new(&context);
+    let url = String::from("http://example.com/postalcode/{{ FOO }}");
+    let interpolated = interpolator.resolve(&url, true);
+
+    assert_eq!(interpolated, "http://example.com/postalcode/BAR");
   }
 }
