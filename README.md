@@ -89,6 +89,10 @@ plan:
     request:
       url: http://localhost:9000/api/users.json
 
+  - name: Interpolate environment variables
+    request:
+      url: http://localhost:9000/api/{{ EDITOR }}
+
   - name: Support for POST method
     request:
       url: /api/users
@@ -166,6 +170,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Delay:** introduce controlled delay between requests. Example: [assigns.yml](./example/assigns.yml)
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)
+- **Interpolate environment variables:** set environment variables, like `/api/users/{{ EDITOR }}`
 - **Request dependencies:** create dependencies between requests with `assign` and url interpolations.
 - **Split files:** organize your benchmarks in multiple files and include them.
 - **CSV support:** read CSV files and build N requests fill dynamic interpolations with CSV data.
