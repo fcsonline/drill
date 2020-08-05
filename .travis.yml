@@ -6,7 +6,8 @@ os:
   - osx
 
 rust:
-  - nightly
+  # FIXME: Enable again when rustfmt is available on nightly
+  # - nightly
   - stable
 
 before_script:
