@@ -35,7 +35,7 @@ impl Delay {
 
 #[async_trait]
 impl Runnable for Delay {
-  async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
+  async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     delay_for(Duration::from_secs(self.seconds as u64)).await;
 
     if !config.quiet {
