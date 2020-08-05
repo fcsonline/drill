@@ -16,7 +16,7 @@ use std::fmt;
 
 #[async_trait]
 pub trait Runnable {
-  async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &mut Pool, config: &Config);
+  async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config);
 }
 
 #[derive(Clone)]

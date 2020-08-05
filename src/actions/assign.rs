@@ -35,7 +35,7 @@ impl Assign {
 
 #[async_trait]
 impl Runnable for Assign {
-  async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &mut Pool, config: &Config) {
+  async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     if !config.quiet {
       println!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width = 25);
     }

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
@@ -19,14 +19,15 @@ use colored::*;
 pub type Benchmark = Vec<Box<(dyn Runnable + Sync + Send)>>;
 pub type Context = HashMap<String, Value>;
 pub type Reports = Vec<Report>;
-pub type Pool = HashMap<String, Client>;
+pub type PoolStore = HashMap<String, Client>;
+pub type Pool = Arc<Mutex<PoolStore>>;
 
 pub struct BenchmarkResult {
   pub reports: Vec<Reports>,
   pub duration: f64,
 }
 
-async fn run_iteration(benchmark: Arc<Benchmark>, config: Arc<Config>, iteration: i64) -> Vec<Report> {
+async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64) -> Vec<Report> {
   if config.rampup > 0 {
     let delay = config.rampup / config.iterations;
     delay_for(Duration::new((delay * iteration) as u64, 0)).await;
@@ -35,13 +36,11 @@ async fn run_iteration(benchmark: Arc<Benchmark>, config: Arc<Config>, iteration
   let mut context: Context = Context::new();
   let mut reports: Vec<Report> = Vec::new();
 
-  let mut pool: Pool = Pool::new(); // TODO: Share pool between all iterations
-
   context.insert("iteration".to_string(), json!(iteration.to_string()));
   context.insert("base".to_string(), json!(config.base.to_string()));
 
   for item in benchmark.iter() {
-    item.execute(&mut context, &mut reports, &mut pool, &config).await;
+    item.execute(&mut context, &mut reports, &pool, &config).await;
   }
 
   reports
@@ -72,13 +71,15 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
   let mut rt = runtime::Builder::new().threaded_scheduler().enable_all().core_threads(threads).max_threads(threads).build().unwrap();
   rt.block_on(async {
     let mut benchmark: Benchmark = Benchmark::new();
+    let pool_store: PoolStore = PoolStore::new();
 
     include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"));
 
     let benchmark = Arc::new(benchmark);
+    let pool = Arc::new(Mutex::new(pool_store));
 
     if let Some(report_path) = report_path_option {
-      let reports = run_iteration(benchmark.clone(), config, 0).await;
+      let reports = run_iteration(benchmark.clone(), pool.clone(), config, 0).await;
 
       writer::write_file(report_path, join(reports, ""));
 
@@ -87,7 +88,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
         duration: 0.0,
       }
     } else {
-      let children = (0..config.iterations).map(|iteration| run_iteration(benchmark.clone(), config.clone(), iteration));
+      let children = (0..config.iterations).map(|iteration| run_iteration(benchmark.clone(), pool.clone(), config.clone(), iteration));
 
       let buffered = stream::iter(children).buffer_unordered(config.concurrency as usize);
 

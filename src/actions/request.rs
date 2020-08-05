@@ -94,7 +94,7 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut Context, pool: &mut Pool, config: &Config) -> (Option<Response>, f64) {
+  async fn send_request(&self, context: &mut Context, pool: &Pool, config: &Config) -> (Option<Response>, f64) {
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -132,8 +132,6 @@ impl Request {
     let url = Url::parse(&interpolated_base_url).expect("Invalid url!");
     let domain = format!("{}://{}:{}", url.scheme(), url.host_str().unwrap(), url.port().unwrap_or(0)); // Unique domain key for keep-alive
 
-    let client = pool.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
-
     let interpolated_body;
 
     // Method
@@ -148,12 +146,19 @@ impl Request {
     };
 
     // Resolve the body
-    let request = if let Some(body) = self.body.as_ref() {
-      interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
+    let request = {
+      let mut pool2 = pool.lock().unwrap();
+      let client = pool2.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
 
-      client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
-    } else {
-      client.request(method, interpolated_base_url.as_str())
+      let request = if let Some(body) = self.body.as_ref() {
+        interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
+
+        client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
+      } else {
+        client.request(method, interpolated_base_url.as_str())
+      };
+
+      request
     };
 
     // Headers
@@ -234,7 +239,7 @@ fn yaml_to_json(data: Yaml) -> Value {
 
 #[async_trait]
 impl Runnable for Request {
-  async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &mut Pool, config: &Config) {
+  async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), yaml_to_json(self.with_item.clone().unwrap()));
     }
