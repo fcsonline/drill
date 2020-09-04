@@ -1,3 +1,5 @@
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use yaml_rust::Yaml;
 
 use crate::actions::Request;
@@ -19,7 +21,16 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
     let stop: i64 = with_iter_items.get(&ystop).unwrap_or(&init).as_i64().unwrap_or(1) + 1; // making stop inclusive
 
     if stop > start && start > 0 {
-      for i in (start..stop).step_by(step) {
+      let mut with_items: Vec<i64> = (start..stop).step_by(step).collect();
+
+      if let Some(shuffle) = item["shuffle"].as_bool() {
+        if shuffle {
+          let mut rng = thread_rng();
+          with_items.shuffle(&mut rng);
+        }
+      }
+
+      for i in with_items {
         benchmark.push(Box::new(Request::new(item, Some(Yaml::Integer(i)))));
       }
     }

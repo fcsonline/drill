@@ -56,6 +56,7 @@ plan:
   - name: Fetch some users by hash
     request:
       url: /api/users/{{ item.id }}
+    shuffle: true
     with_items:
       - { id: 70 }
       - { id: 73 }
@@ -72,6 +73,7 @@ plan:
   - name: Fetch some users from CSV
     request:
       url: /api/users/contacts/{{ item.id }}
+    shuffle: true
     with_items_from_csv: ./fixtures/users.csv
 
   - name: Fetch some users from CSV (alternate syntax)

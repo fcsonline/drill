@@ -73,6 +73,7 @@ plan:
     request:
       url: /api/users/contacts/{{ item.id }}
     with_items_from_csv: ./fixtures/users.csv
+    shuffle: true
 
   - name: POST some crafted JSONs stored in CSV
     request:

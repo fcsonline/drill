@@ -244,6 +244,7 @@ dependencies = [
  "lazy_static",
  "linked-hash-map",
  "num_cpus",
+ "rand",
  "regex",
  "reqwest",
  "serde",

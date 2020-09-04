@@ -1,3 +1,5 @@
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use yaml_rust::Yaml;
 
 use crate::actions::Request;
@@ -9,7 +11,16 @@ pub fn is_that_you(item: &Yaml) -> bool {
 
 pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
   if let Some(with_items) = item["with_items"].as_vec() {
-    for with_item in with_items {
+    let mut with_items_list = with_items.clone();
+
+    if let Some(shuffle) = item["shuffle"].as_bool() {
+      if shuffle {
+        let mut rng = thread_rng();
+        with_items_list.shuffle(&mut rng);
+      }
+    }
+
+    for with_item in with_items_list {
       benchmark.push(Box::new(Request::new(item, Some(with_item.clone()))));
     }
   }
