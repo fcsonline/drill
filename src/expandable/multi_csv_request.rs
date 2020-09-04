@@ -1,3 +1,5 @@
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use std::path::Path;
 use yaml_rust::Yaml;
 
@@ -18,13 +20,20 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
 
     (with_items_path, quote_char)
   } else {
-    panic!("WAT"); // Impossible case
+    unreachable!();
   };
 
   let with_items_filepath = Path::new(parent_path).with_file_name(with_items_path);
   let final_path = with_items_filepath.to_str().unwrap();
 
-  let with_items_file = reader::read_csv_file_as_yml(final_path, quote_char);
+  let mut with_items_file = reader::read_csv_file_as_yml(final_path, quote_char);
+
+  if let Some(shuffle) = item["shuffle"].as_bool() {
+    if shuffle {
+      let mut rng = thread_rng();
+      with_items_file.shuffle(&mut rng);
+    }
+  }
 
   for with_item in with_items_file {
     benchmark.push(Box::new(Request::new(item, Some(with_item))));
