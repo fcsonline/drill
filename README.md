@@ -168,7 +168,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Concurrency:** run your benchmarks choosing the number of concurrent iterations.
 - **Multi iterations:** specify the number of iterations you want to run the benchmark.
 - **Ramp-up:** specify the amount of time it will take `drill` to start all iterations.
-- **Delay:** introduce controlled delay between requests. Example: [assigns.yml](./example/assigns.yml)
+- **Delay:** introduce controlled delay between requests. Example: [assigns.yml](./example/delay.yml)
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)
 - **Interpolate environment variables:** set environment variables, like `/api/users/{{ EDITOR }}`
