@@ -56,7 +56,8 @@ impl Request {
       "GET".to_string()
     };
 
-    let body = if method == "POST" {
+    let body_verbs = vec!["POST", "PATCH", "PUT"];
+    let body = if body_verbs.contains(&method.as_str()) {
       Some(extract(&item["request"], "body"))
     } else {
       None
