@@ -35,8 +35,10 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
     }
   }
 
-  for with_item in with_items_file {
-    benchmark.push(Box::new(Request::new(item, Some(with_item))));
+  for (index, with_item) in with_items_file.iter().enumerate() {
+    let index = index as u32;
+
+    benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))));
   }
 }
 

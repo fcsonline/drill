@@ -54,7 +54,7 @@ pub fn expand_from_filepath(parent_path: &str, mut benchmark: &mut Benchmark, ac
     } else if actions::Assign::is_that_you(item) {
       benchmark.push(Box::new(actions::Assign::new(item, None)));
     } else if actions::Request::is_that_you(item) {
-      benchmark.push(Box::new(actions::Request::new(item, None)));
+      benchmark.push(Box::new(actions::Request::new(item, None, None)));
     } else {
       let mut out_str = String::new();
       let mut emitter = YamlEmitter::new(&mut out_str);

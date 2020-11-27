@@ -30,8 +30,10 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
         }
       }
 
-      for i in with_items {
-        benchmark.push(Box::new(Request::new(item, Some(Yaml::Integer(i)))));
+      for (index, value) in with_items.iter().enumerate() {
+        let index = index as u32;
+
+        benchmark.push(Box::new(Request::new(item, Some(Yaml::Integer(*value)), Some(index))));
       }
     }
   }

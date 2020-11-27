@@ -20,8 +20,10 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
       }
     }
 
-    for with_item in with_items_list {
-      benchmark.push(Box::new(Request::new(item, Some(with_item.clone()))));
+    for (index, with_item) in with_items_list.iter().enumerate() {
+      let index = index as u32;
+
+      benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))));
     }
   }
 }

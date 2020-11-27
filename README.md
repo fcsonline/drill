@@ -69,13 +69,13 @@ plan:
       - { id: 73 }
       - { id: 75 }
 
-  - name: Fetch some users from CSV
+  - name: Fetch some users from CSV, index {{ index }}
     request:
       url: /api/users/contacts/{{ item.id }}
     with_items_from_csv: ./fixtures/users.csv
     shuffle: true
 
-  - name: POST some crafted JSONs stored in CSV
+  - name: POST some crafted JSONs stored in CSV, index {{ index }}
     request:
       url: /api/transactions
       method: POST

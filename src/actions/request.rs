@@ -31,6 +31,7 @@ pub struct Request {
   headers: HashMap<String, String>,
   pub body: Option<String>,
   pub with_item: Option<Yaml>,
+  pub index: Option<u32>,
   pub assign: Option<String>,
 }
 
@@ -45,7 +46,7 @@ impl Request {
     item["request"].as_hash().is_some()
   }
 
-  pub fn new(item: &Yaml, with_item: Option<Yaml>) -> Request {
+  pub fn new(item: &Yaml, with_item: Option<Yaml>, index: Option<u32>) -> Request {
     let name = extract(item, "name");
     let url = extract(&item["request"], "url");
     let assign = extract_optional(item, "assign");
@@ -83,6 +84,7 @@ impl Request {
       headers,
       body: body.map(str::to_string),
       with_item,
+      index,
       assign: assign.map(str::to_string),
     }
   }
@@ -243,6 +245,10 @@ impl Runnable for Request {
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) {
     if self.with_item.is_some() {
       context.insert("item".to_string(), yaml_to_json(self.with_item.clone().unwrap()));
+    }
+
+    if self.index.is_some() {
+      context.insert("index".to_string(), json!(self.index.clone().unwrap()));
     }
 
     let (res, duration_ms) = self.send_request(context, pool, config).await;
