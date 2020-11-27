@@ -193,7 +193,7 @@ production environments.
 Full list of cli options, which is available under `drill --help`
 
 ```
-drill 0.7.0
+drill 0.7.1
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
