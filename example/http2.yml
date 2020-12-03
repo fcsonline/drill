@@ -1,0 +1,10 @@
+# Example of a test plan with http2 server
+
+---
+base: 'https://localhost:9443'
+iterations: 1
+
+plan:
+  - name: Fetch http2 endpoint
+    request:
+      url: /stream

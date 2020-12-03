@@ -4,6 +4,8 @@ const express = require('express');
 const bodyParser = require('body-parser')
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
+const { execSync } = require("child_process");
+const http2 = require('http2');
 
 const app = express();
 const delay = process.env.DELAY_MS || 0;
@@ -104,3 +106,41 @@ app.delete('/', function(req, res){
 
 app.listen(9000);
 console.log('Listening on port 9000...');
+
+const onRequest = (req, res) => {
+  if (output) {
+    process.stdout.write('H2');
+  }
+
+  res.end('HTTP2!');
+}
+
+const privkey = 'localhost-privkey.pem'
+const cert = 'localhost-cert.pem'
+
+// Generate certificates if they are not there
+if (!fs.existsSync(privkey) || !fs.existsSync(cert)) {
+  console.log('Generating certificates for http2...');
+
+  const command = "openssl req -x509 -newkey rsa:2048 -nodes -sha256 -subj '/CN=localhost' -keyout localhost-privkey.pem -out localhost-cert.pem > /dev/null 2>&1"
+
+  execSync(command, (error, stdout, stderr) => {
+    if (error) {
+      console.log(`error: ${error.message}`);
+      return;
+    }
+
+    if (stderr) {
+      console.log(`stderr: ${stderr}`);
+      return;
+    }
+  });
+}
+
+const server = http2.createSecureServer({
+  key: fs.readFileSync('localhost-privkey.pem'),
+  cert: fs.readFileSync('localhost-cert.pem')
+}, onRequest);
+
+server.listen(9443);
+console.log('Listening http2 on port 9443...');

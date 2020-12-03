@@ -12,7 +12,7 @@ Start a Node HTTP server from `server` directory in another terminal:
 
 ```
 cd example/server
-DELAY_MS=100 node server.js
+OUTPUT=true DELAY_MS=100 node server.js
 ```
 
 and then run:
@@ -29,7 +29,7 @@ Start a Node HTTP server from `server` directory in another terminal:
 ```
 cd example/server
 npm install
-node server.js
+OUTPUT=true node server.js
 ```
 
 and then run:
@@ -46,7 +46,7 @@ Start a Node HTTP server from `server` directory in another terminal:
 ```
 cd example/server
 npm install
-node server.js
+OUTPUT=true node server.js
 ```
 
 and then run:

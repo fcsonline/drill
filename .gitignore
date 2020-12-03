@@ -11,3 +11,4 @@
 
 # Example server
 example/server/node_modules
+example/server/*.pem
