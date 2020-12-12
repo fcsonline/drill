@@ -69,6 +69,14 @@ plan:
       - { id: 73 }
       - { id: 75 }
 
+  - name: Fetch some users by range, index {{ index }}
+    request:
+      url: /api/users/{{ item }}
+    with_items_range:
+      start: 70
+      step: 5
+      stop: 75
+
   - name: Fetch some users from CSV, index {{ index }}
     request:
       url: /api/users/contacts/{{ item.id }}
