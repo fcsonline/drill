@@ -8,7 +8,7 @@ static INTERPOLATION_PREFIX: &'static str = "{{";
 static INTERPOLATION_SUFFIX: &'static str = "}}";
 
 lazy_static! {
-  static ref INTERPOLATION_REGEX: Regex = {
+  pub static ref INTERPOLATION_REGEX: Regex = {
     let regexp = format!("{}{}{}", regex::escape(INTERPOLATION_PREFIX), r" *([a-zA-Z\-\._]+[a-zA-Z\-\._0-9]*) *", regex::escape(INTERPOLATION_SUFFIX));
 
     Regex::new(regexp.as_str()).unwrap()

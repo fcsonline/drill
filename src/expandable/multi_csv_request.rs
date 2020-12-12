@@ -3,6 +3,8 @@ use rand::thread_rng;
 use std::path::Path;
 use yaml_rust::Yaml;
 
+use crate::interpolator::INTERPOLATION_REGEX;
+
 use crate::actions::Request;
 use crate::benchmark::Benchmark;
 use crate::reader;
@@ -22,6 +24,10 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
   } else {
     unreachable!();
   };
+
+  if INTERPOLATION_REGEX.is_match(&with_items_path) {
+    panic!("Interpolations not supported in 'with_items_from_csv' property!");
+  }
 
   let with_items_filepath = Path::new(parent_path).with_file_name(with_items_path);
   let final_path = with_items_filepath.to_str().unwrap();
@@ -48,14 +54,25 @@ mod tests {
 
   #[test]
   fn expand_multi() {
-    let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: example/fixtures/users.csv";
+    let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: ./fixtures/users.csv";
     let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
-    expand("./", &doc, &mut benchmark);
+    expand("example/benchmark.yml", &doc, &mut benchmark);
 
     assert_eq!(is_that_you(&doc), true);
     assert_eq!(benchmark.len(), 2);
+  }
+
+  #[test]
+  #[should_panic]
+  fn runtime_expand() {
+    let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: ./fixtures/{{ memory }}.csv";
+    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let doc = &docs[0];
+    let mut benchmark: Benchmark = Benchmark::new();
+
+    expand("example/benchmark.yml", &doc, &mut benchmark);
   }
 }
