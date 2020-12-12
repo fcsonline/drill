@@ -2,6 +2,8 @@ use std::path::Path;
 use std::process;
 use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
+use crate::interpolator::INTERPOLATION_REGEX;
+
 use crate::actions;
 use crate::benchmark::Benchmark;
 use crate::expandable::{include, multi_csv_request, multi_iter_request, multi_request};
@@ -14,6 +16,11 @@ pub fn is_that_you(item: &Yaml) -> bool {
 
 pub fn expand(parent_path: &str, item: &Yaml, mut benchmark: &mut Benchmark) {
   let include_path = item["include"].as_str().unwrap();
+
+  if INTERPOLATION_REGEX.is_match(&include_path) {
+    panic!("Interpolations not supported in 'include' property!");
+  }
+
   let include_filepath = Path::new(parent_path).with_file_name(include_path);
   let final_path = include_filepath.to_str().unwrap();
 
@@ -61,5 +68,33 @@ pub fn expand_from_filepath(parent_path: &str, mut benchmark: &mut Benchmark, ac
       emitter.dump(item).unwrap();
       panic!("Unknown node:\n\n{}\n\n", out_str);
     }
+  }
+}
+
+mod tests {
+  use super::*;
+
+  #[test]
+  fn expand_include() {
+    let text = "---\nname: Include comment\ninclude: comments.yml";
+    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let doc = &docs[0];
+    let mut benchmark: Benchmark = Benchmark::new();
+
+    expand("example/benchmark.yml", &doc, &mut benchmark);
+
+    assert_eq!(is_that_you(&doc), true);
+    assert_eq!(benchmark.len(), 2);
+  }
+
+  #[test]
+  #[should_panic]
+  fn invalid_expand() {
+    let text = "---\nname: Include comment\ninclude: {{ memory }}.yml";
+    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let doc = &docs[0];
+    let mut benchmark: Benchmark = Benchmark::new();
+
+    expand("example/benchmark.yml", &doc, &mut benchmark);
   }
 }
