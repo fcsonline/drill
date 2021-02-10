@@ -217,10 +217,14 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -b, --benchmark <benchmark>    Sets the benchmark file
-    -c, --compare <compare>        Sets a compare file
-    -r, --report <report>          Sets a report file
-    -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
+    -b, --benchmark <benchmark>        Sets the benchmark file
+    -c, --compare <compare>            Sets a compare file
+    -p, --concurrency <concurrency>    Number of concurrent requests
+    -i, --iterations <iterations>      Total number of requests to perform
+    -e, --rampup <rampup>              Amount of time it takes to reach full concurrency
+    -r, --report <report>              Sets a report file
+    -t, --threshold <threshold>        Sets a threshold value in ms amongst the compared file
+    -u, --url <url>                    Base URL for requests
 
 ```
 
