@@ -6,8 +6,9 @@ use futures::stream::{self, StreamExt};
 
 use serde_json::{json, Value};
 use tokio::{runtime, time::delay_for};
+use yaml_rust::{yaml, Yaml};
 
-use crate::actions::{Report, Runnable};
+use crate::actions::{Report, Request, Runnable};
 use crate::config::Config;
 use crate::expandable::include;
 use crate::writer;
@@ -22,12 +23,29 @@ pub type Reports = Vec<Report>;
 pub type PoolStore = HashMap<String, Client>;
 pub type Pool = Arc<Mutex<PoolStore>>;
 
+// represents un-validated user inputs
+pub struct BenchmarkOptions<'a> {
+  pub benchmark_path_option: Option<&'a str>,
+  pub report_path_option: Option<&'a str>,
+  pub relaxed_interpolations: bool,
+  pub no_check_certificate: bool,
+  pub stats: bool,
+  pub compare_path_option: Option<&'a str>,
+  pub threshold_option: Option<f64>,
+  pub quiet: bool,
+  pub nanosec: bool,
+  pub concurrency_option: Option<usize>,
+  pub iterations_option: Option<usize>,
+  pub base_url_option: Option<&'a str>,
+  pub rampup_option: Option<usize>,
+}
+
 pub struct BenchmarkResult {
   pub reports: Vec<Reports>,
   pub duration: f64,
 }
 
-async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64) -> Vec<Report> {
+async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: usize) -> Vec<Report> {
   if config.rampup > 0 {
     let delay = config.rampup / config.iterations;
     delay_for(Duration::new((delay * iteration) as u64, 0)).await;
@@ -53,10 +71,11 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
   )
 }
 
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool) -> BenchmarkResult {
-  let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec));
+pub fn execute(options: &BenchmarkOptions) -> BenchmarkResult {
+  // prepare config
+  let config = Arc::new(Config::new(&options));
 
-  if report_path_option.is_some() {
+  if options.report_path_option.is_some() {
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow());
   } else {
     println!("{} {}", "Concurrency".yellow(), config.concurrency.to_string().purple());
@@ -73,12 +92,22 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
     let mut benchmark: Benchmark = Benchmark::new();
     let pool_store: PoolStore = PoolStore::new();
 
-    include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"));
+    if let Some(benchmark_path) = options.benchmark_path_option {
+      include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"));
+    } else {
+      // if no benchmark plan is provided. then default to requesting the baseUrl itself.
+      let mut default_item = yaml::Hash::new();
+      default_item.insert(Yaml::from_str("name"), Yaml::from_str("Default"));
+      let mut url_item = yaml::Hash::new();
+      url_item.insert(Yaml::from_str("url"), Yaml::from_str("/"));
+      default_item.insert(Yaml::from_str("request"), Yaml::Hash(url_item));
+      benchmark.push(Box::new(Request::new(&Yaml::Hash(default_item), None, None)));
+    }
 
     let benchmark = Arc::new(benchmark);
     let pool = Arc::new(Mutex::new(pool_store));
 
-    if let Some(report_path) = report_path_option {
+    if let Some(report_path) = options.report_path_option {
       let reports = run_iteration(benchmark.clone(), pool.clone(), config, 0).await;
 
       writer::write_file(report_path, join(reports, ""));

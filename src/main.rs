@@ -8,6 +8,7 @@ mod reader;
 mod writer;
 
 use crate::actions::Report;
+use crate::benchmark::BenchmarkOptions;
 use clap::crate_version;
 use clap::{App, Arg};
 use colored::*;
@@ -17,23 +18,48 @@ use std::f64;
 use std::process;
 
 fn main() {
+  // validate user command line input
   let matches = app_args();
-  let benchmark_file = matches.value_of("benchmark").unwrap();
-  let report_path_option = matches.value_of("report");
-  let stats_option = matches.is_present("stats");
-  let compare_path_option = matches.value_of("compare");
-  let threshold_option = matches.value_of("threshold");
-  let no_check_certificate = matches.is_present("no-check-certificate");
-  let relaxed_interpolations = matches.is_present("relaxed-interpolations");
-  let quiet = matches.is_present("quiet");
-  let nanosec = matches.is_present("nanosec");
+  let options = BenchmarkOptions {
+    benchmark_path_option: matches.value_of("benchmark"),
+    report_path_option: matches.value_of("report"),
+    stats: matches.is_present("stats"),
+    compare_path_option: matches.value_of("compare"),
+    threshold_option: if let Some(threshold) = matches.value_of("threshold") {
+      Some(threshold.parse::<f64>().expect("Command line parameter 'threshold' value must be a positive numerical value"))
+    } else {
+      None
+    },
+    no_check_certificate: matches.is_present("no-check-certificate"),
+    relaxed_interpolations: matches.is_present("relaxed-interpolations"),
+    quiet: matches.is_present("quiet"),
+    nanosec: matches.is_present("nanosec"),
+    concurrency_option: if let Some(concurrency) = matches.value_of("concurrency") {
+      Some(concurrency.parse::<usize>().expect("Command line parameter 'concurrency' value must be a positive integer"))
+    } else {
+      None
+    },
+    base_url_option: matches.value_of("url"),
+    iterations_option: if let Some(iterations) = matches.value_of("iterations") {
+      Some(iterations.parse::<usize>().expect("Command line parameter 'iterations' value must be a positive integer"))
+    } else {
+      None
+    },
+    rampup_option: if let Some(rampup) = matches.value_of("rampup") {
+      Some(rampup.parse::<usize>().expect("Command line parameter 'rampup' value must be a positive integer"))
+    } else {
+      None
+    },
+  };
 
-  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec);
+  // run the benchmark
+  let benchmark_result = benchmark::execute(&options);
+
+  // process reports and statistics
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
-
-  show_stats(&list_reports, stats_option, nanosec, duration);
-  compare_benchmark(&list_reports, compare_path_option, threshold_option);
+  show_stats(&list_reports, options.stats, options.nanosec, duration);
+  compare_benchmark(&list_reports, options.compare_path_option, options.threshold_option);
 
   process::exit(0)
 }
@@ -42,7 +68,7 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
   App::new("drill")
     .version(crate_version!())
     .about("HTTP load testing application written in Rust inspired by Ansible syntax")
-    .arg(Arg::with_name("benchmark").help("Sets the benchmark file").long("benchmark").short("b").required(true).takes_value(true))
+    .arg(Arg::with_name("benchmark").help("Sets the benchmark file").long("benchmark").short("b").required_unless("url").takes_value(true))
     .arg(Arg::with_name("stats").short("s").long("stats").help("Shows request statistics").takes_value(false).conflicts_with("compare"))
     .arg(Arg::with_name("report").short("r").long("report").help("Sets a report file").takes_value(true).conflicts_with("compare"))
     .arg(Arg::with_name("compare").short("c").long("compare").help("Sets a compare file").takes_value(true).conflicts_with("report"))
@@ -51,6 +77,10 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("no-check-certificate").long("no-check-certificate").help("Disables SSL certification check. (Not recommended)").takes_value(false))
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
+    .arg(Arg::with_name("concurrency").short("p").long("concurrency").help("Sets the number of parallel/concurrent requests (overrides benchmark file)").takes_value(true))
+    .arg(Arg::with_name("iterations").short("i").long("iterations").help("Sets the total number of requests to perform (overrides benchmark file)").takes_value(true))
+    .arg(Arg::with_name("url").short("u").long("url").help("Sets the base URL for requests (overrides benchmark file)").required_unless("benchmark").takes_value(true))
+    .arg(Arg::with_name("rampup").short("e").long("rampup").help("Sets the amount of time it takes to reach full concurrency (overrides benchmark file)").takes_value(true))
     .get_matches()
 }
 
@@ -146,7 +176,7 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
   println!("{:width2$} {}", "Sample standard deviation".yellow(), format_time(global_stats.stdev_duration, nanosec).purple(), width2 = 25);
 }
 
-fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<&str>) {
+fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<f64>) {
   if let Some(compare_path) = compare_path_option {
     if let Some(threshold) = threshold_option {
       let compare_result = checker::compare(&list_reports, compare_path, threshold);
