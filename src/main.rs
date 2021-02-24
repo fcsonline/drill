@@ -28,6 +28,9 @@ fn main() {
   let quiet = matches.is_present("quiet");
   let nanosec = matches.is_present("nanosec");
 
+  #[cfg(windows)]
+  let _ = control::set_virtual_terminal(true);
+
   let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec);
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
