@@ -182,7 +182,7 @@ impl Request {
     }
 
     let begin = Instant::now();
-    let response_result = request.headers(headers).timeout(Duration::from_secs(10)).send().await;
+    let response_result = request.headers(headers).timeout(Duration::from_secs(config.timeout)).send().await;
     let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
 
     match response_result {
