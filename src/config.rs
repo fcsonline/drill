@@ -16,10 +16,11 @@ pub struct Config {
   pub rampup: i64,
   pub quiet: bool,
   pub nanosec: bool,
+  pub timeout: u64,
 }
 
 impl Config {
-  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool) -> Config {
+  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64) -> Config {
     let config_file = reader::read_file(path);
 
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
@@ -46,6 +47,7 @@ impl Config {
       rampup,
       quiet,
       nanosec,
+      timeout,
     }
   }
 }

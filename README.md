@@ -205,23 +205,23 @@ drill 0.7.1
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
-    drill [OPTIONS] --benchmark <benchmark>
+    drill [FLAGS] [OPTIONS] --benchmark <benchmark>
 
 FLAGS:
-    -h, --help       Prints help information
-        --no-check-certificate    Disables SSL certification check. (Not recommended)
+    -h, --help                      Prints help information
+    -n, --nanosec                   Shows statistics in nanoseconds
+        --no-check-certificate      Disables SSL certification check. (Not recommended)
+    -q, --quiet                     Disables output
         --relaxed-interpolations    Do not panic if an interpolation is not present. (Not recommended)
-    -s, --stats      Shows request statistics
-    -q, --quiet      Skips output of individual request statistics
-    -n, --nanosec    Shows statistics in nanoseconds
-    -V, --version    Prints version information
+    -s, --stats                     Shows request statistics
+    -V, --version                   Prints version information
 
 OPTIONS:
     -b, --benchmark <benchmark>    Sets the benchmark file
     -c, --compare <compare>        Sets a compare file
     -r, --report <report>          Sets a report file
     -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
-
+    -o, --timeout <timeout>        Set timeout in seconds for all requests
 ```
 
 ## Roadmap
