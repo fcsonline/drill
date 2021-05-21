@@ -151,7 +151,27 @@ impl Request {
     // Resolve the body
     let request = {
       let mut pool2 = pool.lock().unwrap();
-      let client = pool2.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
+      let client = pool2.entry(domain).or_insert_with(|| {
+        let mut builder = ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate);
+        if let Some(ref pem) = config.maybe_cert {
+          let identity = make_identity(pem);
+          builder = builder.identity(identity);
+        }
+
+        if let Some(ref cacert) = config.maybe_cacert {
+          let cacert = match reqwest::Certificate::from_pem(&cacert) {
+            Ok(cert) => cert,
+            Err(e) => {
+              eprintln!("Reqwest certificate error: {}", e);
+              std::process::exit(-1);
+            }
+          };
+
+          builder = builder.add_root_certificate(cacert);
+        }
+
+        builder.build().unwrap()
+      });
 
       let request = if let Some(body) = self.body.as_ref() {
         interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
@@ -297,6 +317,31 @@ impl Runnable for Request {
           context.insert(key.to_owned(), value);
         }
       }
+    }
+  }
+}
+
+fn make_identity(pem: &Vec<u8>) -> reqwest::Identity {
+  fn make_der(pem: &Vec<u8>) -> Result<Vec<u8>, openssl::error::ErrorStack> {
+    let key = openssl::pkey::PKey::private_key_from_pem(&pem)?;
+    let crt = openssl::x509::X509::from_pem(&pem)?;
+
+    let pkcs12_builder = openssl::pkcs12::Pkcs12::builder();
+    let pkcs12 = pkcs12_builder.build("", "client crt", &key, &crt)?;
+    pkcs12.to_der()
+  }
+
+  match make_der(&pem) {
+    Ok(der) => match reqwest::Identity::from_pkcs12_der(&der, "") {
+      Ok(identity) => identity,
+      Err(e) => {
+        eprintln!("Reqwest ssl error: {}", e);
+        std::process::exit(-1)
+      }
+    },
+    Err(e) => {
+      eprintln!("Openssl error: {}", e);
+      std::process::exit(-1);
     }
   }
 }

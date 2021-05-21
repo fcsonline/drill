@@ -27,11 +27,13 @@ fn main() {
   let relaxed_interpolations = matches.is_present("relaxed-interpolations");
   let quiet = matches.is_present("quiet");
   let nanosec = matches.is_present("nanosec");
+  let cert = matches.value_of("cert");
+  let cacert = matches.value_of("cacert");
 
   #[cfg(windows)]
   let _ = control::set_virtual_terminal(true);
 
-  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec);
+  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, cert, cacert, quiet, nanosec);
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
@@ -54,6 +56,8 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("no-check-certificate").long("no-check-certificate").help("Disables SSL certification check. (Not recommended)").takes_value(false))
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
+    .arg(Arg::with_name("cert").help("Use the specified client certificate (analogous to curl --cert)").long("cert").required(false).takes_value(true))
+    .arg(Arg::with_name("cacert").help("Use the specified certificate to verify the peer (analogous to curl --cacert)").long("cacert").required(false).takes_value(true))
     .get_matches()
 }
 
