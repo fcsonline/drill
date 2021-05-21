@@ -71,6 +71,7 @@ pub fn expand_from_filepath(parent_path: &str, mut benchmark: &mut Benchmark, ac
   }
 }
 
+#[cfg(test)]
 mod tests {
   use super::*;
 
