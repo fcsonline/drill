@@ -295,7 +295,7 @@ dependencies = [
  "lazy_static",
  "linked-hash-map",
  "num_cpus",
- "openssl-sys",
+ "openssl",
  "rand 0.7.3",
  "regex",
  "reqwest",

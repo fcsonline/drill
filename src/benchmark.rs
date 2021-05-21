@@ -53,8 +53,8 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
   )
 }
 
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<&str>, verbose: bool) -> BenchmarkResult {
-  let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose));
+pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, maybe_cert_path: Option<&str>, maybe_cacert_path: Option<&str>, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<&str>, verbose: bool) -> BenchmarkResult {
+  let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, maybe_cert_path, maybe_cacert_path, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose));
 
   if report_path_option.is_some() {
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow());
