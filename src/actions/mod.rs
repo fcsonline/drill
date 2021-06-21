@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use yaml_rust::Yaml;
 
+mod assert;
 mod assign;
 mod delay;
 mod request;
 
+pub use self::assert::Assert;
 pub use self::assign::Assign;
 pub use self::delay::Delay;
 pub use self::request::Request;

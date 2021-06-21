@@ -21,6 +21,11 @@ plan:
       url: /api/account
     assign: foo
 
+  - name: Assert values
+    assert:
+      key: foo.body.manager_id
+      value: "73"
+
   - name: "Fetch 4 - Iteration: {{ iteration }}"
     request:
       url: /api/users/{{ foo.body.manager_id }}
