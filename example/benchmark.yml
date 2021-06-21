@@ -62,6 +62,11 @@ plan:
       - { id: 73 }
       - { id: 75 }
 
+  - name: Assert values
+    assert:
+      key: bar
+      value: "2"
+
   - name: Fetch some users by range, index {{ index }}
     request:
       url: /api/users/{{ item }}
