@@ -2,11 +2,12 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-use colored::*;
+use colored::Colorize;
 use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
 };
+use std::fmt::Write;
 use url::Url;
 use yaml_rust::Yaml;
 
@@ -149,7 +150,7 @@ impl Request {
     };
 
     // Resolve the body
-    let request = {
+    let (client, request) = {
       let mut pool2 = pool.lock().unwrap();
       let client = pool2.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
 
@@ -161,7 +162,7 @@ impl Request {
         client.request(method, interpolated_base_url.as_str())
       };
 
-      request
+      (client.clone(), request)
     };
 
     // Headers
@@ -181,13 +182,20 @@ impl Request {
       headers.insert(HeaderName::from_bytes(key.as_bytes()).unwrap(), HeaderValue::from_str(&interpolated_header).unwrap());
     }
 
+    let request_builder = request.headers(headers).timeout(Duration::from_secs(config.timeout));
+    let request = request_builder.build().expect("Cannot create request");
+
+    if config.verbose {
+      log_request(&request);
+    }
+
     let begin = Instant::now();
-    let response_result = request.headers(headers).timeout(Duration::from_secs(config.timeout)).send().await;
+    let response_result = client.execute(request).await;
     let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
 
     match response_result {
       Err(e) => {
-        if !config.quiet {
+        if !config.quiet || config.verbose {
           println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
         }
         (None, duration_ms)
@@ -253,6 +261,12 @@ impl Runnable for Request {
 
     let (res, duration_ms) = self.send_request(context, pool, config).await;
 
+    let log_message_response = if config.verbose {
+      Some(log_message_response(&res, duration_ms))
+    } else {
+      None
+    };
+
     match res {
       None => reports.push(Report {
         name: self.name.to_owned(),
@@ -276,7 +290,7 @@ impl Runnable for Request {
           context.insert("cookies".to_string(), json!(cookies));
         }
 
-        if let Some(ref key) = self.assign {
+        let data = if let Some(ref key) = self.assign {
           let mut headers = Map::new();
 
           response.headers().iter().for_each(|(header, value)| {
@@ -295,8 +309,46 @@ impl Runnable for Request {
           let value = serde_json::to_value(assigned).unwrap();
 
           context.insert(key.to_owned(), value);
-        }
+
+          Some(data)
+        } else {
+          None
+        };
+
+        log_message_response.map(|msg| log_response(msg, &data));
       }
     }
   }
+}
+
+fn log_request(request: &reqwest::Request) {
+  let mut message = String::new();
+  write!(message, "{}", ">>>".bold().green()).unwrap();
+  write!(message, " {} {},", "URL:".bold(), request.url().to_string()).unwrap();
+  write!(message, " {} {},", "METHOD:".bold(), request.method().to_string()).unwrap();
+  write!(message, " {} {}", "HEADERS:".bold(), format!("{:?}", request.headers())).unwrap();
+  println!("{}", message);
+}
+
+fn log_message_response(response: &Option<reqwest::Response>, duration_ms: f64) -> String {
+  let mut message = String::new();
+  match response {
+    Some(response) => {
+      write!(message, " {} {},", "URL:".bold(), response.url().to_string()).unwrap();
+      write!(message, " {} {},", "STATUS:".bold(), response.status()).unwrap();
+      write!(message, " {} {}", "HEADERS:".bold(), format!("{:?}", response.headers())).unwrap();
+      write!(message, " {} {:.4} ms,", "DURATION:".bold(), duration_ms).unwrap();
+    }
+    None => {
+      message = String::from("No response from server!");
+    }
+  }
+  message
+}
+
+fn log_response(log_message_response: String, body: &Option<String>) {
+  let mut message = String::new();
+  write!(message, "{}{}", "<<<".bold().green(), log_message_response).unwrap();
+  body.as_ref().map(|body| write!(message, " {} {:?}", "BODY:".bold(), body).unwrap());
+  println!("{}", message);
 }
