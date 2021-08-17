@@ -27,10 +27,11 @@ fn main() {
   let quiet = matches.is_present("quiet");
   let nanosec = matches.is_present("nanosec");
   let timeout = matches.value_of("timeout");
+  let verbose = matches.is_present("verbose");
   #[cfg(windows)]
   let _ = control::set_virtual_terminal(true);
 
-  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout);
+  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose);
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
@@ -54,6 +55,7 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
     .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests").takes_value(true))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
+    .arg(Arg::with_name("verbose").short("v").long("verbose").help("Toogle verbose output").takes_value(false))
     .get_matches()
 }
 
