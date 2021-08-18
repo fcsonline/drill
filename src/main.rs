@@ -13,7 +13,6 @@ use clap::{App, Arg};
 use colored::*;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
-use std::f64;
 use std::process;
 
 fn main() {
@@ -81,7 +80,9 @@ fn compute_stats(sub_reports: &[Report]) -> DrillStats {
 
   durations.sort_by(|a, b| a.partial_cmp(b).unwrap());
   let durlen = durations.len();
-  let median_duration = if durlen % 2 == 0 {
+  let median_duration = if durlen == 0 {
+    f64::NAN
+  } else if durlen % 2 == 0 {
     durations[durlen / 2]
   } else if durlen > 1 {
     (durations[durlen / 2] + durations[durlen / 2 + 1]) / 2f64
