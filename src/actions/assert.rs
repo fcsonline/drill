@@ -46,7 +46,7 @@ impl Runnable for Assert {
     let stored = interpolator.resolve(&eval, true);
     let assertion = json!(self.value.to_owned());
 
-    if *stored != assertion {
+    if !stored.eq(&assertion) {
       panic!("Assertion missmatched: {} != {}", stored, assertion);
     }
   }
