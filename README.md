@@ -221,6 +221,7 @@ FLAGS:
         --relaxed-interpolations    Do not panic if an interpolation is not present. (Not recommended)
     -s, --stats                     Shows request statistics
     -V, --version                   Prints version information
+    -v, --verbose                   Toogle verbose output
 
 OPTIONS:
     -b, --benchmark <benchmark>    Sets the benchmark file
