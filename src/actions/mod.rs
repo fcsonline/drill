@@ -4,11 +4,13 @@ use yaml_rust::Yaml;
 mod assert;
 mod assign;
 mod delay;
+mod exec;
 mod request;
 
 pub use self::assert::Assert;
 pub use self::assign::Assign;
 pub use self::delay::Delay;
+pub use self::exec::Exec;
 pub use self::request::Request;
 
 use crate::benchmark::{Context, Pool, Reports};

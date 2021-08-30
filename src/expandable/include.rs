@@ -58,6 +58,8 @@ pub fn expand_from_filepath(parent_path: &str, mut benchmark: &mut Benchmark, ac
       include::expand(parent_path, item, &mut benchmark);
     } else if actions::Delay::is_that_you(item) {
       benchmark.push(Box::new(actions::Delay::new(item, None)));
+    } else if actions::Exec::is_that_you(item) {
+      benchmark.push(Box::new(actions::Exec::new(item, None)));
     } else if actions::Assign::is_that_you(item) {
       benchmark.push(Box::new(actions::Assign::new(item, None)));
     } else if actions::Assert::is_that_you(item) {

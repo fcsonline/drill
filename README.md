@@ -136,6 +136,11 @@ plan:
       method: DELETE
       url: /
 
+  - name: Exec external commands
+    exec:
+      command: "echo '{{ foo.body }}' | jq .phones[0] | tr -d '\"'"
+    assign: baz
+
   - name: Custom headers
     request:
       url: /admin
@@ -185,6 +190,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)
 - **Interpolate environment variables:** set environment variables, like `/api/users/{{ EDITOR }}`
+- **Executions:** execute remote commands with test plan data.
 - **Assertions:** assert values during the test plan. Example: [iterations.yml](./example/iterations.yml)
 - **Request dependencies:** create dependencies between requests with `assign` and url interpolations.
 - **Split files:** organize your benchmarks in multiple files and include them.

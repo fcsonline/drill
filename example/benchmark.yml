@@ -41,6 +41,7 @@ plan:
     assign:
       key: bar
       value: "2"
+
   - name: Fetch user from assign
     request:
       url: /api/users/{{ bar }}
@@ -66,6 +67,16 @@ plan:
     assert:
       key: bar
       value: "2"
+
+  - name: Exec external commands
+    exec:
+      command: "echo '{{ foo.body }}' | jq .phones[0] | tr -d '\"'"
+    assign: baz
+
+  - name: Assert external execution
+    assert:
+      key: baz
+      value: "+44 1234567"
 
   - name: Fetch some users by range, index {{ index }}
     request:
