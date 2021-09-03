@@ -28,7 +28,7 @@ rand = "0.7.3"
 
 # Add openssl-sys as a direct dependency so it can be cross compiled to
 # x86_64-unknown-linux-musl using the "vendored" feature below
-openssl-sys = "*"
+openssl-sys = "0.9.66"
 
 [features]
 # Force openssl-sys to staticly link in the openssl library. Necessary when
