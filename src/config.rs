@@ -9,6 +9,7 @@ const NRAMPUP: i64 = 0;
 
 pub struct Config {
   pub base: String,
+  pub doc: Yaml,
   pub concurrency: i64,
   pub iterations: i64,
   pub relaxed_interpolations: bool,
@@ -22,7 +23,7 @@ pub struct Config {
 
 impl Config {
   pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool) -> Config {
-    let config_file = reader::read_file(path);
+    let config_file = reader::read_file(path).expect("Could not parse configuration");
 
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
     let config_doc = &config_docs[0];
@@ -41,6 +42,7 @@ impl Config {
 
     Config {
       base,
+      doc: config_doc.to_owned(),
       concurrency,
       iterations,
       relaxed_interpolations,

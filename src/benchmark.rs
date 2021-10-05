@@ -73,7 +73,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
     let mut benchmark: Benchmark = Benchmark::new();
     let pool_store: PoolStore = PoolStore::new();
 
-    include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"));
+    include::expand_from_config(&config, benchmark_path, &mut benchmark, Some("plan"));
 
     let benchmark = Arc::new(benchmark);
     let pool = Arc::new(Mutex::new(pool_store));

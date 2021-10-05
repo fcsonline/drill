@@ -1,25 +1,41 @@
-use std::fs::File;
-use std::io::prelude::*;
 use std::path::Path;
+use std::{error::Error, io::prelude::*};
+use std::{fs::File, io};
 
-pub fn read_file(filepath: &str) -> String {
-  // Create a path to the desired file
-  let path = Path::new(filepath);
-  let display = path.display();
-
-  // Open the path in read-only mode, returns `io::Result<File>`
-  let mut file = match File::open(&path) {
-    Err(why) => panic!("couldn't open {}: {}", display, why),
-    Ok(file) => file,
-  };
-
-  // Read the file contents into a string, returns `io::Result<usize>`
+/// Read the given file into a string
+/// Supports '-' to denote stdin
+pub fn read_file(filepath: &str) -> Result<String, String> {
   let mut content = String::new();
-  if let Err(why) = file.read_to_string(&mut content) {
-    panic!("couldn't read {}: {}", display, why);
-  }
+  if filepath != "-" {
+    // Create a path to the desired file
+    let path = Path::new(filepath);
+    let display = path.display();
 
-  content
+    // Open the path in read-only mode, returns `io::Result<File>`
+    let mut file = File::open(&path).map_err(|e| format!("couldn't open {}: {}", display, e))?;
+
+    // Read the file contents into a string, returns `io::Result<usize>`
+    if let Err(why) = file.read_to_string(&mut content) {
+      panic!("couldn't read {}: {}", display, why);
+    }
+    Ok(content)
+  } else {
+    //Read from stdin
+    loop {
+      match io::stdin().read_line(&mut content) {
+        Ok(len) => {
+          if len == 0 {
+            break;
+          }
+        }
+        Err(error) => {
+          return Err(format!("error: {}", error));
+        }
+      }
+    }
+    println!("{}", content);
+    Ok(content)
+  }
 }
 
 // TODO: Try to split this fn into two
