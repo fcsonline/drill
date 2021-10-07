@@ -33,7 +33,6 @@ pub fn read_file(filepath: &str) -> Result<String, String> {
         }
       }
     }
-    println!("{}", content);
     Ok(content)
   }
 }
