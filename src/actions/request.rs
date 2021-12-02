@@ -152,7 +152,19 @@ impl Request {
     // Resolve the body
     let (client, request) = {
       let mut pool2 = pool.lock().unwrap();
-      let client = pool2.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
+      let client = pool2.entry(domain).or_insert_with(|| {
+        let builder = ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate);
+
+        let proxied_builder = if config.proxy.is_empty() {
+          builder.no_proxy()
+        } else {
+          let proxy = reqwest::Proxy::all(&config.proxy).expect("Unable to build proxy connector");
+
+          builder.proxy(proxy)
+        };
+
+        proxied_builder.build().unwrap()
+      });
 
       let request = if let Some(body) = self.body.as_ref() {
         interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
