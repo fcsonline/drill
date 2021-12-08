@@ -2,7 +2,7 @@ use std::path::Path;
 use std::process;
 use yaml_rust::{Yaml, YamlEmitter, YamlLoader};
 
-use crate::interpolator::INTERPOLATION_REGEX;
+use crate::{config::Config, interpolator::INTERPOLATION_REGEX};
 
 use crate::actions;
 use crate::benchmark::Benchmark;
@@ -27,11 +27,20 @@ pub fn expand(parent_path: &str, item: &Yaml, mut benchmark: &mut Benchmark) {
   expand_from_filepath(final_path, &mut benchmark, None);
 }
 
-pub fn expand_from_filepath(parent_path: &str, mut benchmark: &mut Benchmark, accessor: Option<&str>) {
-  let benchmark_file = reader::read_file(parent_path);
+pub fn expand_from_config(config: &Config, parent_path: &str, mut benchmark: &mut Benchmark, accessor: Option<&str>) {
+    expand_from_yaml(&config.doc, parent_path, &mut benchmark, accessor);
+}
 
-  let docs = YamlLoader::load_from_str(benchmark_file.as_str()).unwrap();
-  let doc = &docs[0];
+pub fn expand_from_filepath(parent_path: &str, mut benchmark: &mut Benchmark, accessor: Option<&str>) {
+  let benchmark_yaml = reader::read_file(parent_path).expect("Could not read benchmark file for expansion");
+  println!("Benchmark yaml {}", benchmark_yaml);
+
+  let docs = YamlLoader::load_from_str(benchmark_yaml.as_str()).unwrap();
+  expand_from_yaml(&docs[0], parent_path, &mut benchmark, accessor);
+}
+
+pub fn expand_from_yaml(yaml: &Yaml, parent_path: &str, mut benchmark: &mut Benchmark, accessor: Option<&str>) {
+  let doc = yaml;
   let items;
 
   if let Some(accessor_id) = accessor {
