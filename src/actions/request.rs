@@ -14,6 +14,7 @@ use yaml_rust::Yaml;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
+use crate::actions;
 use crate::actions::{extract, extract_optional};
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
@@ -30,6 +31,7 @@ pub struct Request {
   time: f64,
   method: String,
   headers: HashMap<String, String>,
+  pub exec: Option<actions::Exec>,
   pub body: Option<String>,
   pub with_item: Option<Yaml>,
   pub index: Option<u32>,
@@ -51,6 +53,12 @@ impl Request {
     let name = extract(item, "name");
     let url = extract(&item["request"], "url");
     let assign = extract_optional(item, "assign");
+    let mut exec: Option<actions::Exec> = None;
+    let exec_existance: bool = item["exec"].as_hash().is_some();
+
+    if  exec_existance {
+      exec = Some(actions::Exec::new(item, None));
+    }
 
     let method = if let Some(v) = extract_optional(&item["request"], "method") {
       v.to_string().to_uppercase()
@@ -87,6 +95,7 @@ impl Request {
       with_item,
       index,
       assign: assign.map(str::to_string),
+      exec,
     }
   }
 
@@ -316,6 +325,11 @@ impl Runnable for Request {
         };
 
         log_message_response.map(|msg| log_response(msg, &data));
+
+        match &self.exec {
+          Some(p) => p.execute(context, reports, &pool, &config).await,
+          None => (),
+        }
       }
     }
   }
