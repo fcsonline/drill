@@ -32,6 +32,6 @@ hdrhistogram = "7.4.0"
 openssl-sys = "0.9.66"
 
 [features]
-# Force openssl-sys to staticly link in the openssl library. Necessary when
+# Force openssl-sys to statically link in the openssl library. Necessary when
 # cross compiling to x86_64-unknown-linux-musl.
 vendored = ["openssl-sys/vendored"]
