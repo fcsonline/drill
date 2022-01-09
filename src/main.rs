@@ -56,7 +56,7 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
     .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests").takes_value(true))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
-    .arg(Arg::with_name("verbose").short("v").long("verbose").help("Toogle verbose output").takes_value(false))
+    .arg(Arg::with_name("verbose").short("v").long("verbose").help("Toggle verbose output").takes_value(false))
     .get_matches()
 }
 
