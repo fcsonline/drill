@@ -47,7 +47,7 @@ impl Runnable for Assert {
     let assertion = json!(self.value.to_owned());
 
     if !stored.eq(&assertion) {
-      panic!("Assertion missmatched: {} != {}", stored, assertion);
+      panic!("Assertion mismatched: {} != {}", stored, assertion);
     }
   }
 }
