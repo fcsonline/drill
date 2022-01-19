@@ -41,3 +41,21 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
     benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))));
   }
 }
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn expand_multi() {
+    let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_file: ./fixtures/texts.txt";
+    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let doc = &docs[0];
+    let mut benchmark: Benchmark = Benchmark::new();
+
+    expand("example/benchmark.yml", &doc, &mut benchmark);
+
+    assert_eq!(is_that_you(&doc), true);
+    assert_eq!(benchmark.len(), 3);
+  }
+}
