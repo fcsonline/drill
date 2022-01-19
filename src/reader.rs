@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{prelude::*, BufReader};
 use std::path::Path;
 
 pub fn read_file(filepath: &str) -> String {
@@ -20,6 +20,29 @@ pub fn read_file(filepath: &str) -> String {
   }
 
   content
+}
+
+pub fn read_file_as_yml(filepath: &str) -> yaml_rust::yaml::Array {
+  let path = Path::new(filepath);
+  let display = path.display();
+
+  let file = match File::open(&path) {
+    Err(why) => panic!("couldn't open {}: {}", display, why),
+    Ok(file) => file,
+  };
+
+  let reader = BufReader::new(file);
+  let mut items = yaml_rust::yaml::Array::new();
+  for line in reader.lines() {
+    match line {
+      Ok(text) => {
+        items.push(yaml_rust::Yaml::String(text));
+      }
+      Err(e) => println!("error parsing line: {:?}", e),
+    }
+  }
+
+  items
 }
 
 // TODO: Try to split this fn into two
