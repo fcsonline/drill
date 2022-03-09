@@ -253,6 +253,8 @@ FLAGS:
 
 OPTIONS:
     -b, --benchmark <benchmark>    Sets the benchmark file
+        --cacert <cacert>          Use the specified certificate to verify the peer (analogous to curl --cacert)
+        --cert <cert>              Use the specified client certificate (analogous to curl --cert)
     -c, --compare <compare>        Sets a compare file
     -r, --report <report>          Sets a report file
     -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
