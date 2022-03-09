@@ -342,17 +342,17 @@ impl Runnable for Request {
   }
 }
 
+fn try_pem_to_der(pem: &Vec<u8>) -> Result<Vec<u8>, openssl::error::ErrorStack> {
+  let key = openssl::pkey::PKey::private_key_from_pem(&pem)?;
+  let crt = openssl::x509::X509::from_pem(&pem)?;
+
+  let pkcs12_builder = openssl::pkcs12::Pkcs12::builder();
+  let pkcs12 = pkcs12_builder.build("", "client crt", &key, &crt)?;
+  pkcs12.to_der()
+}
+
 fn make_identity(pem: &Vec<u8>) -> reqwest::Identity {
-  fn make_der(pem: &Vec<u8>) -> Result<Vec<u8>, openssl::error::ErrorStack> {
-    let key = openssl::pkey::PKey::private_key_from_pem(&pem)?;
-    let crt = openssl::x509::X509::from_pem(&pem)?;
-
-    let pkcs12_builder = openssl::pkcs12::Pkcs12::builder();
-    let pkcs12 = pkcs12_builder.build("", "client crt", &key, &crt)?;
-    pkcs12.to_der()
-  }
-
-  match make_der(&pem) {
+  match try_pem_to_der(pem) {
     Ok(der) => match reqwest::Identity::from_pkcs12_der(&der, "") {
       Ok(identity) => identity,
       Err(e) => {
