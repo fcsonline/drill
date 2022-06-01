@@ -48,7 +48,8 @@ All those three items can be combined with `name` property to be show in logs.
 - `with_items`: List of items to be interpolated in the given request url.
 - `with_items_range`: Generates items from an iterator from start, step, stop.
 - `with_items_from_csv`: Read the given CSV values and go through all of them as items.
-- `assign`: save the response in the context to be interpolated later.
+- `assign`: Save the response in the context to be interpolated later.
+- `tags`: List of tags for that item.
 
 #### with_items_from_csv item properties
 
@@ -58,3 +59,15 @@ Second, it can be a hash with the following properties:
 
  - `file_name`: csv file containing the records to be used as items
  - `quote_char`: character to use as quote in csv parsing.  Defaults to `"\""`, but can be set to `"\'"`.  If your csv file has quoted strings that contain commas and that causes parse errors, make sure this value is set correctly.
+
+#### tags item properties
+
+[Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
+
+If you assing list of tags, e.g `[tag1, tag2]`, this item will be executed if `tag1` **OR** `tag2` is passed.
+
+Special tags: `always` and `never`.
+
+If you assign the `always` tag, `drill` will always run that item, unless you specifically skip it (`--skip-tags always`).
+
+If you assign the `never` tag to item, `drill` will skip that item unless you specifically request it (`--tags never`).

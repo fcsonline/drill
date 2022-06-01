@@ -71,6 +71,12 @@ plan:
       - 73
       - 75
 
+  - name: Tagged user request
+    request:
+      url: /api/users/70
+    tags:
+      - tag_user
+
   - name: Fetch some users by hash
     request:
       url: /api/users/{{ item.id }}
@@ -226,6 +232,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Cookie support:** create benchmarks with sessions because cookies are propagates between requests.
 - **Stats:** get nice statistics about all the requests. Example: [cookies.yml](./example/cookies.yml)
 - **Thresholds:** compare the current benchmark performance against a stored one session and fail if a threshold is exceeded.
+- **Tags:** specify test plan items by tags.
 
 ## Test it
 
@@ -240,7 +247,7 @@ production environments.
 Full list of cli options, which is available under `drill --help`
 
 ```
-drill 0.7.1
+drill 0.7.3
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
@@ -248,6 +255,8 @@ USAGE:
 
 FLAGS:
     -h, --help                      Prints help information
+        --list-tags                 List all benchmark tags
+        --list-tasks                List benchmark tasks (executes --tags/--skip-tags filter)
     -n, --nanosec                   Shows statistics in nanoseconds
         --no-check-certificate      Disables SSL certification check. (Not recommended)
     -q, --quiet                     Disables output
@@ -260,6 +269,8 @@ OPTIONS:
     -b, --benchmark <benchmark>    Sets the benchmark file
     -c, --compare <compare>        Sets a compare file
     -r, --report <report>          Sets a report file
+        --skip-tags <skip-tags>    Tags to exclude
+        --tags <tags>              Tags to include
     -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
     -o, --timeout <timeout>        Set timeout in seconds for all requests
 ```

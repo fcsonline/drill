@@ -22,7 +22,27 @@ pub fn read_file(filepath: &str) -> String {
   content
 }
 
-pub fn read_file_as_yml(filepath: &str) -> yaml_rust::yaml::Array {
+pub fn read_file_as_yml(filepath: &str) -> Vec<yaml_rust::Yaml> {
+  let content = read_file(filepath);
+  yaml_rust::YamlLoader::load_from_str(content.as_str()).unwrap()
+}
+
+pub fn read_yaml_doc_accessor<'a>(doc: &'a yaml_rust::Yaml, accessor: Option<&str>) -> &'a Vec<yaml_rust::Yaml> {
+  if let Some(accessor_id) = accessor {
+    match doc[accessor_id].as_vec() {
+      Some(items) => items,
+      None => {
+        println!("Node missing on config: {}", accessor_id);
+        println!("Exiting.");
+        std::process::exit(1)
+      }
+    }
+  } else {
+    doc.as_vec().unwrap()
+  }
+}
+
+pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
   let path = Path::new(filepath);
   let display = path.display();
 

@@ -5,6 +5,7 @@ mod config;
 mod expandable;
 mod interpolator;
 mod reader;
+mod tags;
 mod writer;
 
 use crate::actions::Report;
@@ -29,10 +30,27 @@ fn main() {
   let nanosec = matches.is_present("nanosec");
   let timeout = matches.value_of("timeout");
   let verbose = matches.is_present("verbose");
+  let tags_option = matches.value_of("tags");
+  let skip_tags_option = matches.value_of("skip-tags");
+  let list_tags = matches.is_present("list-tags");
+  let list_tasks = matches.is_present("list-tasks");
+
   #[cfg(windows)]
   let _ = control::set_virtual_terminal(true);
 
-  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose);
+  if list_tags {
+    tags::list_benchmark_file_tags(benchmark_file);
+    process::exit(0);
+  };
+
+  let tags = tags::Tags::new(tags_option, skip_tags_option);
+
+  if list_tasks {
+    tags::list_benchmark_file_tasks(benchmark_file, &tags);
+    process::exit(0);
+  };
+
+  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose, &tags);
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
@@ -53,6 +71,10 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("threshold").short("t").long("threshold").help("Sets a threshold value in ms amongst the compared file").takes_value(true).conflicts_with("report"))
     .arg(Arg::with_name("relaxed-interpolations").long("relaxed-interpolations").help("Do not panic if an interpolation is not present. (Not recommended)").takes_value(false))
     .arg(Arg::with_name("no-check-certificate").long("no-check-certificate").help("Disables SSL certification check. (Not recommended)").takes_value(false))
+    .arg(Arg::with_name("tags").long("tags").help("Tags to include").takes_value(true))
+    .arg(Arg::with_name("skip-tags").long("skip-tags").help("Tags to exclude").takes_value(true))
+    .arg(Arg::with_name("list-tags").long("list-tags").help("List all benchmark tags").takes_value(false).conflicts_with_all(&["tags", "skip-tags"]))
+    .arg(Arg::with_name("list-tasks").long("list-tasks").help("List benchmark tasks (executes --tags/--skip-tags filter)").takes_value(false))
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
     .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests").takes_value(true))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))

@@ -1,6 +1,6 @@
 [package]
 name = "drill"
-version = "0.7.2"
+version = "0.7.3"
 authors = ["Ferran Basora <fcsonline@gmail.com>"]
 description = "Drill is a HTTP load testing application written in Rust inspired by Ansible syntax"
 repository = "https://github.com/fcsonline/drill"
