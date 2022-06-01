@@ -26,7 +26,7 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
   let with_items_filepath = Path::new(parent_path).with_file_name(with_items_path);
   let final_path = with_items_filepath.to_str().unwrap();
 
-  let mut with_items_file = reader::read_file_as_yml(final_path);
+  let mut with_items_file = reader::read_file_as_yml_array(final_path);
 
   if let Some(shuffle) = item["shuffle"].as_bool() {
     if shuffle {

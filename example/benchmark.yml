@@ -54,6 +54,12 @@ plan:
       - 73
       - 75
 
+  - name: Tagged user request
+    request:
+      url: /api/users/70
+    tags:
+      - tag_user
+
   - name: Fetch some users by hash
     request:
       url: /api/users/{{ item.id }}
