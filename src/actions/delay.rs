@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use colored::*;
-use tokio::time::delay_for;
+use tokio::time::sleep;
 use yaml_rust::Yaml;
 
 use crate::actions::extract;
@@ -36,7 +36,7 @@ impl Delay {
 #[async_trait]
 impl Runnable for Delay {
   async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
-    delay_for(Duration::from_secs(self.seconds as u64)).await;
+    sleep(Duration::from_secs(self.seconds as u64)).await;
 
     if !config.quiet {
       println!("{:width$} {}{}", self.name.green(), self.seconds.to_string().cyan().bold(), "s".magenta(), width = 25);

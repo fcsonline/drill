@@ -9,22 +9,22 @@ license = "GPL-3.0"
 edition = "2018"
 
 [dependencies]
-clap = "2.32.0"
-colored = "1.7.0"
-csv = "1.0.5"
-regex = "1.1.2"
+clap = "2.34.0"
+colored = "1.9.3"
+csv = "1.1.5"
+regex = "1.5.4"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.39"
-yaml-rust = "0.4.3"
-url = "2.1.1"
+serde_json = "1.0.74"
+yaml-rust = "0.4.5"
+url = "2.2.2"
 linked-hash-map = "0.5.3"
-tokio = { version = "0.2.20", features = ["rt-core", "rt-threaded", "time", "net", "io-driver"] }
-reqwest = { version = "0.10.4", features = ["cookies", "trust-dns"] }
-async-trait = "0.1.30"
-futures = "0.3.5"
+tokio = { version = "1.18.2", features = ["rt-core", "rt-threaded", "time", "net", "io-driver"] }
+reqwest = { version = "0.11.10", features = ["cookies", "trust-dns"] }
+async-trait = "0.1.42"
+futures = "0.3.21"
 lazy_static = "1.4.0"
 num_cpus = "1.13.0"
-rand = "0.7.3"
+rand = "0.8.4"
 hdrhistogram = "7.4.0"
 
 # Add openssl-sys as a direct dependency so it can be cross compiled to
