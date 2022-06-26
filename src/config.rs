@@ -3,6 +3,7 @@ use yaml_rust::{Yaml, YamlLoader};
 use crate::benchmark::Context;
 use crate::interpolator;
 use crate::reader;
+use std::io::Read;
 
 const NITERATIONS: i64 = 1;
 const NRAMPUP: i64 = 0;
@@ -13,6 +14,8 @@ pub struct Config {
   pub iterations: i64,
   pub relaxed_interpolations: bool,
   pub no_check_certificate: bool,
+  pub maybe_cert: Option<Vec<u8>>,
+  pub maybe_cacert: Option<Vec<u8>>,
   pub rampup: i64,
   pub quiet: bool,
   pub nanosec: bool,
@@ -21,7 +24,7 @@ pub struct Config {
 }
 
 impl Config {
-  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool) -> Config {
+  pub fn new(path: &str, relaxed_interpolations: bool, maybe_cert_path: Option<&str>, maybe_cacert_path: Option<&str>, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool) -> Config {
     let config_file = reader::read_file(path);
 
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
@@ -39,12 +42,32 @@ impl Config {
       panic!("The concurrency can not be higher than the number of iterations")
     }
 
+    let maybe_cert = maybe_cert_path.map(|path| {
+      let mut pem = Vec::new();
+      if let Err(e) = std::fs::File::open(path).and_then(|mut path| path.read_to_end(&mut pem)) {
+        eprintln!("Error opening --cert file {}: {}", path, e);
+        std::process::exit(-1);
+      }
+      pem
+    });
+
+    let maybe_cacert = maybe_cacert_path.map(|path| {
+      let mut cert = Vec::new();
+      if let Err(e) = std::fs::File::open(path).and_then(|mut path| path.read_to_end(&mut cert)) {
+        eprintln!("Error opening --cacert file {}: {}", path, e);
+        std::process::exit(-1);
+      }
+      cert
+    });
+
     Config {
       base,
       concurrency,
       iterations,
       relaxed_interpolations,
       no_check_certificate,
+      maybe_cert,
+      maybe_cacert,
       rampup,
       quiet,
       nanosec,

@@ -19,7 +19,7 @@ yaml-rust = "0.4.3"
 url = "2.1.1"
 linked-hash-map = "0.5.3"
 tokio = { version = "0.2.20", features = ["rt-core", "rt-threaded", "time", "net", "io-driver"] }
-reqwest = { version = "0.10.4", features = ["cookies", "trust-dns"] }
+reqwest = { version = "0.10.4", features = ["cookies", "trust-dns", "native-tls"] }
 async-trait = "0.1.30"
 futures = "0.3.5"
 lazy_static = "1.4.0"
@@ -29,9 +29,9 @@ hdrhistogram = "7.4.0"
 
 # Add openssl-sys as a direct dependency so it can be cross compiled to
 # x86_64-unknown-linux-musl using the "vendored" feature below
-openssl-sys = "0.9.66"
+openssl = "0.10.35"
 
 [features]
 # Force openssl-sys to statically link in the openssl library. Necessary when
 # cross compiling to x86_64-unknown-linux-musl.
-vendored = ["openssl-sys/vendored"]
+vendored = ["openssl/vendored"]
