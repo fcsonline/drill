@@ -1,4 +1,4 @@
-# Example of a test plan with 1 iteration to demostrate the delay action.
+# Example of a test plan with 1 iteration to demonstrate the delay action.
 
 ---
 base: 'http://localhost:9000'

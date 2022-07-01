@@ -6,7 +6,7 @@ use crate::interpolator::INTERPOLATION_REGEX;
 
 use crate::actions;
 use crate::benchmark::Benchmark;
-use crate::expandable::{include, multi_csv_request, multi_iter_request, multi_request};
+use crate::expandable::{include, multi_csv_request, multi_file_request, multi_iter_request, multi_request};
 
 use crate::reader;
 
@@ -54,6 +54,8 @@ pub fn expand_from_filepath(parent_path: &str, mut benchmark: &mut Benchmark, ac
       multi_iter_request::expand(item, &mut benchmark);
     } else if multi_csv_request::is_that_you(item) {
       multi_csv_request::expand(parent_path, item, &mut benchmark);
+    } else if multi_file_request::is_that_you(item) {
+      multi_file_request::expand(parent_path, item, &mut benchmark);
     } else if include::is_that_you(item) {
       include::expand(parent_path, item, &mut benchmark);
     } else if actions::Delay::is_that_you(item) {
