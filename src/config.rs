@@ -18,10 +18,11 @@ pub struct Config {
   pub nanosec: bool,
   pub timeout: u64,
   pub verbose: bool,
+  pub proxy: String,
 }
 
 impl Config {
-  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool) -> Config {
+  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, proxy: &str, quiet: bool, nanosec: bool, timeout: u64, verbose: bool) -> Config {
     let config_file = reader::read_file(path);
 
     let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
@@ -50,6 +51,7 @@ impl Config {
       nanosec,
       timeout,
       verbose,
+      proxy: proxy.to_string(),
     }
   }
 }

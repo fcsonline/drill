@@ -219,6 +219,7 @@ This is the list of all features supported by the current version of `drill`:
 - **CSV support:** read CSV files and build N requests fill dynamic interpolations with CSV data.
 - **HTTP methods:** build request with different http methods like GET, POST, PUT, PATCH, HEAD or DELETE.
 - **Cookie support:** create benchmarks with sessions because cookies are propagates between requests.
+- **Proxy support:** run benchmarks through proxies.
 - **Stats:** get nice statistics about all the requests. Example: [cookies.yml](./example/cookies.yml)
 - **Thresholds:** compare the current benchmark performance against a stored one session and fail if a threshold is exceeded.
 
@@ -235,7 +236,7 @@ production environments.
 Full list of cli options, which is available under `drill --help`
 
 ```
-drill 0.7.1
+drill 0.7.2
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
@@ -254,6 +255,7 @@ FLAGS:
 OPTIONS:
     -b, --benchmark <benchmark>    Sets the benchmark file
     -c, --compare <compare>        Sets a compare file
+    -p, --proxy <proxy>            [protocol://]host[:port] Use this proxy
     -r, --report <report>          Sets a report file
     -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
     -o, --timeout <timeout>        Set timeout in seconds for all requests
