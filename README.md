@@ -173,7 +173,29 @@ cargo build --release
 ./target/release/drill --benchmark benchmark.yml --stats
 ```
 
-**Note:** You will need to install `libssl-dev` and `pkg-config` packages.
+### Dependencies
+
+OpenSSL is needed in order to compile Drill, whether it is through `cargo install`
+or when compiling from source with `cargo build`.
+
+Depending on your platform, the name of the dependencies may differ.
+
+#### Linux
+
+Install `libssl-dev` and `pkg-config` packages with your favorite package manager
+(if `libssl-dev` is not found, try other names like `openssl` or `openssl-devel`).
+
+#### macOS
+
+First, install the [Homebrew](https://brew.sh/) package manager.
+
+And then install `openssl` with Homebrew.
+
+#### Windows
+
+First, install [vcpkg](https://vcpkg.io/en/getting-started.html).
+
+And then run `vcpkg install openssl:x64-windows-static-md`.
 
 ## Demo
 
@@ -185,7 +207,7 @@ This is the list of all features supported by the current version of `drill`:
 
 - **Concurrency:** run your benchmarks choosing the number of concurrent iterations.
 - **Multi iterations:** specify the number of iterations you want to run the benchmark.
-- **Ramp-up:** specify the amount of time it will take `drill` to start all iterations.
+- **Ramp-up:** specify the amount of time, in seconds, that it will take `drill` to start all iterations.
 - **Delay:** introduce controlled delay between requests. Example: [delay.yml](./example/delay.yml)
 - **Dynamic urls:** execute requests with dynamic interpolations in the url, like `/api/users/{{ item }}`
 - **Dynamic headers:** execute requests with dynamic headers. Example: [headers.yml](./example/headers.yml)
@@ -227,7 +249,7 @@ FLAGS:
         --relaxed-interpolations    Do not panic if an interpolation is not present. (Not recommended)
     -s, --stats                     Shows request statistics
     -V, --version                   Prints version information
-    -v, --verbose                   Toogle verbose output
+    -v, --verbose                   Toggle verbose output
 
 OPTIONS:
     -b, --benchmark <benchmark>    Sets the benchmark file
