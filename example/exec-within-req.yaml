@@ -1,0 +1,26 @@
+#
+#   [iterations]  - defines the number of times this will be invoked
+#   [concurrency] - defines the number of concurrent messages sent together
+#   [file_name:]  - defines the csv file for getting the body content from.
+
+---
+base: "https://odedk.com"
+iterations: 1
+concurrency: 1
+rampup: 2
+
+plan:
+
+  - name: ExecWithinRequest
+    request:
+      url: https://{{item.tenant}}/login?auth_token={{item.headless_auth}}
+      method: GET
+      headers:
+        Host: '{{item.tenant}}'
+    assign: memory
+    with_items_from_csv:
+      file_name: ./headless_node_login.csv
+      quote_char: "'"
+    exec:
+      command: "echo \"{{item.tenant}}\" \"{{ memory.body }}\" | tee -a ./next_script.csv"
+
