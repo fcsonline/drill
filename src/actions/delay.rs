@@ -27,7 +27,7 @@ impl Delay {
     let seconds = u64::try_from(item["delay"]["seconds"].as_i64().unwrap()).expect("Invalid number of seconds");
 
     Delay {
-      name: name.to_string(),
+      name,
       seconds,
     }
   }

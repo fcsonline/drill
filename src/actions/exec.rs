@@ -28,9 +28,9 @@ impl Exec {
     let assign = extract_optional(item, "assign");
 
     Exec {
-      name: name.to_string(),
-      command: command.to_string(),
-      assign: assign.map(str::to_string),
+      name,
+      command,
+      assign,
     }
   }
 }

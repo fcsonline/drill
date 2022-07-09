@@ -27,9 +27,9 @@ impl Assert {
     let value = extract(&item["assert"], "value");
 
     Assert {
-      name: name.to_string(),
-      key: key.to_string(),
-      value: value.to_string(),
+      name,
+      key,
+      value,
     }
   }
 }

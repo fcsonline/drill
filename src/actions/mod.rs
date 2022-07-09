@@ -42,9 +42,9 @@ impl fmt::Display for Report {
   }
 }
 
-pub fn extract_optional<'a>(item: &'a Yaml, attr: &'a str) -> Option<&'a str> {
+pub fn extract_optional<'a>(item: &'a Yaml, attr: &'a str) -> Option<String> {
   if let Some(s) = item[attr].as_str() {
-    Some(s)
+    Some(s.to_string())
   } else {
     if item[attr].as_hash().is_some() {
       panic!("`{}` needs to be a string. Try adding quotes", attr);
@@ -54,9 +54,11 @@ pub fn extract_optional<'a>(item: &'a Yaml, attr: &'a str) -> Option<&'a str> {
   }
 }
 
-pub fn extract<'a>(item: &'a Yaml, attr: &'a str) -> &'a str {
-  if let Some(s) = item[attr].as_str() {
-    s
+pub fn extract<'a>(item: &'a Yaml, attr: &'a str) -> String {
+  if let Some(s) = item[attr].as_i64() {
+    s.to_string()
+  } else if let Some(s) = item[attr].as_str() {
+    s.to_string()
   } else {
     if item[attr].as_hash().is_some() {
       panic!("`{}` is required needs to be a string. Try adding quotes", attr);

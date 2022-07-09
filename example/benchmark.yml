@@ -55,6 +55,7 @@ plan:
       - 75
 
   - name: Fetch some users by hash
+    assign: fetchuser
     request:
       url: /api/users/{{ item.id }}
     shuffle: true
@@ -62,6 +63,11 @@ plan:
       - { id: 70 }
       - { id: 73 }
       - { id: 75 }
+
+  - name: Assert request response code
+    assert:
+      key: fetchuser.status
+      value: 200
 
   - name: Assert values
     assert:
