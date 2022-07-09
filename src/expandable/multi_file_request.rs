@@ -19,7 +19,7 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
     unreachable!();
   };
 
-  if INTERPOLATION_REGEX.is_match(&with_items_path) {
+  if INTERPOLATION_REGEX.is_match(with_items_path) {
     panic!("Interpolation not supported in 'with_items_from_file' property!");
   }
 
@@ -53,9 +53,9 @@ mod test {
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
-    expand("example/benchmark.yml", &doc, &mut benchmark);
+    expand("example/benchmark.yml", doc, &mut benchmark);
 
-    assert_eq!(is_that_you(&doc), true);
+    assert_eq!(is_that_you(doc), true);
     assert_eq!(benchmark.len(), 3);
   }
 }

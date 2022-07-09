@@ -58,7 +58,7 @@ fn read_str_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
   match config_doc[name].as_str() {
     Some(value) => {
       if value.contains('{') {
-        interpolator.resolve(&value, true).to_owned()
+        interpolator.resolve(value, true)
       } else {
         value.to_owned()
       }
@@ -77,7 +77,7 @@ fn read_i64_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
   let value = if let Some(value) = config_doc[name].as_i64() {
     Some(value)
   } else if let Some(key) = config_doc[name].as_str() {
-    interpolator.resolve(&key, false).parse::<i64>().ok()
+    interpolator.resolve(key, false).parse::<i64>().ok()
   } else {
     None
   };

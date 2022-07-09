@@ -47,9 +47,9 @@ mod tests {
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
-    expand(&doc, &mut benchmark);
+    expand(doc, &mut benchmark);
 
-    assert_eq!(is_that_you(&doc), true);
+    assert_eq!(is_that_you(doc), true);
     assert_eq!(benchmark.len(), 3);
   }
 
@@ -61,6 +61,6 @@ mod tests {
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
-    expand(&doc, &mut benchmark);
+    expand(doc, &mut benchmark);
   }
 }

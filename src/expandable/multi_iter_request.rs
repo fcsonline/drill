@@ -26,15 +26,15 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
     let step: &str = vstep.as_str().unwrap_or("");
     let stop: &str = vstop.as_str().unwrap_or("");
 
-    if INTERPOLATION_REGEX.is_match(&start) {
+    if INTERPOLATION_REGEX.is_match(start) {
       panic!("Interpolations not supported in 'start' property!");
     }
 
-    if INTERPOLATION_REGEX.is_match(&step) {
+    if INTERPOLATION_REGEX.is_match(step) {
       panic!("Interpolations not supported in 'step' property!");
     }
 
-    if INTERPOLATION_REGEX.is_match(&stop) {
+    if INTERPOLATION_REGEX.is_match(stop) {
       panic!("Interpolations not supported in 'stop' property!");
     }
 
@@ -74,9 +74,9 @@ mod tests {
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
-    expand(&doc, &mut benchmark);
+    expand(doc, &mut benchmark);
 
-    assert_eq!(is_that_you(&doc), true);
+    assert_eq!(is_that_you(doc), true);
     assert_eq!(benchmark.len(), 10);
   }
 
@@ -88,7 +88,7 @@ mod tests {
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
-    expand(&doc, &mut benchmark);
+    expand(doc, &mut benchmark);
   }
 
   #[test]
@@ -99,6 +99,6 @@ mod tests {
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
-    expand(&doc, &mut benchmark);
+    expand(doc, &mut benchmark);
   }
 }

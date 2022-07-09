@@ -63,12 +63,12 @@ pub fn list_benchmark_file_tasks(benchmark_file: &str, tags: &Tags) {
   println!();
 
   if let Some(tags) = &tags.tags {
-    let mut tags: Vec<_> = tags.into_iter().collect();
+    let mut tags: Vec<_> = tags.iter().collect();
     tags.sort();
     println!("{:width$} {:width2$?}", "Tags".green(), &tags, width = 15, width2 = 25);
   }
   if let Some(tags) = &tags.skip_tags {
-    let mut tags: Vec<_> = tags.into_iter().collect();
+    let mut tags: Vec<_> = tags.iter().collect();
     tags.sort();
     println!("{:width$} {:width2$?}", "Skip-Tags".green(), &tags, width = 15, width2 = 25);
   }
@@ -106,7 +106,7 @@ pub fn list_benchmark_file_tags(benchmark_file: &str) {
   }
 
   let mut tags: Vec<_> = tags.into_iter().collect();
-  tags.sort();
+  tags.sort_unstable();
   println!("{:width$} {:?}", "Tags".green(), &tags, width = 15);
 }
 

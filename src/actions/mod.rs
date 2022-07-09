@@ -45,12 +45,10 @@ impl fmt::Display for Report {
 pub fn extract_optional<'a>(item: &'a Yaml, attr: &'a str) -> Option<String> {
   if let Some(s) = item[attr].as_str() {
     Some(s.to_string())
+  } else if item[attr].as_hash().is_some() {
+    panic!("`{}` needs to be a string. Try adding quotes", attr);
   } else {
-    if item[attr].as_hash().is_some() {
-      panic!("`{}` needs to be a string. Try adding quotes", attr);
-    } else {
-      None
-    }
+    None
   }
 }
 
@@ -59,11 +57,9 @@ pub fn extract<'a>(item: &'a Yaml, attr: &'a str) -> String {
     s.to_string()
   } else if let Some(s) = item[attr].as_str() {
     s.to_string()
+  } else if item[attr].as_hash().is_some() {
+    panic!("`{}` is required needs to be a string. Try adding quotes", attr);
   } else {
-    if item[attr].as_hash().is_some() {
-      panic!("`{}` is required needs to be a string. Try adding quotes", attr);
-    } else {
-      panic!("Unknown node `{}` => {:?}", attr, item[attr]);
-    }
+    panic!("Unknown node `{}` => {:?}", attr, item[attr]);
   }
 }

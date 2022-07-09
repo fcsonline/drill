@@ -184,7 +184,7 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
 fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<&str>) {
   if let Some(compare_path) = compare_path_option {
     if let Some(threshold) = threshold_option {
-      let compare_result = checker::compare(&list_reports, compare_path, threshold);
+      let compare_result = checker::compare(list_reports, compare_path, threshold);
 
       match compare_result {
         Ok(_) => process::exit(0),
