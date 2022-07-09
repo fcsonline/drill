@@ -44,6 +44,11 @@ plan:
     request:
       url: /api/users/{{ foo.body.manager_id }}
 
+  - name: Assert request response code
+    assert:
+      key: foo.status
+      value: 200
+
   - name: Assign values
     assign:
       key: bar

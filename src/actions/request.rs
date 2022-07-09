@@ -38,6 +38,7 @@ pub struct Request {
 
 #[derive(Serialize, Deserialize)]
 struct AssignedRequest {
+  status: u16,
   body: Value,
   headers: Map<String, Value>,
 }
@@ -78,15 +79,15 @@ impl Request {
     }
 
     Request {
-      name: name.to_string(),
-      url: url.to_string(),
+      name,
+      url,
       time: 0.0,
       method,
       headers,
-      body: body.map(str::to_string),
+      body,
       with_item,
       index,
-      assign: assign.map(str::to_string),
+      assign,
     }
   }
 
@@ -274,10 +275,12 @@ impl Runnable for Request {
         status: 520u16,
       }),
       Some(response) => {
+        let status = response.status().as_u16();
+
         reports.push(Report {
           name: self.name.to_owned(),
           duration: duration_ms,
-          status: response.status().as_u16(),
+          status,
         });
 
         if response.cookies().count() > 0 {
@@ -302,6 +305,7 @@ impl Runnable for Request {
           let body: Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
 
           let assigned = AssignedRequest {
+            status,
             body,
             headers,
           };

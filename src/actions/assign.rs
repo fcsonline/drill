@@ -26,9 +26,9 @@ impl Assign {
     let value = extract(&item["assign"], "value");
 
     Assign {
-      name: name.to_string(),
-      key: key.to_string(),
-      value: value.to_string(),
+      name,
+      key,
+      value,
     }
   }
 }
