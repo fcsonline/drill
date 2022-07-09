@@ -49,7 +49,7 @@ impl Runnable for Exec {
     let execution = Command::new(args[0]).args(&args[1..]).output().expect("Couldn't run it");
 
     let output: String = String::from_utf8_lossy(&execution.stdout).into();
-    let output = output.trim_end().to_string().to_owned();
+    let output = output.trim_end().to_string();
 
     if let Some(ref key) = self.assign {
       context.insert(key.to_owned(), json!(output));

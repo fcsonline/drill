@@ -24,6 +24,7 @@ use crate::actions::{Report, Runnable};
 static USER_AGENT: &str = "drill";
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Request {
   name: String,
   url: String,
@@ -54,7 +55,7 @@ impl Request {
     let assign = extract_optional(item, "assign");
 
     let method = if let Some(v) = extract_optional(&item["request"], "method") {
-      v.to_string().to_uppercase()
+      v.to_uppercase()
     } else {
       "GET".to_string()
     };
@@ -121,7 +122,7 @@ impl Request {
       match context.get("base") {
         Some(value) => {
           if let Some(vs) = value.as_str() {
-            format!("{}{}", vs.to_string(), interpolated_url)
+            format!("{}{}", vs, interpolated_url)
           } else {
             panic!("{} Wrong type 'base' variable!", "WARNING!".yellow().bold());
           }
@@ -257,7 +258,7 @@ impl Runnable for Request {
     }
 
     if self.index.is_some() {
-      context.insert("index".to_string(), json!(self.index.clone().unwrap()));
+      context.insert("index".to_string(), json!(self.index.unwrap()));
     }
 
     let (res, duration_ms) = self.send_request(context, pool, config).await;
@@ -319,7 +320,9 @@ impl Runnable for Request {
           None
         };
 
-        log_message_response.map(|msg| log_response(msg, &data));
+        if let Some(msg) = log_message_response {
+          log_response(msg, &data)
+        }
       }
     }
   }
@@ -328,9 +331,9 @@ impl Runnable for Request {
 fn log_request(request: &reqwest::Request) {
   let mut message = String::new();
   write!(message, "{}", ">>>".bold().green()).unwrap();
-  write!(message, " {} {},", "URL:".bold(), request.url().to_string()).unwrap();
-  write!(message, " {} {},", "METHOD:".bold(), request.method().to_string()).unwrap();
-  write!(message, " {} {}", "HEADERS:".bold(), format!("{:?}", request.headers())).unwrap();
+  write!(message, " {} {},", "URL:".bold(), request.url()).unwrap();
+  write!(message, " {} {},", "METHOD:".bold(), request.method()).unwrap();
+  write!(message, " {} {:?}", "HEADERS:".bold(), request.headers()).unwrap();
   println!("{}", message);
 }
 
@@ -338,9 +341,9 @@ fn log_message_response(response: &Option<reqwest::Response>, duration_ms: f64) 
   let mut message = String::new();
   match response {
     Some(response) => {
-      write!(message, " {} {},", "URL:".bold(), response.url().to_string()).unwrap();
+      write!(message, " {} {},", "URL:".bold(), response.url()).unwrap();
       write!(message, " {} {},", "STATUS:".bold(), response.status()).unwrap();
-      write!(message, " {} {}", "HEADERS:".bold(), format!("{:?}", response.headers())).unwrap();
+      write!(message, " {} {:?}", "HEADERS:".bold(), response.headers()).unwrap();
       write!(message, " {} {:.4} ms,", "DURATION:".bold(), duration_ms).unwrap();
     }
     None => {
@@ -353,6 +356,8 @@ fn log_message_response(response: &Option<reqwest::Response>, duration_ms: f64) 
 fn log_response(log_message_response: String, body: &Option<String>) {
   let mut message = String::new();
   write!(message, "{}{}", "<<<".bold().green(), log_message_response).unwrap();
-  body.as_ref().map(|body| write!(message, " {} {:?}", "BODY:".bold(), body).unwrap());
+  if let Some(body) = body.as_ref() {
+    write!(message, " {} {:?}", "BODY:".bold(), body).unwrap()
+  }
   println!("{}", message);
 }

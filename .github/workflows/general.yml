@@ -35,20 +35,20 @@ jobs:
           command: fmt
           args: --all -- --check
 
-  # clippy:
-  #   name: Clippy
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: actions-rs/toolchain@v1
-  #       with:
-  #         toolchain: stable
-  #         override: true
-  #         components: clippy
-  #     - uses: actions-rs/clippy-check@v1
-  #       with:
-  #         token: ${{ secrets.GITHUB_TOKEN }}
-  #         args: -- -D warnings
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: clippy
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: -- -D warnings
 
   coverage:
     name: Code coverage

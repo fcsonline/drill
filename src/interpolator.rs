@@ -4,8 +4,8 @@ use regex::{Captures, Regex};
 
 use crate::benchmark::Context;
 
-static INTERPOLATION_PREFIX: &'static str = "{{";
-static INTERPOLATION_SUFFIX: &'static str = "}}";
+static INTERPOLATION_PREFIX: &str = "{{";
+static INTERPOLATION_SUFFIX: &str = "}}";
 
 lazy_static! {
   pub static ref INTERPOLATION_REGEX: Regex = {
