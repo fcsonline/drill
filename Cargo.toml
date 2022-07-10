@@ -10,7 +10,7 @@ edition = "2018"
 
 [dependencies]
 clap = "2.32.0"
-colored = "1.7.0"
+colored = "2.0.0"
 csv = "1.0.5"
 regex = "1.5.5"
 serde = { version = "1.0", features = ["derive"] }
