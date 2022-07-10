@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use futures::stream::{self, StreamExt};
 
 use serde_json::{json, Value};
-use tokio::{runtime, time::delay_for};
+use tokio::{runtime, time::sleep};
 
 use crate::actions::{Report, Runnable};
 use crate::config::Config;
@@ -31,7 +31,7 @@ pub struct BenchmarkResult {
 async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64) -> Vec<Report> {
   if config.rampup > 0 {
     let delay = config.rampup / config.iterations;
-    delay_for(Duration::new((delay * iteration) as u64, 0)).await;
+    sleep(Duration::new((delay * iteration) as u64, 0)).await;
   }
 
   let mut context: Context = Context::new();
@@ -70,7 +70,8 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
   println!();
 
   let threads = std::cmp::min(num_cpus::get(), config.concurrency as usize);
-  let mut rt = runtime::Builder::new().threaded_scheduler().enable_all().core_threads(threads).max_threads(threads).build().unwrap();
+  let rt = runtime::Builder::new_multi_thread().enable_all().worker_threads(threads).build().unwrap();
+
   rt.block_on(async {
     let mut benchmark: Benchmark = Benchmark::new();
     let pool_store: PoolStore = PoolStore::new();
