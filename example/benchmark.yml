@@ -131,3 +131,13 @@ plan:
       url: /api/users
       method: POST
       body: foo=bar&arg={{ bar }}
+
+  - name: One request with a random item
+    request:
+      url: /api/users/{{ item }}
+    with_items:
+      - 70
+      - 73
+      - 75
+    shuffle: true
+    pick: 1
