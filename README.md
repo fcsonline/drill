@@ -159,6 +159,16 @@ plan:
         Authorization: Basic aHR0cHdhdGNoOmY=
         X-Foo: Bar
         X-Bar: Bar {{ memory.headers.token }}
+
+  - name: One request with a random item
+    request:
+      url: /api/users/{{ item }}
+    with_items:
+      - 70
+      - 73
+      - 75
+    shuffle: true
+    pick: 1
 ```
 
 As you can see, you can play with interpolations in different ways. This
