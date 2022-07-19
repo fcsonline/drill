@@ -2,10 +2,10 @@ use rand::seq::SliceRandom;
 use rand::thread_rng;
 use yaml_rust::Yaml;
 
+use super::pick;
 use crate::actions::Request;
 use crate::benchmark::Benchmark;
 use crate::interpolator::INTERPOLATION_REGEX;
-use super::pick;
 
 pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && item["with_items"].as_vec().is_some()

@@ -18,7 +18,7 @@ pub fn pick(item: &Yaml, with_items: &Vec<Yaml>) -> usize {
         value as usize
       }
     }
-    None => with_items.len()
+    None => with_items.len(),
   }
 }
 

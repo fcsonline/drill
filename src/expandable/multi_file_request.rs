@@ -1,8 +1,8 @@
+use super::pick;
 use crate::actions::Request;
 use crate::benchmark::Benchmark;
 use crate::interpolator::INTERPOLATION_REGEX;
 use crate::reader;
-use super::pick;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::path::Path;

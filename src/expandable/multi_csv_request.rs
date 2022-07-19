@@ -3,11 +3,11 @@ use rand::thread_rng;
 use std::path::Path;
 use yaml_rust::Yaml;
 
+use super::pick;
 use crate::actions::Request;
 use crate::benchmark::Benchmark;
 use crate::interpolator::INTERPOLATION_REGEX;
 use crate::reader;
-use super::pick;
 
 pub fn is_that_you(item: &Yaml) -> bool {
   item["request"].as_hash().is_some() && (item["with_items_from_csv"].as_str().is_some() || item["with_items_from_csv"].as_hash().is_some())
