@@ -296,6 +296,12 @@ OPTIONS:
 - Complete and improve the interpolation engine
 - Add writing to a file support
 
+## Donations
+
+If you appreciate all the job done in this project, a small donation is always welcome:
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/fcsonline)
+
 ## Contribute
 
 This project started as a side project to learn Rust, so I'm sure that is full
