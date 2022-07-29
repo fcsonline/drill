@@ -179,7 +179,13 @@ If you want to know more about the benchmark file syntax, [read this](./SYNTAX.m
 
 ## Install
 
-The easiest way right now is to install with [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
+Right now, the easiest way to get `drill` is to go to the
+[latest release](https://github.com/fcsonline/drill/releases/latest)
+page and download the binary file for your platform.
+
+
+Another way to install `drill`, if you have [Rust](https://rustup.rs/) available in
+your system, is with [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
 
 ```
 cargo install drill
@@ -257,7 +263,7 @@ production environments.
 Full list of cli options, which is available under `drill --help`
 
 ```
-drill 0.8.0
+drill 0.8.1
 HTTP load testing application written in Rust inspired by Ansible syntax
 
 USAGE:
