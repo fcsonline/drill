@@ -105,7 +105,7 @@ impl DrillStats {
 }
 
 fn compute_stats(sub_reports: &[Report]) -> DrillStats {
-  let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1000, 2).unwrap();
+  let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 10000, 2).unwrap();
   let mut group_by_status = HashMap::new();
 
   for req in sub_reports {
