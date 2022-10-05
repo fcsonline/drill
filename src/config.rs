@@ -1,3 +1,6 @@
+use colored::Colorize;
+use linked_hash_map::LinkedHashMap;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use yaml_rust::{Yaml, YamlLoader};
 
 use crate::benchmark::Context;
@@ -18,6 +21,8 @@ pub struct Config {
   pub nanosec: bool,
   pub timeout: u64,
   pub verbose: bool,
+  pub default_headers: HeaderMap,
+  pub copy_headers: Vec<String>,
 }
 
 impl Config {
@@ -34,6 +39,23 @@ impl Config {
     let concurrency = read_i64_configuration(config_doc, &interpolator, "concurrency", iterations);
     let rampup = read_i64_configuration(config_doc, &interpolator, "rampup", NRAMPUP);
     let base = read_str_configuration(config_doc, &interpolator, "base", "");
+    let mut default_headers = HeaderMap::new();
+    let hash = read_hashmap_configuration(config_doc, "default_headers", LinkedHashMap::new());
+    for (key, val) in hash.iter() {
+      if let Some(vs) = val.as_str() {
+        default_headers.insert(
+          HeaderName::from_bytes(key.as_str().unwrap().as_bytes()).unwrap(),
+          HeaderValue::from_str(vs).unwrap(),
+        );
+      } else {
+        panic!("{} Headers must be strings!!", "WARNING!".yellow().bold());
+      }
+    }
+    let mut copy_headers = Vec::new();
+    for v in read_list_configuration(config_doc, "copy_headers", Vec::new()).iter() {
+      copy_headers.push(v.as_str().unwrap().to_string());
+    };
+    
 
     if concurrency > iterations {
       panic!("The concurrency can not be higher than the number of iterations")
@@ -50,6 +72,8 @@ impl Config {
       nanosec,
       timeout,
       verbose,
+      default_headers,
+      copy_headers,
     }
   }
 }
@@ -65,6 +89,36 @@ fn read_str_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
     }
     None => {
       if config_doc[name].as_str().is_some() {
+        println!("Invalid {} value!", name);
+      }
+
+      default.to_owned()
+    }
+  }
+}
+
+fn read_hashmap_configuration(config_doc: &Yaml, name: &str, default: LinkedHashMap<Yaml, Yaml>) -> LinkedHashMap<Yaml, Yaml> {
+  match config_doc[name].as_hash() {
+    Some(value) => {
+      value.clone()
+    }
+    None => {
+      if config_doc[name].as_hash().is_some() {
+        println!("Invalid {} value!", name);
+      }
+
+      default.to_owned()
+    }
+  }
+}
+
+fn read_list_configuration(config_doc: &Yaml, name: &str, default: Vec<Yaml>) -> Vec<Yaml> {
+  match config_doc[name].as_vec() {
+    Some(value) => {
+      value.clone()
+    }
+    None => {
+      if config_doc[name].as_vec().is_some() {
         println!("Invalid {} value!", name);
       }
 

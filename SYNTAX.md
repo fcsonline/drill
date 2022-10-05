@@ -29,6 +29,8 @@ plan:
 - `iterations`: Number of loops is going to do (Optional, default: 1)
 - `concurrency`: Number of concurrent iterations. (Optional, default: max)
 - `rampup`: Amount of time it will take to start all iterations. (Optional)
+- `default_headers`: The list of headers you want all requests to share. (Optional)
+- `copy_headers`: The list of headers that you want to copy between requests if it appears in a response. (Optional)
 - `plan`: List of items to do in your benchmark. (Required)
 
 #### Plan items

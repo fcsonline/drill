@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use colored::Colorize;
 use reqwest::{
-  header::{self, HeaderMap, HeaderName, HeaderValue},
+  header::{self, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
 };
 use std::fmt::Write;
@@ -168,8 +168,15 @@ impl Request {
     };
 
     // Headers
-    let mut headers = HeaderMap::new();
+    let mut headers = config.default_headers.clone();
     headers.insert(header::USER_AGENT, HeaderValue::from_str(USER_AGENT).unwrap());
+
+    if let Some(h) = context.get("headers") {
+      let h: Map<String, Value> = serde_json::from_value(h.clone()).unwrap();
+      for (header, value) in h {
+        headers.insert(HeaderName::from_bytes(header.as_bytes()).unwrap(), HeaderValue::from_str(value.as_str().unwrap()).unwrap());
+      }
+    }
 
     if let Some(cookies) = context.get("cookies") {
       let cookies: Map<String, Value> = serde_json::from_value(cookies.clone()).unwrap();
@@ -293,6 +300,13 @@ impl Runnable for Request {
 
           context.insert("cookies".to_string(), json!(cookies));
         }
+        let mut headers = HashMap::new();
+        for header in &config.copy_headers {
+          if let Some(v) = response.headers().get(header) {
+            headers.insert(header, v.to_str().unwrap());
+          }
+        }
+        context.insert("headers".to_string(), json!(headers));
 
         let data = if let Some(ref key) = self.assign {
           let mut headers = Map::new();
