@@ -14,7 +14,7 @@ use yaml_rust::Yaml;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-use crate::actions::{extract, extract_optional};
+use crate::actions::{extract, extract_optional, yaml_to_json};
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
@@ -226,34 +226,6 @@ impl Request {
         (Some(response), duration_ms)
       }
     }
-  }
-}
-
-fn yaml_to_json(data: Yaml) -> Value {
-  if let Some(b) = data.as_bool() {
-    json!(b)
-  } else if let Some(i) = data.as_i64() {
-    json!(i)
-  } else if let Some(s) = data.as_str() {
-    json!(s)
-  } else if let Some(h) = data.as_hash() {
-    let mut map = Map::new();
-
-    for (key, value) in h.iter() {
-      map.entry(key.as_str().unwrap()).or_insert(yaml_to_json(value.clone()));
-    }
-
-    json!(map)
-  } else if let Some(v) = data.as_vec() {
-    let mut array = Vec::new();
-
-    for value in v.iter() {
-      array.push(yaml_to_json(value.clone()));
-    }
-
-    json!(array)
-  } else {
-    panic!("Unknown Yaml node")
   }
 }
 

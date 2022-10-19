@@ -5,7 +5,7 @@ use crate::interpolator::INTERPOLATION_REGEX;
 
 use crate::actions;
 use crate::benchmark::Benchmark;
-use crate::expandable::{include, multi_csv_request, multi_file_request, multi_iter_request, multi_request};
+use crate::expandable::{include, multi_csv_request, multi_exec, multi_file_request, multi_iter_request, multi_request};
 use crate::tags::Tags;
 
 use crate::reader;
@@ -36,7 +36,9 @@ pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, access
       continue;
     }
 
-    if multi_request::is_that_you(item) {
+    if multi_exec::is_that_you(item) {
+      multi_exec::expand(item, benchmark);
+    } else if multi_request::is_that_you(item) {
       multi_request::expand(item, benchmark);
     } else if multi_iter_request::is_that_you(item) {
       multi_iter_request::expand(item, benchmark);
@@ -49,7 +51,7 @@ pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, access
     } else if actions::Delay::is_that_you(item) {
       benchmark.push(Box::new(actions::Delay::new(item, None)));
     } else if actions::Exec::is_that_you(item) {
-      benchmark.push(Box::new(actions::Exec::new(item, None)));
+      benchmark.push(Box::new(actions::Exec::new(item, None, None)));
     } else if actions::Assign::is_that_you(item) {
       benchmark.push(Box::new(actions::Assign::new(item, None)));
     } else if actions::Assert::is_that_you(item) {
