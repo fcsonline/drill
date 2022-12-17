@@ -8,7 +8,7 @@ pub fn read_file(filepath: &str) -> String {
   let display = path.display();
 
   // Open the path in read-only mode, returns `io::Result<File>`
-  let mut file = match File::open(&path) {
+  let mut file = match File::open(path) {
     Err(why) => panic!("couldn't open {}: {}", display, why),
     Ok(file) => file,
   };
@@ -46,7 +46,7 @@ pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
   let path = Path::new(filepath);
   let display = path.display();
 
-  let file = match File::open(&path) {
+  let file = match File::open(path) {
     Err(why) => panic!("couldn't open {}: {}", display, why),
     Ok(file) => file,
   };
@@ -72,7 +72,7 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
   let display = path.display();
 
   // Open the path in read-only mode, returns `io::Result<File>`
-  let file = match File::open(&path) {
+  let file = match File::open(path) {
     Err(why) => panic!("couldn't open {}: {}", display, why),
     Ok(file) => file,
   };

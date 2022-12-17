@@ -7,7 +7,7 @@ mod multi_request;
 
 use yaml_rust::Yaml;
 
-pub fn pick(item: &Yaml, with_items: &Vec<Yaml>) -> usize {
+pub fn pick(item: &Yaml, with_items: &[Yaml]) -> usize {
   match item["pick"].as_i64() {
     Some(value) => {
       if value.is_negative() {
