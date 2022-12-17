@@ -1,6 +1,7 @@
 use colored::*;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
+use serde_json::json;
 
 use crate::benchmark::Context;
 
@@ -9,7 +10,7 @@ static INTERPOLATION_SUFFIX: &str = "}}";
 
 lazy_static! {
   pub static ref INTERPOLATION_REGEX: Regex = {
-    let regexp = format!("{}{}{}", regex::escape(INTERPOLATION_PREFIX), r" *([a-zA-Z\-\._]+[a-zA-Z\-\._0-9]*) *", regex::escape(INTERPOLATION_SUFFIX));
+    let regexp = format!("{}{}{}", regex::escape(INTERPOLATION_PREFIX), r" *([a-zA-Z\-\._\[]+[a-zA-Z\-\._0-9\]]*) *", regex::escape(INTERPOLATION_SUFFIX));
 
     Regex::new(regexp.as_str()).unwrap()
   };
@@ -31,7 +32,7 @@ impl<'a> Interpolator<'a> {
       .replace_all(url, |caps: &Captures| {
         let capture = &caps[1];
 
-        if let Some(item) = self.resolve_context_interpolation(capture.split('.').collect()) {
+        if let Some(item) = self.resolve_context_interpolation(capture) {
           return item;
         }
 
@@ -57,22 +58,22 @@ impl<'a> Interpolator<'a> {
     }
   }
 
-  fn resolve_context_interpolation(&self, cap_path: Vec<&str>) -> Option<String> {
-    let (cap_root, cap_tail) = cap_path.split_at(1);
+  fn resolve_context_interpolation(&self, value: &str) -> Option<String> {
+    //convert "." and "[" to "/" and "]" to "" to look like a json pointer
+    let val: String = format!("/{}", value.replace(".", "/").replace("[", "/").replace("]", ""));
 
-    cap_tail
-      .iter()
-      .fold(self.context.get(cap_root[0]), |json, k| match json {
-        Some(json) => json.get(k),
-        _ => None,
-      })
-      .map(|value| {
-        if value.is_string() {
-          String::from(value.as_str().unwrap())
-        } else {
-          value.to_string()
-        }
-      })
+    //force the context into a Value, and acess by pointer
+    if let Some(item) = json!(self.context).pointer(&val).to_owned() {
+      return Some(match item.to_owned() {
+        serde_json::Value::Null => "".to_owned(),
+        serde_json::Value::Bool(v) => v.to_string(),
+        serde_json::Value::Number(v) => v.to_string(),
+        serde_json::Value::String(v) => v,
+        serde_json::Value::Array(v) => serde_json::to_string(&v).unwrap(),
+        serde_json::Value::Object(v) => serde_json::to_string(&v).unwrap(),
+      });
+    }
+    None
   }
 }
 
@@ -93,6 +94,29 @@ mod tests {
     let interpolated = interpolator.resolve(&url, true);
 
     assert_eq!(interpolated, "http://example.com/users/12/view/12/chunked");
+  }
+
+  #[test]
+  fn interpolates_variables_nested() {
+    let mut context: Context = Context::new();
+
+    context.insert(String::from("Null"), serde_json::Value::Null);
+    context.insert(String::from("Bool"), json!(true));
+    context.insert(String::from("Number"), json!(12));
+    context.insert(String::from("String"), json!("string"));
+    context.insert(String::from("Array"), json!(["a", "b", "c"]));
+    context.insert(String::from("Object"), json!({"this": "that"}));
+    context.insert(String::from("Nested"), json!({"this": {"that": {"those": [{"wow": 1}, {"so": 2}, {"deee": {"eeee": "eeep"}}]}}}));
+
+    let interpolator = Interpolator::new(&context);
+
+    assert_eq!(interpolator.resolve("{{ Null }}", true), "".to_string());
+    assert_eq!(interpolator.resolve("{{ Bool }}", true), "true".to_string());
+    assert_eq!(interpolator.resolve("{{ Number }}", true), "12".to_string());
+    assert_eq!(interpolator.resolve("{{ String }}", true), "string".to_string());
+    assert_eq!(interpolator.resolve("{{ Array }}", true), "[\"a\",\"b\",\"c\"]".to_string());
+    assert_eq!(interpolator.resolve("{{ Object }}", true), "{\"this\":\"that\"}".to_string());
+    assert_eq!(interpolator.resolve("{{ Nested.this.that.those[2].deee.eeee }}", true), "eeep".to_string());
   }
 
   #[test]

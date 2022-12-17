@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
 
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use tokio::{runtime, time::sleep};
 
 use crate::actions::{Report, Runnable};
@@ -18,7 +18,7 @@ use reqwest::Client;
 use colored::*;
 
 pub type Benchmark = Vec<Box<(dyn Runnable + Sync + Send)>>;
-pub type Context = HashMap<String, Value>;
+pub type Context = Map<String, Value>;
 pub type Reports = Vec<Report>;
 pub type PoolStore = HashMap<String, Client>;
 pub type Pool = Arc<Mutex<PoolStore>>;
