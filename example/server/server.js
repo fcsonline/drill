@@ -50,7 +50,7 @@ const randomFailedHandler = function(req, res) {
   }
 };
 
-const transactionsHander = function(req, res) {
+const transactionsHandler = function(req, res) {
   const body = req.body
 
   if (body.a + body.b === '123') {
@@ -72,7 +72,7 @@ app.get('/api/users/at/:floor/:room', logger_handler('R'));
 app.get('/api/account', logger_handler('A'));
 
 app.post('/api/users', randomFailedHandler);
-app.post('/api/transactions', transactionsHander);
+app.post('/api/transactions', transactionsHandler);
 
 // Sessions test plan
 app.get('/login', function(req, res){

@@ -64,7 +64,7 @@ Second, it can be a hash with the following properties:
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
 
-If you assing list of tags, e.g `[tag1, tag2]`, this item will be executed if `tag1` **OR** `tag2` is passed.
+If you assign list of tags, e.g `[tag1, tag2]`, this item will be executed if `tag1` **OR** `tag2` is passed.
 
 Special tags: `always` and `never`.
 
