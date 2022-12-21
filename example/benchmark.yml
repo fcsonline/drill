@@ -141,3 +141,13 @@ plan:
       - 75
     shuffle: true
     pick: 1
+
+  - name: Complex access
+    request:
+      url: /api/users.json
+    assign: complex
+
+  - name: Assert request response code
+    assert:
+      key: complex.body[1].phones[1]
+      value: '+44 2345678'
