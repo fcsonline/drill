@@ -36,7 +36,7 @@ impl Delay {
 #[async_trait]
 impl Runnable for Delay {
   async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
-    sleep(Duration::from_secs(self.seconds as u64)).await;
+    sleep(Duration::from_secs(self.seconds)).await;
 
     if !config.quiet {
       println!("{:width$} {}{}", self.name.green(), self.seconds.to_string().cyan().bold(), "s".magenta(), width = 25);
