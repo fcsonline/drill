@@ -76,7 +76,7 @@ mod tests {
 
     expand(doc, &mut benchmark);
 
-    assert_eq!(is_that_you(doc), true);
+    assert!(is_that_you(doc));
     assert_eq!(benchmark.len(), 10);
   }
 

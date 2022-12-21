@@ -80,7 +80,7 @@ mod tests {
 
     expand("example/benchmark.yml", doc, &mut benchmark, &Tags::new(None, None));
 
-    assert_eq!(is_that_you(doc), true);
+    assert!(is_that_you(doc));
     assert_eq!(benchmark.len(), 2);
   }
 
