@@ -272,7 +272,7 @@ impl Runnable for Request {
     match res {
       None => reports.push(Report {
         name: self.name.to_owned(),
-        duration: duration_ms,
+        duration_ms,
         status: 520u16,
       }),
       Some(response) => {
@@ -280,7 +280,7 @@ impl Runnable for Request {
 
         reports.push(Report {
           name: self.name.to_owned(),
-          duration: duration_ms,
+          duration_ms,
           status,
         });
 

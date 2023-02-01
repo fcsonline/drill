@@ -90,17 +90,17 @@ struct DrillStats {
 }
 
 impl DrillStats {
-  fn mean_duration(&self) -> f64 {
-    self.hist.mean() / 1_000.0
+  fn mean_duration_ms(&self) -> f64 {
+    self.hist.mean()
   }
-  fn median_duration(&self) -> f64 {
-    self.hist.value_at_quantile(0.5) as f64 / 1_000.0
+  fn median_duration_ms(&self) -> f64 {
+    self.hist.value_at_quantile(0.5) as f64
   }
-  fn stdev_duration(&self) -> f64 {
-    self.hist.stdev() / 1_000.0
+  fn stdev_duration_ms(&self) -> f64 {
+    self.hist.stdev()
   }
-  fn value_at_quantile(&self, quantile: f64) -> f64 {
-    self.hist.value_at_quantile(quantile) as f64 / 1_000.0
+  fn value_at_quantile_ms(&self, quantile: f64) -> f64 {
+    self.hist.value_at_quantile(quantile) as f64
   }
 }
 
@@ -113,7 +113,7 @@ fn compute_stats(sub_reports: &[Report]) -> DrillStats {
   }
 
   for r in sub_reports.iter() {
-    hist += (r.duration * 1_000.0) as u64;
+    hist += r.duration_ms as u64;
   }
 
   let total_requests = sub_reports.len();
@@ -154,12 +154,12 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
     println!("{:width$} {:width2$} {}", name.green(), "Total requests".yellow(), substats.total_requests.to_string().purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "Successful requests".yellow(), substats.successful_requests.to_string().purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "Failed requests".yellow(), substats.failed_requests.to_string().purple(), width = 25, width2 = 25);
-    println!("{:width$} {:width2$} {}", name.green(), "Median time per request".yellow(), format_time(substats.median_duration(), nanosec).purple(), width = 25, width2 = 25);
-    println!("{:width$} {:width2$} {}", name.green(), "Average time per request".yellow(), format_time(substats.mean_duration(), nanosec).purple(), width = 25, width2 = 25);
-    println!("{:width$} {:width2$} {}", name.green(), "Sample standard deviation".yellow(), format_time(substats.stdev_duration(), nanosec).purple(), width = 25, width2 = 25);
-    println!("{:width$} {:width2$} {}", name.green(), "99.0'th percentile".yellow(), format_time(substats.value_at_quantile(0.99), nanosec).purple(), width = 25, width2 = 25);
-    println!("{:width$} {:width2$} {}", name.green(), "99.5'th percentile".yellow(), format_time(substats.value_at_quantile(0.995), nanosec).purple(), width = 25, width2 = 25);
-    println!("{:width$} {:width2$} {}", name.green(), "99.9'th percentile".yellow(), format_time(substats.value_at_quantile(0.999), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "Median time per request".yellow(), format_time(substats.median_duration_ms(), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "Average time per request".yellow(), format_time(substats.mean_duration_ms(), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "Sample standard deviation".yellow(), format_time(substats.stdev_duration_ms(), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "99.0'th percentile".yellow(), format_time(substats.value_at_quantile_ms(0.99), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "99.5'th percentile".yellow(), format_time(substats.value_at_quantile_ms(0.995), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "99.9'th percentile".yellow(), format_time(substats.value_at_quantile_ms(0.999), nanosec).purple(), width = 25, width2 = 25);
   }
 
   // compute global stats
@@ -173,12 +173,12 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
   println!("{:width2$} {}", "Successful requests".yellow(), global_stats.successful_requests.to_string().purple(), width2 = 25);
   println!("{:width2$} {}", "Failed requests".yellow(), global_stats.failed_requests.to_string().purple(), width2 = 25);
   println!("{:width2$} {} {}", "Requests per second".yellow(), format!("{:.2}", requests_per_second).purple(), "[#/sec]".purple(), width2 = 25);
-  println!("{:width2$} {}", "Median time per request".yellow(), format_time(global_stats.median_duration(), nanosec).purple(), width2 = 25);
-  println!("{:width2$} {}", "Average time per request".yellow(), format_time(global_stats.mean_duration(), nanosec).purple(), width2 = 25);
-  println!("{:width2$} {}", "Sample standard deviation".yellow(), format_time(global_stats.stdev_duration(), nanosec).purple(), width2 = 25);
-  println!("{:width2$} {}", "99.0'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.99), nanosec).purple(), width2 = 25);
-  println!("{:width2$} {}", "99.5'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.995), nanosec).purple(), width2 = 25);
-  println!("{:width2$} {}", "99.9'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.999), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "Median time per request".yellow(), format_time(global_stats.median_duration_ms(), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "Average time per request".yellow(), format_time(global_stats.mean_duration_ms(), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "Sample standard deviation".yellow(), format_time(global_stats.stdev_duration_ms(), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "99.0'th percentile".yellow(), format_time(global_stats.value_at_quantile_ms(0.99), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "99.5'th percentile".yellow(), format_time(global_stats.value_at_quantile_ms(0.995), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "99.9'th percentile".yellow(), format_time(global_stats.value_at_quantile_ms(0.999), nanosec).purple(), width2 = 25);
 }
 
 fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<&str>) {

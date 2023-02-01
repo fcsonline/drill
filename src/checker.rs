@@ -39,7 +39,7 @@ pub fn compare(list_reports: &[Vec<Report>], filepath: &str, threshold: &str) ->
   for report in list_reports {
     for (i, report_item) in report.iter().enumerate() {
       let recorded_duration = items[i]["duration"].as_f64().unwrap();
-      let delta_ms = report_item.duration - recorded_duration;
+      let delta_ms = report_item.duration_ms - recorded_duration;
 
       if delta_ms > threshold_value {
         println!("{:width$} is {}{} slower than before", report_item.name.green(), delta_ms.round().to_string().red(), "ms".red(), width = 25);
