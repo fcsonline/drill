@@ -32,6 +32,12 @@ pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, access
   let items = reader::read_yaml_doc_accessor(&docs[0], accessor);
 
   for item in items {
+    if include::is_that_you(item) {
+      include::expand(parent_path, item, benchmark, tags);
+
+      continue;
+    }
+
     if tags.should_skip_item(item) {
       continue;
     }
@@ -44,8 +50,6 @@ pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, access
       multi_csv_request::expand(parent_path, item, benchmark);
     } else if multi_file_request::is_that_you(item) {
       multi_file_request::expand(parent_path, item, benchmark);
-    } else if include::is_that_you(item) {
-      include::expand(parent_path, item, benchmark, tags);
     } else if actions::Delay::is_that_you(item) {
       benchmark.push(Box::new(actions::Delay::new(item, None)));
     } else if actions::Exec::is_that_you(item) {
