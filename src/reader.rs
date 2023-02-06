@@ -32,7 +32,7 @@ pub fn read_yaml_doc_accessor<'a>(doc: &'a yaml_rust::Yaml, accessor: Option<&st
     match doc[accessor_id].as_vec() {
       Some(items) => items,
       None => {
-        println!("Node missing on config: {}", accessor_id);
+        println!("Node missing on config: {accessor_id}");
         println!("Exiting.");
         std::process::exit(1)
       }
@@ -58,7 +58,7 @@ pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
       Ok(text) => {
         items.push(yaml_rust::Yaml::String(text));
       }
-      Err(e) => println!("error parsing line: {:?}", e),
+      Err(e) => println!("error parsing line: {e:?}"),
     }
   }
 
@@ -100,7 +100,7 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
 
         items.push(yaml_rust::Yaml::Hash(linked_hash_map));
       }
-      Err(e) => println!("error parsing header: {:?}", e),
+      Err(e) => println!("error parsing header: {e:?}"),
     }
   }
 

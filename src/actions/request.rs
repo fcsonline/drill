@@ -122,7 +122,7 @@ impl Request {
       match context.get("base") {
         Some(value) => {
           if let Some(vs) = value.as_str() {
-            format!("{}{}", vs, interpolated_url)
+            format!("{vs}{interpolated_url}")
           } else {
             panic!("{} Wrong type 'base' variable!", "WARNING!".yellow().bold());
           }
@@ -173,7 +173,7 @@ impl Request {
 
     if let Some(cookies) = context.get("cookies") {
       let cookies: Map<String, Value> = serde_json::from_value(cookies.clone()).unwrap();
-      let cookie = cookies.iter().map(|(key, value)| format!("{}={}", key, value)).collect::<Vec<_>>().join(";");
+      let cookie = cookies.iter().map(|(key, value)| format!("{key}={value}")).collect::<Vec<_>>().join(";");
 
       headers.insert(header::COOKIE, HeaderValue::from_str(&cookie).unwrap());
     }
@@ -334,7 +334,7 @@ fn log_request(request: &reqwest::Request) {
   write!(message, " {} {},", "URL:".bold(), request.url()).unwrap();
   write!(message, " {} {},", "METHOD:".bold(), request.method()).unwrap();
   write!(message, " {} {:?}", "HEADERS:".bold(), request.headers()).unwrap();
-  println!("{}", message);
+  println!("{message}");
 }
 
 fn log_message_response(response: &Option<reqwest::Response>, duration_ms: f64) -> String {
@@ -359,5 +359,5 @@ fn log_response(log_message_response: String, body: &Option<String>) {
   if let Some(body) = body.as_ref() {
     write!(message, " {} {:?}", "BODY:".bold(), body).unwrap()
   }
-  println!("{}", message);
+  println!("{message}");
 }
