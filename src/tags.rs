@@ -84,7 +84,7 @@ pub fn list_benchmark_file_tasks(benchmark_file: &str, tags: &Tags) {
     let mut out_str = String::new();
     let mut emitter = YamlEmitter::new(&mut out_str);
     emitter.dump(item).unwrap();
-    println!("{}", out_str);
+    println!("{out_str}");
   }
 }
 

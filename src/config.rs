@@ -65,7 +65,7 @@ fn read_str_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
     }
     None => {
       if config_doc[name].as_str().is_some() {
-        println!("Invalid {} value!", name);
+        println!("Invalid {name} value!");
       }
 
       default.to_owned()
@@ -85,7 +85,7 @@ fn read_i64_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
   match value {
     Some(value) => {
       if value < 0 {
-        println!("Invalid negative {} value!", name);
+        println!("Invalid negative {name} value!");
 
         default
       } else {
@@ -94,7 +94,7 @@ fn read_i64_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
     }
     None => {
       if config_doc[name].as_str().is_some() {
-        println!("Invalid {} value!", name);
+        println!("Invalid {name} value!");
       }
 
       default
