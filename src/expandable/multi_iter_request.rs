@@ -82,6 +82,20 @@ mod tests {
 
   #[test]
   #[should_panic]
+  fn expand_multi_range_should_limit_requests_using_the_pick_option() {
+    let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 3\nwith_items_range:\n  start: 2\n  step: 2\n  stop: 20";
+    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let doc = &docs[0];
+    let mut benchmark: Benchmark = Benchmark::new();
+
+    expand(doc, &mut benchmark);
+
+    assert!(is_that_you(doc));
+    assert_eq!(benchmark.len(), 3);
+  }
+
+  #[test]
+  #[should_panic]
   fn invalid_expand() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items_range:\n  start: 1\n  step: 2\n  stop: foo";
     let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
