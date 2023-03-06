@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use yaml_rust::Yaml;
@@ -54,6 +56,10 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
         }
       }
 
+      if let Some(pick) = item["pick"].as_i64() {
+        with_items.truncate(pick.try_into().expect("pick can't be larger than size of range"))
+      }
+
       for (index, value) in with_items.iter().enumerate() {
         let index = index as u32;
 
@@ -81,7 +87,6 @@ mod tests {
   }
 
   #[test]
-  #[should_panic]
   fn expand_multi_range_should_limit_requests_using_the_pick_option() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 3\nwith_items_range:\n  start: 2\n  step: 2\n  stop: 20";
     let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
