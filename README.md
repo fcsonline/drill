@@ -169,6 +169,15 @@ plan:
       - 75
     shuffle: true
     pick: 1
+
+  - name: Three requests with random items from a range
+    request:
+      url: /api/users/{{ item }}
+    with_items_range:
+      start: 1
+      stop: 1000
+    shuffle: true
+    pick: 3
 ```
 
 As you can see, you can play with interpolations in different ways. This
