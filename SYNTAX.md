@@ -46,8 +46,10 @@ All those three items can be combined with `name` property to be show in logs.
 - `method`: HTTP method in the requests. Valid methods are GET, POST, PUT, PATCH, HEAD or DELETE. (default: GET)
 - `body`: Request body for methods like POST, PUT or PATCH.
 - `with_items`: List of items to be interpolated in the given request url.
-- `with_items_range`: Generates items from an iterator from start, step, stop.
+- `with_items_range`: Generates items from an iterator from start, step (optional, default: 1), stop.
 - `with_items_from_csv`: Read the given CSV values and go through all of them as items.
+- `shuffle`: Shuffle given items randomly (default: false).
+- `pick`: Number of items to pick and perform requests with.
 - `assign`: Save the response in the context to be interpolated later.
 - `tags`: List of tags for that item.
 
