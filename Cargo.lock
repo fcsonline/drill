@@ -235,7 +235,7 @@ checksum = "23d8666cb01533c39dde32bcbab8e227b4ed6679b2c925eba05feabea39508fb"
 
 [[package]]
 name = "drill"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "async-trait",
  "clap",
