@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  drill-server:
+    ports:
+      - "9000:9000"
+    image: drill-example-server:latest
+    build:
+      context: ./
+      dockerfile: Dockerfile-example-server
+      #args:
+      #  buildno: 1
+    environment:
+        OUTPUT: 0
+        DELAY_MS: 100
