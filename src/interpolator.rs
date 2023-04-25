@@ -10,7 +10,7 @@ static INTERPOLATION_SUFFIX: &str = "}}";
 
 lazy_static! {
   pub static ref INTERPOLATION_REGEX: Regex = {
-    let regexp = format!("{}{}{}", regex::escape(INTERPOLATION_PREFIX), r" *([a-zA-Z]+[a-zA-Z\-\._0-9\[\]]*) *", regex::escape(INTERPOLATION_SUFFIX));
+    let regexp = format!("{}{}{}", regex::escape(INTERPOLATION_PREFIX), r" *([a-zA-Z]+[a-zA-Z\-\._\$0-9\[\]]*) *", regex::escape(INTERPOLATION_SUFFIX));
 
     Regex::new(regexp.as_str()).unwrap()
   };
@@ -107,7 +107,7 @@ mod tests {
     context.insert(String::from("Array"), json!(["a", "b", "c"]));
     context.insert(String::from("Object"), json!({"this": "that"}));
     context.insert(String::from("Nested"), json!({"this": {"that": {"those": [{"wow": 1}, {"so": 2}, {"deee": {"eeee": "eeep"}}]}}}));
-    context.insert(String::from("ArrayNested"), json!([{"a": [{}, {"aa": 2, "aaa": [{"aaaa": 123 }]}]}]));
+    context.insert(String::from("ArrayNested"), json!([{"a": [{}, {"aa": 2, "aaa": [{"aaaa": 123, "$aaaa": "$123"}]}]}]));
 
     let interpolator = Interpolator::new(&context);
 
@@ -119,6 +119,7 @@ mod tests {
     assert_eq!(interpolator.resolve("{{ Object }}", true), "{\"this\":\"that\"}".to_string());
     assert_eq!(interpolator.resolve("{{ Nested.this.that.those[2].deee.eeee }}", true), "eeep".to_string());
     assert_eq!(interpolator.resolve("{{ ArrayNested[0].a[1].aaa[0].aaaa }}", true), "123".to_string());
+    assert_eq!(interpolator.resolve("{{ ArrayNested[0].a[1].aaa[0].$aaaa }}", true), "$123".to_string());
   }
 
   #[test]
