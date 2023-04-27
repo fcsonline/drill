@@ -11,8 +11,8 @@ pub struct Tags<'a> {
 
 impl<'a> Tags<'a> {
   pub fn new(tags_option: Option<&'a str>, skip_tags_option: Option<&'a str>) -> Self {
-    let tags: Option<HashSet<&str>> = tags_option.map(|m| m.split(',').into_iter().map(|s| s.trim()).collect());
-    let skip_tags: Option<HashSet<&str>> = skip_tags_option.map(|m| m.split(',').into_iter().map(|s| s.trim()).collect());
+    let tags: Option<HashSet<&str>> = tags_option.map(|m| m.split(',').map(|s| s.trim()).collect());
+    let skip_tags: Option<HashSet<&str>> = skip_tags_option.map(|m| m.split(',').map(|s| s.trim()).collect());
 
     if let (Some(t), Some(s)) = (&tags, &skip_tags) {
       if !t.is_disjoint(s) {
