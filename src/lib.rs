@@ -17,7 +17,7 @@ use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::process;
 
-fn main() {
+pub fn main() {
   let matches = app_args();
   let benchmark_file = matches.value_of("benchmark").unwrap();
   let report_path_option = matches.value_of("report");
