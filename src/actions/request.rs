@@ -284,14 +284,9 @@ impl Runnable for Request {
           status,
         });
 
-        if response.cookies().count() > 0 {
-          let mut cookies = Map::new();
-
-          for cookie in response.cookies() {
-            cookies.insert(cookie.name().to_string(), json!(cookie.value().to_string()));
-          }
-
-          context.insert("cookies".to_string(), json!(cookies));
+        for cookie in response.cookies() {
+          let cookies = context.entry("cookies").or_insert_with(|| json!({})).as_object_mut().unwrap();
+          cookies.insert(cookie.name().to_string(), json!(cookie.value().to_string()));
         }
 
         let data = if let Some(ref key) = self.assign {
