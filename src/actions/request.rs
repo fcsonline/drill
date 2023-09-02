@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use colored::Colorize;
 use reqwest::{
-  header::{self, HeaderMap, HeaderName, HeaderValue},
+  header::{self, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
 };
 use std::fmt::Write;
@@ -14,7 +14,7 @@ use yaml_rust::Yaml;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-use crate::actions::{extract, extract_optional};
+use crate::actions::{extract, extract_optional, yaml_to_json};
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
@@ -168,8 +168,15 @@ impl Request {
     };
 
     // Headers
-    let mut headers = HeaderMap::new();
+    let mut headers = config.default_headers.clone();
     headers.insert(header::USER_AGENT, HeaderValue::from_str(USER_AGENT).unwrap());
+
+    if let Some(h) = context.get("headers") {
+      let h: Map<String, Value> = serde_json::from_value(h.clone()).unwrap();
+      for (header, value) in h {
+        headers.insert(HeaderName::from_bytes(header.as_bytes()).unwrap(), HeaderValue::from_str(value.as_str().unwrap()).unwrap());
+      }
+    }
 
     if let Some(cookies) = context.get("cookies") {
       let cookies: Map<String, Value> = serde_json::from_value(cookies.clone()).unwrap();
@@ -222,34 +229,6 @@ impl Request {
   }
 }
 
-fn yaml_to_json(data: Yaml) -> Value {
-  if let Some(b) = data.as_bool() {
-    json!(b)
-  } else if let Some(i) = data.as_i64() {
-    json!(i)
-  } else if let Some(s) = data.as_str() {
-    json!(s)
-  } else if let Some(h) = data.as_hash() {
-    let mut map = Map::new();
-
-    for (key, value) in h.iter() {
-      map.entry(key.as_str().unwrap()).or_insert(yaml_to_json(value.clone()));
-    }
-
-    json!(map)
-  } else if let Some(v) = data.as_vec() {
-    let mut array = Vec::new();
-
-    for value in v.iter() {
-      array.push(yaml_to_json(value.clone()));
-    }
-
-    json!(array)
-  } else {
-    panic!("Unknown Yaml node")
-  }
-}
-
 #[async_trait]
 impl Runnable for Request {
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) {
@@ -288,6 +267,13 @@ impl Runnable for Request {
           let cookies = context.entry("cookies").or_insert_with(|| json!({})).as_object_mut().unwrap();
           cookies.insert(cookie.name().to_string(), json!(cookie.value().to_string()));
         }
+        let mut headers = HashMap::new();
+        for header in &config.copy_headers {
+          if let Some(v) = response.headers().get(header) {
+            headers.insert(header, v.to_str().unwrap());
+          }
+        }
+        context.insert("headers".to_string(), json!(headers));
 
         let data = if let Some(ref key) = self.assign {
           let mut headers = Map::new();

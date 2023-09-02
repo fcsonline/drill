@@ -2,23 +2,39 @@
 # This is an example of how to send custom headers.
 
 ---
-base: 'http://localhost:3000'
+base: 'http://localhost:9000'
 iterations: 1
+default_headers:
+  Authorization: Basic aHR0cHdhdGNoOmY=
+copy_headers:
+  - X-Test
 
 plan:
   - name: Custom headers
     request:
       url: /
       headers:
-        Authorization: Basic aHR0cHdhdGNoOmY=
         X-Foo: Bar
 
   - name: Dynamic Custom headers
     request:
       url: /
       headers:
-        Authorization: Basic aHR0cHdhdGNoOmY=
         X-Foo: Bar {{ item }}
     with_items:
       - 70
       - 73
+
+  - name: Fetch first test header
+    request:
+      url: /header
+
+  - name: Fetch second test header
+    request:
+      url: /header
+    assign: returned_headers
+
+  - name: Check the headers
+    assert:
+      key: returned_headers.headers.x-test
+      value: '2'

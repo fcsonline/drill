@@ -97,6 +97,16 @@ app.get('/', function(req, res){
   res.json({ status: ':D' })
 });
 
+app.get('/header', function(req, res){
+  header = req.get('X-Test');
+  if (header) {
+    res.header('X-Test', parseInt(header) + 1);
+  } else {
+    res.header('X-Test', '1');
+  }
+  res.send();
+});
+
 app.delete('/', function(req, res){
   req.session.counter = 1;
   res.json({counter: req.session.counter})
