@@ -76,7 +76,7 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("list-tags").long("list-tags").help("List all benchmark tags").takes_value(false).conflicts_with_all(&["tags", "skip-tags"]))
     .arg(Arg::with_name("list-tasks").long("list-tasks").help("List benchmark tasks (executes --tags/--skip-tags filter)").takes_value(false))
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
-    .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests").takes_value(true))
+    .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests (max: 120)").takes_value(true))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
     .arg(Arg::with_name("verbose").short("v").long("verbose").help("Toggle verbose output").takes_value(false))
     .get_matches()
@@ -105,7 +105,8 @@ impl DrillStats {
 }
 
 fn compute_stats(sub_reports: &[Report]) -> DrillStats {
-  let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1000, 2).unwrap();
+  // we preserve accuracy down to the microsecond level, so our upper bound is max timeout (seconds) converted to microseconds
+  let mut hist = Histogram::<u64>::new_with_bounds(1, benchmark::MAX_TIMEOUT_SECONDS * 1_000_000, 2).unwrap();
   let mut group_by_status = HashMap::new();
 
   for req in sub_reports {
@@ -113,6 +114,7 @@ fn compute_stats(sub_reports: &[Report]) -> DrillStats {
   }
 
   for r in sub_reports.iter() {
+    // convert from milliseconds as a float to microseconds as an unsigned integer
     hist += (r.duration * 1_000.0) as u64;
   }
 

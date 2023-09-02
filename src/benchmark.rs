@@ -54,9 +54,12 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
   )
 }
 
+pub const DEFAULT_TIMEOUT_SECONDS: u64 = 10;
+pub const MAX_TIMEOUT_SECONDS: u64 = 120;
+
 #[allow(clippy::too_many_arguments)]
 pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<&str>, verbose: bool, tags: &Tags) -> BenchmarkResult {
-  let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose));
+  let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(DEFAULT_TIMEOUT_SECONDS, |t| t.parse().unwrap_or(DEFAULT_TIMEOUT_SECONDS).max(MAX_TIMEOUT_SECONDS)), verbose));
 
   if report_path_option.is_some() {
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow());
