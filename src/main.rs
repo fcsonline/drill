@@ -22,6 +22,7 @@ fn main() {
   let benchmark_file = matches.value_of("benchmark").unwrap();
   let report_path_option = matches.value_of("report");
   let stats_option = matches.is_present("stats");
+  let histogram_max_width = matches.value_of("histogram-max-width").unwrap_or("100").parse::<usize>().unwrap();
   let compare_path_option = matches.value_of("compare");
   let threshold_option = matches.value_of("threshold");
   let no_check_certificate = matches.is_present("no-check-certificate");
@@ -54,7 +55,7 @@ fn main() {
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
-  show_stats(&list_reports, stats_option, nanosec, duration);
+  show_stats(&list_reports, stats_option, nanosec, duration, histogram_max_width);
   compare_benchmark(&list_reports, compare_path_option, threshold_option);
 
   process::exit(0)
@@ -77,6 +78,7 @@ fn app_args<'a>() -> clap::ArgMatches<'a> {
     .arg(Arg::with_name("list-tasks").long("list-tasks").help("List benchmark tasks (executes --tags/--skip-tags filter)").takes_value(false))
     .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
     .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests").takes_value(true))
+    .arg(Arg::with_name("histogram-max-width").short("w").long("histogram-max-width").help("Set the maximum width of the histogram").takes_value(true))
     .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
     .arg(Arg::with_name("verbose").short("v").long("verbose").help("Toggle verbose output").takes_value(false))
     .get_matches()
@@ -96,11 +98,65 @@ impl DrillStats {
   fn median_duration(&self) -> f64 {
     self.hist.value_at_quantile(0.5) as f64 / 1_000.0
   }
+  fn max_duration(&self) -> f64 {
+    self.hist.max() as f64 / 1_000.0
+  }
+  fn min_duration(&self) -> f64 {
+    self.hist.min() as f64 / 1_000.0
+  }
   fn stdev_duration(&self) -> f64 {
     self.hist.stdev() / 1_000.0
   }
   fn value_at_quantile(&self, quantile: f64) -> f64 {
     self.hist.value_at_quantile(quantile) as f64 / 1_000.0
+  }
+  fn print_histogram(&self, max_symbols: usize) {
+    let max_value = self.hist.max();
+    let min_value = self.hist.min();
+    let bin_size = if max_value == min_value {
+      1
+    } else {
+      (max_value - min_value) / 10
+    };
+    let max_range_string_length = format!("[{} - {}]", max_value / 1_000, (max_value + bin_size) / 1_000).len();
+
+    // Collect counts for each bin
+    let mut counts = vec![];
+    for i in 0..10 {
+      let lower_bound = min_value + i * bin_size;
+      let upper_bound = std::cmp::min(lower_bound + bin_size, max_value + 1); // Ensure last bin includes max_value
+      let count = self.hist.iter_recorded().filter(|v| v.value_iterated_to() >= lower_bound && v.value_iterated_to() < upper_bound).count();
+      counts.push(count);
+    }
+
+    // Normalize counts
+    let max_count = *counts.iter().max().unwrap_or(&1);
+    let factor = if max_count > max_symbols {
+      max_count as f64 / max_symbols as f64
+    } else {
+      1.0
+    };
+
+    for (i, &count) in counts.iter().enumerate() {
+      let lower_bound = min_value + (i as u64) * bin_size;
+
+      // If this is the last bin then the upper bound is max_value
+      let upper_bound = if i == 9 {
+        max_value + 1000
+      } else {
+        lower_bound + bin_size
+      };
+
+      let normalized_count = if factor > 1.0 {
+        (count as f64 / factor).round() as usize
+      } else {
+        count
+      };
+
+      let range_string = format!("[{} - {}]", lower_bound / 1_000, upper_bound / 1_000);
+      let range_string_padded = format!("{:width$}", range_string, width = max_range_string_length).yellow();
+      println!("{}: {}", range_string_padded, "█".repeat(normalized_count).purple());
+    }
   }
 }
 
@@ -136,7 +192,7 @@ fn format_time(tdiff: f64, nanosec: bool) -> String {
   }
 }
 
-fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, duration: f64) {
+fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, duration: f64, histogram_max_width: usize) {
   if !stats_option {
     return;
   }
@@ -157,6 +213,10 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
     println!("{:width$} {:width2$} {}", name.green(), "Median time per request".yellow(), format_time(substats.median_duration(), nanosec).purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "Average time per request".yellow(), format_time(substats.mean_duration(), nanosec).purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "Sample standard deviation".yellow(), format_time(substats.stdev_duration(), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "Min time per request".yellow(), format_time(substats.min_duration(), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "Max time per request".yellow(), format_time(substats.max_duration(), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "50.0'th percentile".yellow(), format_time(substats.value_at_quantile(0.5), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "95.0'th percentile".yellow(), format_time(substats.value_at_quantile(0.95), nanosec).purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "99.0'th percentile".yellow(), format_time(substats.value_at_quantile(0.99), nanosec).purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "99.5'th percentile".yellow(), format_time(substats.value_at_quantile(0.995), nanosec).purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "99.9'th percentile".yellow(), format_time(substats.value_at_quantile(0.999), nanosec).purple(), width = 25, width2 = 25);
@@ -176,9 +236,17 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
   println!("{:width2$} {}", "Median time per request".yellow(), format_time(global_stats.median_duration(), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "Average time per request".yellow(), format_time(global_stats.mean_duration(), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "Sample standard deviation".yellow(), format_time(global_stats.stdev_duration(), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "Min time per request".yellow(), format_time(global_stats.min_duration(), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "Max time per request".yellow(), format_time(global_stats.max_duration(), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "50.0'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.5), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "95.0'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.95), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "99.0'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.99), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "99.5'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.995), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "99.9'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.999), nanosec).purple(), width2 = 25);
+  println!();
+  println!("{}", "Request Histogram".yellow());
+  println!();
+  global_stats.print_histogram(histogram_max_width);
 }
 
 fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<&str>) {
