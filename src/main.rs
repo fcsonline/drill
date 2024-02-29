@@ -162,6 +162,8 @@ impl DrillStats {
 
 fn compute_stats(sub_reports: &[Report]) -> DrillStats {
   let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1000, 2).unwrap();
+  hist.auto(true); // Allow auto resizing or adding new values can result in unwrapping errors if
+                   // they're out of bounds
   let mut group_by_status = HashMap::new();
 
   for req in sub_reports {
