@@ -61,6 +61,7 @@ Second, it can be a hash with the following properties:
 
  - `file_name`: csv file containing the records to be used as items
  - `quote_char`: character to use as quote in csv parsing.  Defaults to `"\""`, but can be set to `"\'"`.  If your csv file has quoted strings that contain commas and that causes parse errors, make sure this value is set correctly.
+
 #### body item properties
 
 The `body` property can be specified in different ways depending on the type of data you want to send in the request. Here are three variants:
