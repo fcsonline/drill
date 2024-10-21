@@ -124,7 +124,6 @@ plan:
       method: POST
       body: foo=bar&arg={{ bar }}
 
-
   - name: Support for hex-encoded request body
     request:
       url: /api/blob

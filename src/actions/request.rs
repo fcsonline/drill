@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use crate::actions::{extract, extract_optional};
-use crate::benchmark::{Context, Pool, Reports};
-use crate::config::Config;
-use crate::interpolator;
 use async_trait::async_trait;
 use colored::Colorize;
 use hex;
@@ -12,13 +8,19 @@ use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
 use std::fmt::Write;
 use std::fs::File;
 use std::io::Read;
 use url::Url;
 use yaml_rust::Yaml;
+
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Map, Value};
+
+use crate::actions::{extract, extract_optional};
+use crate::benchmark::{Context, Pool, Reports};
+use crate::config::Config;
+use crate::interpolator;
 
 use crate::actions::{Report, Runnable};
 
