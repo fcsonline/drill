@@ -1,6 +1,7 @@
 mod actions;
 mod benchmark;
 mod checker;
+mod cli;
 mod config;
 mod expandable;
 mod interpolator;
@@ -9,77 +10,42 @@ mod tags;
 mod writer;
 
 use crate::actions::Report;
-use clap::crate_version;
-use clap::{App, Arg};
+use clap::Parser;
 use colored::*;
 use hdrhistogram::Histogram;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
-use std::process;
+use std::{io, process};
 
 fn main() {
-  let matches = app_args();
-  let benchmark_file = matches.value_of("benchmark").unwrap();
-  let report_path_option = matches.value_of("report");
-  let stats_option = matches.is_present("stats");
-  let compare_path_option = matches.value_of("compare");
-  let threshold_option = matches.value_of("threshold");
-  let no_check_certificate = matches.is_present("no-check-certificate");
-  let relaxed_interpolations = matches.is_present("relaxed-interpolations");
-  let quiet = matches.is_present("quiet");
-  let nanosec = matches.is_present("nanosec");
-  let timeout = matches.value_of("timeout");
-  let verbose = matches.is_present("verbose");
-  let tags_option = matches.value_of("tags");
-  let skip_tags_option = matches.value_of("skip-tags");
-  let list_tags = matches.is_present("list-tags");
-  let list_tasks = matches.is_present("list-tasks");
+  let args = cli::Args::parse();
 
   #[cfg(windows)]
   let _ = control::set_virtual_terminal(true);
 
-  if list_tags {
-    tags::list_benchmark_file_tags(benchmark_file);
+  if args.list_tags {
+    tags::list_benchmark_file_tags(args.benchmark.as_str());
     process::exit(0);
   };
 
-  let tags = tags::Tags::new(tags_option, skip_tags_option);
+  let tags = tags::Tags::new(args.tags.as_deref(), args.skip_tags.as_deref());
 
-  if list_tasks {
-    tags::list_benchmark_file_tasks(benchmark_file, &tags);
+  if args.list_tasks {
+    tags::list_benchmark_file_tasks(args.benchmark.as_str(), &tags);
     process::exit(0);
   };
 
-  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose, &tags);
+  let benchmark_result = benchmark::execute(args.benchmark.as_str(), args.report.as_deref(), args.relaxed_interpolations, args.no_check_certificate, args.quiet, args.nanosec, args.timeout, args.verbose, &tags);
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
-  show_stats(&list_reports, stats_option, nanosec, duration);
-  compare_benchmark(&list_reports, compare_path_option, threshold_option);
+  show_stats(&list_reports, args.stats, args.nanosec, duration);
+  if let Err(err) = compare_benchmark(&list_reports, args.compare.as_deref(), args.threshold) {
+    eprintln!("{err}");
+    process::exit(1)
+  }
 
   process::exit(0)
-}
-
-fn app_args<'a>() -> clap::ArgMatches<'a> {
-  App::new("drill")
-    .version(crate_version!())
-    .about("HTTP load testing application written in Rust inspired by Ansible syntax")
-    .arg(Arg::with_name("benchmark").help("Sets the benchmark file").long("benchmark").short("b").required(true).takes_value(true))
-    .arg(Arg::with_name("stats").short("s").long("stats").help("Shows request statistics").takes_value(false).conflicts_with("compare"))
-    .arg(Arg::with_name("report").short("r").long("report").help("Sets a report file").takes_value(true).conflicts_with("compare"))
-    .arg(Arg::with_name("compare").short("c").long("compare").help("Sets a compare file").takes_value(true).conflicts_with("report"))
-    .arg(Arg::with_name("threshold").short("t").long("threshold").help("Sets a threshold value in ms amongst the compared file").takes_value(true).conflicts_with("report"))
-    .arg(Arg::with_name("relaxed-interpolations").long("relaxed-interpolations").help("Do not panic if an interpolation is not present. (Not recommended)").takes_value(false))
-    .arg(Arg::with_name("no-check-certificate").long("no-check-certificate").help("Disables SSL certification check. (Not recommended)").takes_value(false))
-    .arg(Arg::with_name("tags").long("tags").help("Tags to include").takes_value(true))
-    .arg(Arg::with_name("skip-tags").long("skip-tags").help("Tags to exclude").takes_value(true))
-    .arg(Arg::with_name("list-tags").long("list-tags").help("List all benchmark tags").takes_value(false).conflicts_with_all(&["tags", "skip-tags"]))
-    .arg(Arg::with_name("list-tasks").long("list-tasks").help("List benchmark tasks (executes --tags/--skip-tags filter)").takes_value(false))
-    .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
-    .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests").takes_value(true))
-    .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
-    .arg(Arg::with_name("verbose").short("v").long("verbose").help("Toggle verbose output").takes_value(false))
-    .get_matches()
 }
 
 struct DrillStats {
@@ -181,7 +147,7 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
   println!("{:width2$} {}", "99.9'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.999), nanosec).purple(), width2 = 25);
 }
 
-fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<&str>) {
+fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<f64>) -> Result<(), io::Error> {
   if let Some(compare_path) = compare_path_option {
     if let Some(threshold) = threshold_option {
       let compare_result = checker::compare(list_reports, compare_path, threshold);
@@ -191,7 +157,9 @@ fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&
         Err(_) => process::exit(1),
       }
     } else {
-      panic!("Threshold needed!");
+      return Err(io::Error::new(io::ErrorKind::InvalidInput, "threshold needed!"));
     }
   }
+
+  Ok(())
 }
