@@ -1,8 +1,9 @@
 use std::convert::TryInto;
+use std::io;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use yaml_rust::Yaml;
+use yaml_rust2::Yaml;
 
 use crate::interpolator::INTERPOLATION_REGEX;
 
@@ -13,7 +14,7 @@ pub fn is_that_you(item: &Yaml) -> bool {
     item["request"].as_hash().is_some() && item["with_items_range"].as_hash().is_some()
 }
 
-pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
+pub fn expand(item: &Yaml, benchmark: &mut Benchmark) -> Result<(), io::Error> {
     if let Some(with_iter_items) = item["with_items_range"].as_hash() {
         let init = Yaml::Integer(1);
         let lstart = Yaml::String("start".into());
@@ -63,10 +64,12 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
             for (index, value) in with_items.iter().enumerate() {
                 let index = index as u32;
 
-                benchmark.push(Box::new(Request::new(item, Some(Yaml::Integer(*value)), Some(index))));
+                benchmark.push(Box::new(Request::new(item, Some(Yaml::Integer(*value)), Some(index))?));
             }
         }
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -76,11 +79,12 @@ mod tests {
     #[test]
     fn expand_multi_range() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items_range:\n  start: 2\n  step: 2\n  stop: 20";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 10);
@@ -89,11 +93,12 @@ mod tests {
     #[test]
     fn expand_multi_range_should_limit_requests_using_the_pick_option() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 3\nwith_items_range:\n  start: 2\n  step: 2\n  stop: 20";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 3);
@@ -103,21 +108,23 @@ mod tests {
     #[should_panic]
     fn invalid_expand() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items_range:\n  start: 1\n  step: 2\n  stop: foo";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_err());
     }
 
     #[test]
     #[should_panic]
     fn runtime_expand() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items_range:\n  start: 1\n  step: 2\n  stop: \"{{ memory }}\"";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_err());
     }
 }

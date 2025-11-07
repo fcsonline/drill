@@ -1,6 +1,8 @@
+use std::io;
+
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use yaml_rust::Yaml;
+use yaml_rust2::Yaml;
 
 use super::pick;
 use crate::actions::Request;
@@ -11,7 +13,7 @@ pub fn is_that_you(item: &Yaml) -> bool {
     item["request"].as_hash().is_some() && item["with_items"].as_vec().is_some()
 }
 
-pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
+pub fn expand(item: &Yaml, benchmark: &mut Benchmark) -> Result<(), io::Error> {
     if let Some(with_items) = item["with_items"].as_vec() {
         let mut with_items_list = with_items.clone();
 
@@ -22,7 +24,7 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
             }
         }
 
-        let pick = pick(item, &with_items_list);
+        let pick = pick(item, &with_items_list)?;
         for (index, with_item) in with_items_list.iter().take(pick).enumerate() {
             let index = index as u32;
 
@@ -32,9 +34,11 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
                 panic!("Interpolations not supported in 'with_items' children!");
             }
 
-            benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))));
+            benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))?));
         }
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -44,11 +48,12 @@ mod tests {
     #[test]
     fn expand_multi() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - 3";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 3);
@@ -57,11 +62,12 @@ mod tests {
     #[test]
     fn expand_multi_should_limit_requests_using_the_pick_option() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 2\nwith_items:\n  - 1\n  - 2\n  - 3";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 2);
@@ -70,11 +76,12 @@ mod tests {
     #[test]
     fn expand_multi_should_work_with_pick_and_shuffle() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 1\nshuffle: true\nwith_items:\n  - 1\n  - 2\n  - 3";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 1);
@@ -84,10 +91,11 @@ mod tests {
     #[should_panic]
     fn runtime_expand() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - foo{{ memory }}";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand(doc, &mut benchmark);
+        let result = expand(doc, &mut benchmark);
+        assert!(result.is_err());
     }
 }

@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::path::Path;
 
 use colored::*;
-use yaml_rust::YamlLoader;
+use yaml_rust2::YamlLoader;
 
 use crate::actions::Report;
 

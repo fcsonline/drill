@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -28,7 +29,7 @@ pub struct BenchmarkResult {
     pub duration: f64,
 }
 
-async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64) -> Vec<Report> {
+async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64) -> Result<Vec<Report>, io::Error> {
     if config.rampup > 0 {
         let delay = config.rampup / config.iterations;
         sleep(Duration::new((delay * iteration) as u64, 0)).await;
@@ -41,10 +42,10 @@ async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config
     context.insert("base".to_string(), json!(config.base.to_string()));
 
     for item in benchmark.iter() {
-        item.execute(&mut context, &mut reports, &pool, &config).await;
+        item.execute(&mut context, &mut reports, &pool, &config).await?;
     }
 
-    reports
+    Ok(reports)
 }
 
 fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
@@ -55,7 +56,7 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<u64>, verbose: bool, tags: &Tags) -> BenchmarkResult {
+pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<u64>, verbose: bool, tags: &Tags) -> Result<BenchmarkResult, io::Error> {
     let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.unwrap_or(10), verbose));
 
     if report_path_option.is_some() {
@@ -70,13 +71,13 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
     println!();
 
     let threads = std::cmp::min(num_cpus::get(), config.concurrency as usize);
-    let rt = runtime::Builder::new_multi_thread().enable_all().worker_threads(threads).build().unwrap();
+    let rt = runtime::Builder::new_multi_thread().enable_all().worker_threads(threads).build()?;
 
     rt.block_on(async {
         let mut benchmark: Benchmark = Benchmark::new();
         let pool_store: PoolStore = PoolStore::new();
 
-        include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"), tags);
+        include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"), tags)?;
 
         if benchmark.is_empty() {
             eprintln!("Empty benchmark. Exiting.");
@@ -87,27 +88,35 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
         let pool = Arc::new(Mutex::new(pool_store));
 
         if let Some(report_path) = report_path_option {
-            let reports = run_iteration(benchmark.clone(), pool.clone(), config, 0).await;
+            let reports = run_iteration(benchmark.clone(), pool.clone(), config, 0).await?;
 
-            writer::write_file(report_path, join(reports, ""));
+            writer::write_file(report_path, join(reports, ""))?;
 
-            BenchmarkResult {
+            Ok(BenchmarkResult {
                 reports: vec![],
                 duration: 0.0,
-            }
+            })
         } else {
             let children = (0..config.iterations).map(|iteration| run_iteration(benchmark.clone(), pool.clone(), config.clone(), iteration));
 
             let buffered = stream::iter(children).buffer_unordered(config.concurrency as usize);
 
             let begin = Instant::now();
-            let reports: Vec<Vec<Report>> = buffered.collect::<Vec<_>>().await;
+
+            let reports = {
+                let mut reports: Vec<Vec<Report>> = Vec::new();
+                for report in buffered.collect::<Vec<_>>().await {
+                    reports.push(report?);
+                }
+                reports
+            };
+
             let duration = begin.elapsed().as_secs_f64();
 
-            BenchmarkResult {
+            Ok(BenchmarkResult {
                 reports,
                 duration,
-            }
+            })
         }
     })
 }

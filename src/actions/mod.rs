@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use yaml_rust::Yaml;
+use yaml_rust2::Yaml;
 
 mod assert;
 mod assign;
@@ -16,11 +16,11 @@ pub use self::request::Request;
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 
-use std::fmt;
+use std::{fmt, io};
 
 #[async_trait]
 pub trait Runnable {
-    async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config);
+    async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) -> Result<(), io::Error>;
 }
 
 #[derive(Clone)]
@@ -42,24 +42,21 @@ impl fmt::Display for Report {
     }
 }
 
-pub fn extract_optional<'a>(item: &'a Yaml, attr: &'a str) -> Option<String> {
+pub fn extract_optional<'a>(item: &'a Yaml, attr: &'a str) -> Result<Option<String>, io::Error> {
     if let Some(s) = item[attr].as_str() {
-        Some(s.to_string())
+        Ok(Some(s.to_string()))
     } else if item[attr].as_hash().is_some() {
-        panic!("`{}` needs to be a string. Try adding quotes", attr);
+        Err(io::Error::new(io::ErrorKind::InvalidInput, format!("`{}` needs to be a string. Try adding quotes", attr)))
     } else {
-        None
+        Ok(None)
     }
 }
 
-pub fn extract<'a>(item: &'a Yaml, attr: &'a str) -> String {
-    if let Some(s) = item[attr].as_i64() {
-        s.to_string()
-    } else if let Some(s) = item[attr].as_str() {
-        s.to_string()
-    } else if item[attr].as_hash().is_some() {
-        panic!("`{}` is required needs to be a string. Try adding quotes", attr);
-    } else {
-        panic!("Unknown node `{}` => {:?}", attr, item[attr]);
+pub fn extract<'a>(item: &'a Yaml, attr: &'a str) -> Result<String, io::Error> {
+    match &item[attr] {
+        Yaml::String(s) => Ok(s.to_string()),
+        Yaml::Integer(i) => Ok(i.to_string()),
+        Yaml::Hash(_) => Err(io::Error::new(io::ErrorKind::InvalidInput, format!("`{}` is required needs to be a string. Try adding quotes", attr))),
+        _ => Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Unknown node `{}` => {:?}", attr, item[attr]))),
     }
 }

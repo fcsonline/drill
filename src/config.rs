@@ -1,4 +1,4 @@
-use yaml_rust::{Yaml, YamlLoader};
+use yaml_rust2::{Yaml, YamlLoader};
 
 use crate::benchmark::Context;
 use crate::interpolator;

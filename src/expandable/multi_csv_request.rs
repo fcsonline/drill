@@ -1,7 +1,8 @@
 use rand::seq::SliceRandom;
 use rand::thread_rng;
+use std::io;
 use std::path::Path;
-use yaml_rust::Yaml;
+use yaml_rust2::Yaml;
 
 use super::pick;
 use crate::actions::Request;
@@ -13,7 +14,7 @@ pub fn is_that_you(item: &Yaml) -> bool {
     item["request"].as_hash().is_some() && (item["with_items_from_csv"].as_str().is_some() || item["with_items_from_csv"].as_hash().is_some())
 }
 
-pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
+pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) -> Result<(), io::Error> {
     let (with_items_path, quote_char) = if let Some(with_items_path) = item["with_items_from_csv"].as_str() {
         (with_items_path, b'\"')
     } else if let Some(_with_items_hash) = item["with_items_from_csv"].as_hash() {
@@ -41,12 +42,14 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
         }
     }
 
-    let pick = pick(item, &with_items_file);
+    let pick = pick(item, &with_items_file)?;
     for (index, with_item) in with_items_file.iter().take(pick).enumerate() {
         let index = index as u32;
 
-        benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))));
+        benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))?));
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -56,11 +59,12 @@ mod tests {
     #[test]
     fn expand_multi() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: ./fixtures/users.csv";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand("example/benchmark.yml", doc, &mut benchmark);
+        let result = expand("example/benchmark.yml", doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 2);
@@ -69,11 +73,12 @@ mod tests {
     #[test]
     fn expand_multi_should_limit_requests_using_the_pick_option() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 2\nwith_items_from_csv: ./fixtures/users.csv";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand("example/benchmark.yml", doc, &mut benchmark);
+        let result = expand("example/benchmark.yml", doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 2);
@@ -82,11 +87,12 @@ mod tests {
     #[test]
     fn expand_multi_should_work_with_pick_and_shuffle() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 1\nshuffle: true\nwith_items_from_csv: ./fixtures/users.csv";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand("example/benchmark.yml", doc, &mut benchmark);
+        let result = expand("example/benchmark.yml", doc, &mut benchmark);
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 1);
@@ -96,10 +102,11 @@ mod tests {
     #[should_panic]
     fn runtime_expand() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: ./fixtures/{{ memory }}.csv";
-        let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        expand("example/benchmark.yml", doc, &mut benchmark);
+        let result = expand("example/benchmark.yml", doc, &mut benchmark);
+        assert!(result.is_ok());
     }
 }

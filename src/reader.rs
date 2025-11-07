@@ -2,6 +2,9 @@ use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::Path;
 
+use hashlink::LinkedHashMap;
+use yaml_rust2::{yaml, Yaml};
+
 pub fn read_file(filepath: &str) -> String {
     // Create a path to the desired file
     let path = Path::new(filepath);
@@ -22,12 +25,12 @@ pub fn read_file(filepath: &str) -> String {
     content
 }
 
-pub fn read_file_as_yml(filepath: &str) -> Vec<yaml_rust::Yaml> {
+pub fn read_file_as_yml(filepath: &str) -> Vec<Yaml> {
     let content = read_file(filepath);
-    yaml_rust::YamlLoader::load_from_str(content.as_str()).unwrap()
+    yaml_rust2::YamlLoader::load_from_str(content.as_str()).unwrap()
 }
 
-pub fn read_yaml_doc_accessor<'a>(doc: &'a yaml_rust::Yaml, accessor: Option<&str>) -> &'a Vec<yaml_rust::Yaml> {
+pub fn read_yaml_doc_accessor<'a>(doc: &'a Yaml, accessor: Option<&str>) -> &'a Vec<Yaml> {
     if let Some(accessor_id) = accessor {
         match doc[accessor_id].as_vec() {
             Some(items) => items,
@@ -42,7 +45,7 @@ pub fn read_yaml_doc_accessor<'a>(doc: &'a yaml_rust::Yaml, accessor: Option<&st
     }
 }
 
-pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
+pub fn read_file_as_yml_array(filepath: &str) -> yaml::Array {
     let path = Path::new(filepath);
     let display = path.display();
 
@@ -52,11 +55,11 @@ pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
     };
 
     let reader = BufReader::new(file);
-    let mut items = yaml_rust::yaml::Array::new();
+    let mut items = yaml::Array::new();
     for line in reader.lines() {
         match line {
             Ok(text) => {
-                items.push(yaml_rust::Yaml::String(text));
+                items.push(Yaml::String(text));
             }
             Err(e) => println!("error parsing line: {e:?}"),
         }
@@ -66,7 +69,7 @@ pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
 }
 
 // TODO: Try to split this fn into two
-pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array {
+pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml::Array {
     // Create a path to the desired file
     let path = Path::new(filepath);
     let display = path.display();
@@ -79,7 +82,7 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
 
     let mut rdr = csv::ReaderBuilder::new().has_headers(true).quote(quote).from_reader(file);
 
-    let mut items = yaml_rust::yaml::Array::new();
+    let mut items = yaml::Array::new();
 
     let headers = match rdr.headers() {
         Err(why) => panic!("error parsing header: {:?}", why),
@@ -89,16 +92,16 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
     for result in rdr.records() {
         match result {
             Ok(record) => {
-                let mut linked_hash_map = linked_hash_map::LinkedHashMap::new();
+                let mut linked_hash_map = LinkedHashMap::new();
 
                 for (i, header) in headers.iter().enumerate() {
-                    let item_key = yaml_rust::Yaml::String(header.to_string());
-                    let item_value = yaml_rust::Yaml::String(record.get(i).unwrap().to_string());
+                    let item_key = Yaml::String(header.to_string());
+                    let item_value = Yaml::String(record.get(i).unwrap().to_string());
 
                     linked_hash_map.insert(item_key, item_value);
                 }
 
-                items.push(yaml_rust::Yaml::Hash(linked_hash_map));
+                items.push(Yaml::Hash(linked_hash_map));
             }
             Err(e) => println!("error parsing header: {e:?}"),
         }

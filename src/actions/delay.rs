@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use colored::*;
 use tokio::time::sleep;
-use yaml_rust::Yaml;
+use yaml_rust2::Yaml;
 
 use crate::actions::extract;
 use crate::actions::Runnable;
@@ -9,6 +9,7 @@ use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 
 use std::convert::TryFrom;
+use std::io;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -22,24 +23,29 @@ impl Delay {
         item["delay"].as_hash().is_some()
     }
 
-    pub fn new(item: &Yaml, _with_item: Option<Yaml>) -> Delay {
-        let name = extract(item, "name");
-        let seconds = u64::try_from(item["delay"]["seconds"].as_i64().unwrap()).expect("Invalid number of seconds");
+    pub fn new(item: &Yaml, _with_item: Option<Yaml>) -> Result<Delay, io::Error> {
+        let name = extract(item, "name")?;
+        let seconds = match u64::try_from(item["delay"]["seconds"].as_i64().unwrap()) {
+            Ok(seconds) => seconds,
+            Err(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid number of seconds")),
+        };
 
-        Delay {
+        Ok(Delay {
             name,
             seconds,
-        }
+        })
     }
 }
 
 #[async_trait]
 impl Runnable for Delay {
-    async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
+    async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) -> Result<(), io::Error> {
         sleep(Duration::from_secs(self.seconds)).await;
 
         if !config.quiet {
             println!("{:width$} {}{}", self.name.green(), self.seconds.to_string().cyan().bold(), "s".magenta(), width = 25);
         }
+
+        Ok(())
     }
 }

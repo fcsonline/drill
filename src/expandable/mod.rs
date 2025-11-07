@@ -5,20 +5,22 @@ mod multi_file_request;
 mod multi_iter_request;
 mod multi_request;
 
-use yaml_rust::Yaml;
+use std::io;
 
-pub fn pick(item: &Yaml, with_items: &[Yaml]) -> usize {
+use yaml_rust2::Yaml;
+
+pub fn pick(item: &Yaml, with_items: &[Yaml]) -> Result<usize, io::Error> {
     match item["pick"].as_i64() {
         Some(value) => {
             if value.is_negative() {
-                panic!("pick option should not be negative, but was {}", value);
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("pick option should not be negative, but was {}", value)));
             } else if value as usize > with_items.len() {
-                panic!("pick option should not be greater than the provided items, but was {}", value);
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("pick option should not be greater than the provided items, but was {}", value)));
             } else {
-                value as usize
+                Ok(value as usize)
             }
         }
-        None => with_items.len(),
+        None => Ok(with_items.len()),
     }
 }
 
@@ -32,35 +34,37 @@ mod tests {
         #[test]
         fn should_return_the_configured_value() {
             let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 2\nwith_items:\n  - 1\n  - 2\n  - 3";
-            let item = &yaml_rust::YamlLoader::load_from_str(text).unwrap()[0];
+            let item = &yaml_rust2::YamlLoader::load_from_str(text).unwrap()[0];
             let pick = pick(item, item["with_items"].as_vec().unwrap());
 
-            assert_eq!(pick, 2);
+            assert!(matches!(pick, Ok(2)));
         }
 
         #[test]
         fn should_return_the_with_items_length_if_unset() {
             let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - 3";
-            let item = &yaml_rust::YamlLoader::load_from_str(text).unwrap()[0];
+            let item = &yaml_rust2::YamlLoader::load_from_str(text).unwrap()[0];
             let pick = pick(item, item["with_items"].as_vec().unwrap());
 
-            assert_eq!(pick, 3);
+            assert!(matches!(pick, Ok(3)));
         }
 
         #[test]
-        #[should_panic(expected = "pick option should not be negative, but was -1")]
-        fn should_panic_for_negative_values() {
+        fn should_return_an_error_for_negative_values() {
             let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: -1\nwith_items:\n  - 1\n  - 2\n  - 3";
-            let item = &yaml_rust::YamlLoader::load_from_str(text).unwrap()[0];
-            pick(item, item["with_items"].as_vec().unwrap());
+            let item = &yaml_rust2::YamlLoader::load_from_str(text).unwrap()[0];
+            let pick = pick(item, item["with_items"].as_vec().unwrap());
+
+            assert!(matches!(pick, Err(e) if e.to_string() == "pick option should not be negative, but was -1"));
         }
 
         #[test]
-        #[should_panic(expected = "pick option should not be greater than the provided items, but was 4")]
-        fn should_panic_for_values_greater_than_the_items_list() {
+        fn should_return_an_error_for_values_greater_than_the_items_list() {
             let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 4\nwith_items:\n  - 1\n  - 2\n  - 3";
-            let item = &yaml_rust::YamlLoader::load_from_str(text).unwrap()[0];
-            pick(item, item["with_items"].as_vec().unwrap());
+            let item = &yaml_rust2::YamlLoader::load_from_str(text).unwrap()[0];
+            let pick = pick(item, item["with_items"].as_vec().unwrap());
+
+            assert!(matches!(pick, Err(e) if e.to_string() == "pick option should not be greater than the provided items, but was 4"));
         }
     }
 }

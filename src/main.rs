@@ -12,8 +12,8 @@ mod writer;
 use crate::actions::Report;
 use clap::Parser;
 use colored::*;
+use hashlink::LinkedHashMap;
 use hdrhistogram::Histogram;
-use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
 use std::{io, process};
 
@@ -36,8 +36,20 @@ fn main() {
     };
 
     let benchmark_result = benchmark::execute(args.benchmark.as_str(), args.report.as_deref(), args.relaxed_interpolations, args.no_check_certificate, args.quiet, args.nanosec, args.timeout, args.verbose, &tags);
-    let list_reports = benchmark_result.reports;
-    let duration = benchmark_result.duration;
+
+    let list_reports: Vec<Vec<Report>>;
+    let duration: f64;
+
+    match benchmark_result {
+        Ok(result) => {
+            list_reports = result.reports;
+            duration = result.duration;
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            process::exit(1)
+        }
+    };
 
     show_stats(&list_reports, args.stats, args.nanosec, duration);
     if let Err(err) = compare_benchmark(&list_reports, args.compare.as_deref(), args.threshold) {

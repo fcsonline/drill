@@ -1,7 +1,7 @@
 use crate::reader;
 use colored::*;
 use std::collections::HashSet;
-use yaml_rust::{Yaml, YamlEmitter};
+use yaml_rust2::{Yaml, YamlEmitter};
 
 #[derive(Debug)]
 pub struct Tags<'a> {
@@ -115,7 +115,7 @@ mod tests {
     use super::*;
 
     fn str_to_yaml(text: &str) -> Yaml {
-        let mut docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+        let mut docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
         docs.remove(0)
     }
 
