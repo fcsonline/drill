@@ -24,14 +24,26 @@ fn main() {
     let _ = control::set_virtual_terminal(true);
 
     if args.list_tags {
-        tags::list_benchmark_file_tags(args.benchmark.as_str());
+        match tags::list_benchmark_file_tags(args.benchmark.as_str()) {
+            Err(err) => {
+                eprintln!("{err}");
+                process::exit(1);
+            }
+            Ok(_) => (),
+        };
         process::exit(0);
     };
 
     let tags = tags::Tags::new(args.tags.as_deref(), args.skip_tags.as_deref());
 
     if args.list_tasks {
-        tags::list_benchmark_file_tasks(args.benchmark.as_str(), &tags);
+        match tags::list_benchmark_file_tasks(args.benchmark.as_str(), &tags) {
+            Err(err) => {
+                eprintln!("{err}");
+                process::exit(1);
+            }
+            Ok(_) => (),
+        };
         process::exit(0);
     };
 

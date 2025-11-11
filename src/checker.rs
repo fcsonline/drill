@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use std::path::Path;
 
 use colored::*;
@@ -7,21 +7,21 @@ use yaml_rust2::YamlLoader;
 
 use crate::actions::Report;
 
-pub fn compare(list_reports: &[Vec<Report>], filepath: &str, threshold: f64) -> Result<(), i32> {
+pub fn compare(list_reports: &[Vec<Report>], filepath: &str, threshold: f64) -> Result<(), io::Error> {
     // Create a path to the desired file
     let path = Path::new(filepath);
     let display = path.display();
 
     // Open the path in read-only mode, returns `io::Result<File>`
     let mut file = match File::open(path) {
-        Err(why) => panic!("couldn't open {}: {}", display, why),
+        Err(why) => return Err(io::Error::new(io::ErrorKind::Other, format!("couldn't open {}: {}", display, why))),
         Ok(file) => file,
     };
 
     // Read the file contents into a string, returns `io::Result<usize>`
     let mut content = String::new();
     if let Err(why) = file.read_to_string(&mut content) {
-        panic!("couldn't read {}: {}", display, why);
+        return Err(io::Error::new(io::ErrorKind::Other, format!("couldn't read {}: {}", display, why)));
     }
 
     let docs = YamlLoader::load_from_str(content.as_str()).unwrap();
@@ -47,6 +47,6 @@ pub fn compare(list_reports: &[Vec<Report>], filepath: &str, threshold: f64) -> 
     if slow_counter == 0 {
         Ok(())
     } else {
-        Err(slow_counter)
+        Err(io::Error::new(io::ErrorKind::Other, format!("{} slow tests found", slow_counter)))
     }
 }

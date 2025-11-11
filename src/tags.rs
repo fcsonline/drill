@@ -1,6 +1,6 @@
 use crate::reader;
 use colored::*;
-use std::collections::HashSet;
+use std::{collections::HashSet, io};
 use yaml_rust2::{Yaml, YamlEmitter};
 
 #[derive(Debug)]
@@ -56,9 +56,9 @@ impl<'a> Tags<'a> {
     }
 }
 
-pub fn list_benchmark_file_tasks(benchmark_file: &str, tags: &Tags) {
-    let docs = reader::read_file_as_yml(benchmark_file);
-    let items = reader::read_yaml_doc_accessor(&docs[0], Some("plan"));
+pub fn list_benchmark_file_tasks(benchmark_file: &str, tags: &Tags) -> Result<(), io::Error> {
+    let docs = reader::read_file_as_yml(benchmark_file)?;
+    let items = reader::read_yaml_doc_accessor(&docs[0], Some("plan"))?;
 
     println!();
 
@@ -76,21 +76,22 @@ pub fn list_benchmark_file_tasks(benchmark_file: &str, tags: &Tags) {
     let items: Vec<_> = items.iter().filter(|item| !tags.should_skip_item(item)).collect();
 
     if items.is_empty() {
-        println!("{}", "No items".red());
-        std::process::exit(1)
+        return Err(io::Error::new(io::ErrorKind::Other, "No items"));
     }
 
     for item in items {
         let mut out_str = String::new();
         let mut emitter = YamlEmitter::new(&mut out_str);
-        emitter.dump(item).unwrap();
+        let _ = emitter.dump(item);
         println!("{out_str}");
     }
+
+    Ok(())
 }
 
-pub fn list_benchmark_file_tags(benchmark_file: &str) {
-    let docs = reader::read_file_as_yml(benchmark_file);
-    let items = reader::read_yaml_doc_accessor(&docs[0], Some("plan"));
+pub fn list_benchmark_file_tags(benchmark_file: &str) -> Result<(), io::Error> {
+    let docs = reader::read_file_as_yml(benchmark_file)?;
+    let items = reader::read_yaml_doc_accessor(&docs[0], Some("plan"))?;
 
     println!();
 
@@ -108,6 +109,8 @@ pub fn list_benchmark_file_tags(benchmark_file: &str) {
     let mut tags: Vec<_> = tags.into_iter().collect();
     tags.sort_unstable();
     println!("{:width$} {:?}", "Tags".green(), &tags, width = 15);
+
+    Ok(())
 }
 
 #[cfg(test)]

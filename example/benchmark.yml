@@ -3,7 +3,7 @@
 # and a rampup of 2 seconds.
 
 ---
-base: 'http://localhost:9000'
+base: "http://localhost:9000"
 iterations: 100
 concurrency: 5
 rampup: 2
@@ -82,7 +82,7 @@ plan:
 
   - name: Exec external commands
     exec:
-      command: "echo '{{ foo.body }}' | jq .phones[0] | tr -d '\"'"
+      command: 'echo ''{{ foo.body }}'' | jq .phones[0] | tr -d ''"'''
     assign: baz
 
   - name: Assert external execution
@@ -109,18 +109,18 @@ plan:
       url: /api/users/contacts/{{ item.id }}
     with_items_from_csv:
       file_name: ./fixtures/users.csv
-      quote_char: "\'"
+      quote_char: "'"
 
   - name: POST some crafted JSONs stored in CSV
     request:
       url: /api/transactions
       method: POST
-      body: '{{ item.txn }}'
+      body: "{{ item.txn }}"
       headers:
-        Content-Type: 'application/json'
+        Content-Type: "application/json"
     with_items_from_csv:
       file_name: ./fixtures/transactions.csv
-      quote_char: "\'"
+      quote_char: "'"
 
   - name: Fetch no relative url
     request:
@@ -150,4 +150,4 @@ plan:
   - name: Assert request response code
     assert:
       key: complex.body[1].phones[1]
-      value: '+44 2345678'
+      value: "+44 2345678"

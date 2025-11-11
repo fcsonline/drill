@@ -18,7 +18,12 @@ pub fn is_that_you(item: &Yaml) -> bool {
 pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark, tags: &Tags) -> Result<(), io::Error> {
     let include_path = item["include"].as_str().unwrap();
 
-    if INTERPOLATION_REGEX.is_match(include_path) {
+    let regex = match INTERPOLATION_REGEX.as_ref() {
+        Ok(regex) => regex,
+        Err(err) => return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Invalid regex: {}", err))),
+    };
+
+    if regex.is_match(include_path) {
         panic!("Interpolations not supported in 'include' property!");
     }
 
@@ -31,8 +36,8 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark, tags: &
 }
 
 pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, accessor: Option<&str>, tags: &Tags) -> Result<(), io::Error> {
-    let docs = reader::read_file_as_yml(parent_path);
-    let items = reader::read_yaml_doc_accessor(&docs[0], accessor);
+    let docs = reader::read_file_as_yml(parent_path)?;
+    let items = reader::read_yaml_doc_accessor(&docs[0], accessor)?;
 
     for item in items {
         if include::is_that_you(item) {

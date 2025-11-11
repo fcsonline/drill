@@ -45,7 +45,7 @@ impl Runnable for Assert {
 
         let interpolator = interpolator::Interpolator::new(context);
         let eval = format!("{{{{ {} }}}}", &self.key);
-        let stored = interpolator.resolve(&eval, true);
+        let stored = interpolator.resolve(&eval, true)?;
         let assertion = json!(self.value.to_owned());
 
         if !stored.eq(&assertion) {

@@ -1,58 +1,48 @@
 use std::fs::File;
-use std::io::{prelude::*, BufReader};
+use std::io::{self, prelude::*, BufReader};
 use std::path::Path;
 
 use hashlink::LinkedHashMap;
 use yaml_rust2::{yaml, Yaml};
 
-pub fn read_file(filepath: &str) -> String {
+pub fn read_file(filepath: &str) -> Result<String, io::Error> {
     // Create a path to the desired file
     let path = Path::new(filepath);
-    let display = path.display();
 
     // Open the path in read-only mode, returns `io::Result<File>`
-    let mut file = match File::open(path) {
-        Err(why) => panic!("couldn't open {}: {}", display, why),
-        Ok(file) => file,
-    };
+    let mut file = File::open(path)?;
 
     // Read the file contents into a string, returns `io::Result<usize>`
     let mut content = String::new();
-    if let Err(why) = file.read_to_string(&mut content) {
-        panic!("couldn't read {}: {}", display, why);
+    let _ = file.read_to_string(&mut content)?;
+
+    Ok(content)
+}
+
+pub fn read_file_as_yml(filepath: &str) -> Result<Vec<Yaml>, io::Error> {
+    let content = read_file(filepath)?;
+
+    match yaml_rust2::YamlLoader::load_from_str(content.as_str()) {
+        Ok(yaml_str) => Ok(yaml_str),
+        Err(err) => Err(io::Error::new(io::ErrorKind::Other, format!("Failed to parse YAML: {}", err))),
     }
-
-    content
 }
 
-pub fn read_file_as_yml(filepath: &str) -> Vec<Yaml> {
-    let content = read_file(filepath);
-    yaml_rust2::YamlLoader::load_from_str(content.as_str()).unwrap()
-}
-
-pub fn read_yaml_doc_accessor<'a>(doc: &'a Yaml, accessor: Option<&str>) -> &'a Vec<Yaml> {
+pub fn read_yaml_doc_accessor<'a>(doc: &'a Yaml, accessor: Option<&str>) -> Result<&'a Vec<Yaml>, io::Error> {
     if let Some(accessor_id) = accessor {
         match doc[accessor_id].as_vec() {
-            Some(items) => items,
-            None => {
-                println!("Node missing on config: {accessor_id}");
-                println!("Exiting.");
-                std::process::exit(1)
-            }
+            Some(items) => Ok(items),
+            None => Err(io::Error::new(io::ErrorKind::NotFound, format!("Node missing on config: {}", accessor_id))),
         }
     } else {
-        doc.as_vec().unwrap()
+        doc.as_vec().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "No root node found"))
     }
 }
 
-pub fn read_file_as_yml_array(filepath: &str) -> yaml::Array {
+pub fn read_file_as_yml_array(filepath: &str) -> Result<yaml::Array, io::Error> {
     let path = Path::new(filepath);
-    let display = path.display();
 
-    let file = match File::open(path) {
-        Err(why) => panic!("couldn't open {}: {}", display, why),
-        Ok(file) => file,
-    };
+    let file = File::open(path)?;
 
     let reader = BufReader::new(file);
     let mut items = yaml::Array::new();
@@ -61,33 +51,26 @@ pub fn read_file_as_yml_array(filepath: &str) -> yaml::Array {
             Ok(text) => {
                 items.push(Yaml::String(text));
             }
-            Err(e) => println!("error parsing line: {e:?}"),
+            Err(e) => return Err(io::Error::new(io::ErrorKind::Other, format!("Failed to read line: {}", e))),
         }
     }
 
-    items
+    Ok(items)
 }
 
 // TODO: Try to split this fn into two
-pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml::Array {
+pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> Result<yaml::Array, io::Error> {
     // Create a path to the desired file
     let path = Path::new(filepath);
-    let display = path.display();
 
     // Open the path in read-only mode, returns `io::Result<File>`
-    let file = match File::open(path) {
-        Err(why) => panic!("couldn't open {}: {}", display, why),
-        Ok(file) => file,
-    };
+    let file = File::open(path)?;
 
     let mut rdr = csv::ReaderBuilder::new().has_headers(true).quote(quote).from_reader(file);
 
     let mut items = yaml::Array::new();
 
-    let headers = match rdr.headers() {
-        Err(why) => panic!("error parsing header: {:?}", why),
-        Ok(h) => h.clone(),
-    };
+    let headers = rdr.headers()?.clone();
 
     for result in rdr.records() {
         match result {
@@ -103,9 +86,9 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml::Array {
 
                 items.push(Yaml::Hash(linked_hash_map));
             }
-            Err(e) => println!("error parsing header: {e:?}"),
+            Err(e) => eprintln!("error parsing header: {e:?}"),
         }
     }
 
-    items
+    Ok(items)
 }

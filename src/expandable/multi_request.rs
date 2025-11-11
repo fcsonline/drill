@@ -30,7 +30,12 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) -> Result<(), io::Error> {
 
             let value: &str = with_item.as_str().unwrap_or("");
 
-            if INTERPOLATION_REGEX.is_match(value) {
+            let regex = match INTERPOLATION_REGEX.as_ref() {
+                Ok(regex) => regex,
+                Err(err) => return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Invalid regex: {}", err))),
+            };
+
+            if regex.is_match(value) {
                 panic!("Interpolations not supported in 'with_items' children!");
             }
 

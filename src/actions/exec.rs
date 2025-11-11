@@ -43,7 +43,7 @@ impl Runnable for Exec {
             println!("{:width$} {}", self.name.green(), self.command.cyan().bold(), width = 25);
         }
 
-        let final_command = interpolator::Interpolator::new(context).resolve(&self.command, !config.relaxed_interpolations);
+        let final_command = interpolator::Interpolator::new(context).resolve(&self.command, !config.relaxed_interpolations)?;
 
         let args = vec!["bash", "-c", "--", final_command.as_str()];
 

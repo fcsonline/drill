@@ -26,14 +26,19 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) -> Resu
         unreachable!();
     };
 
-    if INTERPOLATION_REGEX.is_match(with_items_path) {
+    let regex = match INTERPOLATION_REGEX.as_ref() {
+        Ok(regex) => regex,
+        Err(err) => return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Invalid regex: {}", err))),
+    };
+
+    if regex.is_match(with_items_path) {
         panic!("Interpolations not supported in 'with_items_from_csv' property!");
     }
 
     let with_items_filepath = Path::new(parent_path).with_file_name(with_items_path);
     let final_path = with_items_filepath.to_str().unwrap();
 
-    let mut with_items_file = reader::read_csv_file_as_yml(final_path, quote_char);
+    let mut with_items_file = reader::read_csv_file_as_yml(final_path, quote_char)?;
 
     if let Some(shuffle) = item["shuffle"].as_bool() {
         if shuffle {

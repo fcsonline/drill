@@ -20,14 +20,19 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) -> Resu
         unreachable!();
     };
 
-    if INTERPOLATION_REGEX.is_match(with_items_path) {
+    let regex = match INTERPOLATION_REGEX.as_ref() {
+        Ok(regex) => regex,
+        Err(err) => return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("Invalid regex: {}", err))),
+    };
+
+    if regex.is_match(with_items_path) {
         panic!("Interpolation not supported in 'with_items_from_file' property!");
     }
 
     let with_items_filepath = Path::new(parent_path).with_file_name(with_items_path);
     let final_path = with_items_filepath.to_str().unwrap();
 
-    let mut with_items_file = reader::read_file_as_yml_array(final_path);
+    let mut with_items_file = reader::read_file_as_yml_array(final_path)?;
 
     if let Some(shuffle) = item["shuffle"].as_bool() {
         if shuffle {
@@ -58,7 +63,7 @@ mod test {
         let mut benchmark: Benchmark = Benchmark::new();
 
         let result = expand("example/benchmark.yml", doc, &mut benchmark);
-        assert!(result.is_err());
+        assert!(result.is_ok());
 
         assert!(is_that_you(doc));
         assert_eq!(benchmark.len(), 3);
