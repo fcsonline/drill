@@ -18,12 +18,15 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) -> Resu
     let (with_items_path, quote_char) = if let Some(with_items_path) = item["with_items_from_csv"].as_str() {
         (with_items_path, b'\"')
     } else if let Some(_with_items_hash) = item["with_items_from_csv"].as_hash() {
-        let with_items_path = item["with_items_from_csv"]["file_name"].as_str().expect("Expected a file_name");
+        let with_items_path = match item["with_items_from_csv"]["file_name"].as_str() {
+            Some(file_name) => file_name,
+            None => return Err(io::Error::new(io::ErrorKind::InvalidInput, "Expected a file_name")),
+        };
         let quote_char = item["with_items_from_csv"]["quote_char"].as_str().unwrap_or("\"").bytes().next().unwrap();
 
         (with_items_path, quote_char)
     } else {
-        unreachable!();
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Invalid 'with_items_from_csv' property!"));
     };
 
     let regex = match INTERPOLATION_REGEX.as_ref() {
@@ -32,7 +35,7 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) -> Resu
     };
 
     if regex.is_match(with_items_path) {
-        panic!("Interpolations not supported in 'with_items_from_csv' property!");
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Interpolations not supported in 'with_items_from_csv' property!"));
     }
 
     let with_items_filepath = Path::new(parent_path).with_file_name(with_items_path);
@@ -104,7 +107,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn runtime_expand() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_csv: ./fixtures/{{ memory }}.csv";
         let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
@@ -112,6 +114,6 @@ mod tests {
         let mut benchmark: Benchmark = Benchmark::new();
 
         let result = expand("example/benchmark.yml", doc, &mut benchmark);
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 }

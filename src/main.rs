@@ -34,7 +34,13 @@ fn main() {
         process::exit(0);
     };
 
-    let tags = tags::Tags::new(args.tags.as_deref(), args.skip_tags.as_deref());
+    let tags = match tags::Tags::new(args.tags.as_deref(), args.skip_tags.as_deref()) {
+        Ok(tags) => tags,
+        Err(err) => {
+            eprintln!("{err}");
+            process::exit(1);
+        }
+    };
 
     if args.list_tasks {
         match tags::list_benchmark_file_tasks(args.benchmark.as_str(), &tags) {

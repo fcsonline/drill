@@ -1,4 +1,4 @@
-use std::io;
+use std::{borrow::Cow, io};
 
 use colored::*;
 use lazy_static::lazy_static;
@@ -37,38 +37,46 @@ impl<'a> Interpolator<'a> {
 
         let mut error: Option<io::Error> = None;
 
-        let result = le
-            .replace_all(url, |caps: &Captures| {
-                if error.is_some() {
-                    return String::new();
-                }
+        let result = le.replace_all(url, |caps: &Captures| {
+            if error.is_some() {
+                return String::new();
+            }
 
-                let capture = &caps[1];
+            let capture = &caps[1];
 
-                if let Some(item) = self.resolve_context_interpolation(capture) {
-                    return item;
-                }
+            if let Some(item) = self.resolve_context_interpolation(capture) {
+                return item;
+            }
 
-                if let Some(item) = self.resolve_environment_interpolation(capture) {
-                    return item;
-                }
+            if let Some(item) = self.resolve_environment_interpolation(capture) {
+                return item;
+            }
 
-                if strict {
-                    error = Some(io::Error::new(io::ErrorKind::InvalidData, format!("Unknown '{}' variable!", capture)));
-                    return String::new();
-                }
+            if strict {
+                error = Some(io::Error::new(io::ErrorKind::InvalidData, format!("Unknown '{}' variable!", capture)));
+                return String::new();
+            }
 
-                eprintln!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+            eprintln!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
 
-                String::new()
-            })
-            .to_string();
+            String::new()
+        });
 
         if let Some(err) = error {
             return Err(err);
         }
 
-        Ok(result)
+        match result {
+            Cow::Borrowed(s) => {
+                if strict {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, format!("Invalid variable name in {}", s)));
+                }
+
+                eprintln!("{} Unknown variable in {}!", "WARNING!".yellow().bold(), s);
+                return Ok(String::new());
+            }
+            owned => Ok(owned.to_string()),
+        }
     }
 
     fn resolve_environment_interpolation(&self, value: &str) -> Option<String> {
@@ -212,7 +220,7 @@ mod tests {
         let interpolated = interpolator.resolve(&url, true);
         assert!(interpolated.is_err());
 
-        assert_eq!(interpolated.unwrap_err().to_string(), "Invalid variable name: 5digitzip");
+        assert_eq!(interpolated.unwrap_err().to_string(), "Invalid variable name in http://example.com/postalcode/{{ 5digitzip }}/view/{{ 5digitzip }}");
     }
 
     #[test]

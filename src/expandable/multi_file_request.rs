@@ -26,7 +26,7 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) -> Resu
     };
 
     if regex.is_match(with_items_path) {
-        panic!("Interpolation not supported in 'with_items_from_file' property!");
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Interpolation not supported in 'with_items_from_file' property!"));
     }
 
     let with_items_filepath = Path::new(parent_path).with_file_name(with_items_path);

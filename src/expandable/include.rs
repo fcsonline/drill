@@ -24,7 +24,7 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark, tags: &
     };
 
     if regex.is_match(include_path) {
-        panic!("Interpolations not supported in 'include' property!");
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Interpolations not supported in 'include' property!"));
     }
 
     let include_filepath = Path::new(parent_path).with_file_name(include_path);
@@ -92,7 +92,7 @@ mod tests {
         let doc = &docs[0];
         let mut benchmark: Benchmark = Benchmark::new();
 
-        let result = expand("example/benchmark.yml", doc, &mut benchmark, &Tags::new(None, None));
+        let result = expand("example/benchmark.yml", doc, &mut benchmark, &Tags::new(None, None).unwrap());
 
         assert!(result.is_ok());
         assert!(is_that_you(doc));
@@ -100,14 +100,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn invalid_expand() {
         let text = "---\nname: Include comment\ninclude: {{ memory }}.yml";
-        let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
-        let doc = &docs[0];
-        let mut benchmark: Benchmark = Benchmark::new();
-
-        let result = expand("example/benchmark.yml", doc, &mut benchmark, &Tags::new(None, None));
-        assert!(result.is_err());
+        let docs = yaml_rust2::YamlLoader::load_from_str(text);
+        assert!(docs.is_err());
     }
 }

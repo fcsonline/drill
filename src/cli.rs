@@ -23,7 +23,7 @@ pub(crate) struct Args {
     #[arg(short, long, conflicts_with = "report")]
     pub threshold: Option<f64>,
 
-    /// Do not panic if an interpolation is not present. (Not recommended)
+    /// Do not fail if an interpolation is not present. (Not recommended)
     #[arg(long = "relaxed-interpolations")]
     pub relaxed_interpolations: bool,
 

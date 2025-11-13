@@ -36,7 +36,7 @@ pub fn expand(item: &Yaml, benchmark: &mut Benchmark) -> Result<(), io::Error> {
             };
 
             if regex.is_match(value) {
-                panic!("Interpolations not supported in 'with_items' children!");
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "Interpolations not supported in 'with_items' children!"));
             }
 
             benchmark.push(Box::new(Request::new(item, Some(with_item.clone()), Some(index))?));
@@ -93,7 +93,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn runtime_expand() {
         let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - foo{{ memory }}";
         let docs = yaml_rust2::YamlLoader::load_from_str(text).unwrap();
