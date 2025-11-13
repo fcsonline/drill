@@ -10,7 +10,7 @@ use tokio::{runtime, time::sleep};
 
 use crate::actions::{Report, Runnable};
 use crate::config::Config;
-use crate::expandable::include;
+use crate::expandable::{self};
 use crate::tags::Tags;
 use crate::writer;
 
@@ -77,7 +77,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
         let mut benchmark: Benchmark = Benchmark::new();
         let pool_store: PoolStore = PoolStore::new();
 
-        include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"), tags)?;
+        expandable::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"), tags)?;
 
         if benchmark.is_empty() {
             eprintln!("Empty benchmark. Exiting.");
