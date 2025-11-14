@@ -30,6 +30,7 @@ yaml-rust2 = "0.10.4"
 # Add openssl-sys as a direct dependency so it can be cross compiled to
 # x86_64-unknown-linux-musl using the "vendored" feature below
 openssl-sys = "0.9.66"
+serde_yaml_ng = "0.10.0"
 
 [features]
 # Force openssl-sys to statically link in the openssl library. Necessary when

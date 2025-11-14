@@ -5,6 +5,7 @@ mod cli;
 mod config;
 mod expandable;
 mod interpolator;
+mod parser;
 mod reader;
 mod tags;
 mod writer;
