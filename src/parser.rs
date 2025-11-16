@@ -75,6 +75,16 @@ pub(crate) enum MapValue {
     Bool(bool),
 }
 
+impl From<MapValue> for String {
+    fn from(v: MapValue) -> Self {
+        match v {
+            MapValue::Num(n) => n.to_string(),
+            MapValue::String(s) => s,
+            MapValue::Bool(b) => b.to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
