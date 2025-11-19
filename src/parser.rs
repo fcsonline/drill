@@ -2,62 +2,77 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+fn default_iterations() -> usize {
+    1
+}
+
+fn default_rampup() -> usize {
+    0
+}
+
+fn default_concurrency() -> usize {
+    1
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct BenchmarkConfig {
-    base: String,
-    iterations: Option<i64>,
-    concurrency: Option<i64>,
-    rampup: Option<i64>,
-    plan: Vec<Action>,
+    pub base: String,
+    #[serde(default = "default_iterations")]
+    pub iterations: usize,
+    #[serde(default = "default_concurrency")]
+    pub concurrency: usize,
+    #[serde(default = "default_rampup")]
+    pub rampup: usize,
+    pub plan: Vec<Action>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Action {
-    name: String,
-    request: Option<Request>,
-    assign: Option<String>,
-    shuffle: Option<bool>,
-    with_items: Option<Vec<Item>>,
-    assert: Option<Assert>,
-    with_items_range: Option<WithItemsRange>,
-    with_items_from_csv: Option<String>,
-    pick: Option<i64>,
-    exec: Option<Exec>,
-    tags: Option<Vec<String>>,
-    delay: Option<Delay>,
+    pub name: String,
+    pub request: Option<Request>,
+    pub assign: Option<String>,
+    pub shuffle: Option<bool>,
+    pub with_items: Option<Vec<Item>>,
+    pub assert: Option<Assert>,
+    pub with_items_range: Option<WithItemsRange>,
+    pub with_items_from_csv: Option<String>,
+    pub pick: Option<usize>,
+    pub exec: Option<Exec>,
+    pub tags: Option<Vec<String>>,
+    pub delay: Option<Delay>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Request {
-    method: Option<String>,
-    url: String,
-    headers: Option<HashMap<String, String>>,
-    body: Option<String>,
+    pub method: Option<String>,
+    pub url: String,
+    pub headers: Option<HashMap<String, String>>,
+    pub body: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Assert {
-    key: String,
-    value: String,
+    pub key: String,
+    pub value: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct WithItemsRange {
-    start: i64,
-    step: i64,
-    stop: i64,
+    pub start: usize,
+    pub step: usize,
+    pub stop: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Exec {
-    command: String,
+    pub command: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Delay {
-    milliseconds: Option<i64>,
-    seconds: Option<i64>,
-    minutes: Option<i64>,
+    pub milliseconds: Option<usize>,
+    pub seconds: Option<usize>,
+    pub minutes: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -13,14 +13,16 @@ pub use self::delay::Delay;
 pub use self::exec::Exec;
 pub use self::request::Request;
 
-use crate::benchmark::{Context, Pool, Reports};
-use crate::config::Config;
+use crate::{
+    benchmark::{Context, Pool, Reports},
+    cli::Args,
+};
 
 use std::{fmt, io};
 
 #[async_trait]
 pub trait Runnable {
-    async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) -> Result<(), io::Error>;
+    async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, app_args: &Args) -> Result<(), io::Error>;
 }
 
 #[derive(Clone)]

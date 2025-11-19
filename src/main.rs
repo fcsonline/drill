@@ -2,7 +2,6 @@ mod actions;
 mod benchmark;
 mod checker;
 mod cli;
-mod config;
 mod expandable;
 mod interpolator;
 mod parser;
@@ -16,6 +15,7 @@ use colored::*;
 use hashlink::LinkedHashMap;
 use hdrhistogram::Histogram;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::{io, process};
 
 fn main() {
@@ -24,8 +24,16 @@ fn main() {
     #[cfg(windows)]
     let _ = control::set_virtual_terminal(true);
 
+    let benchmark_config = match reader::read_file(args.benchmark.as_str()) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("{err}");
+            process::exit(1);
+        }
+    };
+
     if args.list_tags {
-        match tags::list_benchmark_file_tags(args.benchmark.as_str()) {
+        match tags::list_benchmark_file_tags(benchmark_config) {
             Err(err) => {
                 eprintln!("{err}");
                 process::exit(1);
@@ -35,7 +43,7 @@ fn main() {
         process::exit(0);
     };
 
-    let tags = match tags::Tags::new(args.tags.as_deref(), args.skip_tags.as_deref()) {
+    let app_tags = match tags::Tags::new(args.tags.as_deref(), args.skip_tags.as_deref()) {
         Ok(tags) => tags,
         Err(err) => {
             eprintln!("{err}");
@@ -44,7 +52,7 @@ fn main() {
     };
 
     if args.list_tasks {
-        match tags::list_benchmark_file_tasks(args.benchmark.as_str(), &tags) {
+        match tags::list_benchmark_file_tasks(benchmark_config, &app_tags) {
             Err(err) => {
                 eprintln!("{err}");
                 process::exit(1);
@@ -54,7 +62,7 @@ fn main() {
         process::exit(0);
     };
 
-    let benchmark_result = benchmark::execute(args.benchmark.as_str(), args.report.as_deref(), args.relaxed_interpolations, args.no_check_certificate, args.quiet, args.nanosec, args.timeout, args.verbose, &tags);
+    let benchmark_result = benchmark::execute(Arc::new(benchmark_config), &args, &app_tags);
 
     let list_reports: Vec<Vec<Report>>;
     let duration: f64;

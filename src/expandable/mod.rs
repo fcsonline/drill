@@ -5,49 +5,46 @@ mod multi_file_request;
 mod multi_iter_request;
 mod multi_request;
 
-use std::io;
+use std::{io, sync::Arc};
 
 use yaml_rust2::{Yaml, YamlEmitter};
 
-use crate::{actions, benchmark::Benchmark, reader, tags::Tags};
+use crate::{actions, benchmark::Benchmark, parser::BenchmarkConfig, reader, tags::Tags};
 
-pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, accessor: Option<&str>, tags: &Tags) -> Result<(), io::Error> {
-    let docs = reader::read_file_as_yml(parent_path)?;
-    let items = reader::read_yaml_doc_accessor(&docs[0], accessor)?;
-
-    for item in items {
-        if include::is_that_you(item) {
-            include::expand(parent_path, item, benchmark, tags)?;
+pub fn expand_from_filepath(benchmark_config: Arc<BenchmarkConfig>, benchmark: &mut Benchmark, accessor: Option<&str>, tags: &Tags) -> Result<(), io::Error> {
+    for action in benchmark_config.plan {
+        if include::is_that_you(action) {
+            include::expand(parent_path, action, benchmark, tags)?;
 
             continue;
         }
 
-        if tags.should_skip_item(item) {
+        if tags.should_skip_item(action) {
             continue;
         }
 
-        if multi_request::is_that_you(item) {
-            multi_request::expand(item, benchmark)?;
-        } else if multi_iter_request::is_that_you(item) {
-            multi_iter_request::expand(item, benchmark)?;
-        } else if multi_csv_request::is_that_you(item) {
-            multi_csv_request::expand(parent_path, item, benchmark)?;
-        } else if multi_file_request::is_that_you(item) {
-            multi_file_request::expand(parent_path, item, benchmark)?;
-        } else if actions::Delay::is_that_you(item) {
-            benchmark.push(Box::new(actions::Delay::new(item, None)?));
-        } else if actions::Exec::is_that_you(item) {
-            benchmark.push(Box::new(actions::Exec::new(item, None)?));
-        } else if actions::Assign::is_that_you(item) {
-            benchmark.push(Box::new(actions::Assign::new(item, None)?));
-        } else if actions::Assert::is_that_you(item) {
-            benchmark.push(Box::new(actions::Assert::new(item, None)?));
-        } else if actions::Request::is_that_you(item) {
-            benchmark.push(Box::new(actions::Request::new(item, None, None)?));
+        if multi_request::is_that_you(action) {
+            multi_request::expand(action, benchmark)?;
+        } else if multi_iter_request::is_that_you(action) {
+            multi_iter_request::expand(action, benchmark)?;
+        } else if multi_csv_request::is_that_you(action) {
+            multi_csv_request::expand(parent_path, action, benchmark)?;
+        } else if multi_file_request::is_that_you(action) {
+            multi_file_request::expand(parent_path, action, benchmark)?;
+        } else if actions::Delay::is_that_you(action) {
+            benchmark.push(Box::new(actions::Delay::new(action, None)?));
+        } else if actions::Exec::is_that_you(action) {
+            benchmark.push(Box::new(actions::Exec::new(action, None)?));
+        } else if actions::Assign::is_that_you(action) {
+            benchmark.push(Box::new(actions::Assign::new(action, None)?));
+        } else if actions::Assert::is_that_you(action) {
+            benchmark.push(Box::new(actions::Assert::new(action, None)?));
+        } else if actions::Request::is_that_you(action) {
+            benchmark.push(Box::new(actions::Request::new(action, None, None)?));
         } else {
             let mut out_str = String::new();
             let mut emitter = YamlEmitter::new(&mut out_str);
-            emitter.dump(item).unwrap();
+            emitter.dump(action).unwrap();
             return Err(io::Error::new(io::ErrorKind::Other, format!("Unknown node:\n\n{}\n\n", out_str)));
         }
     }

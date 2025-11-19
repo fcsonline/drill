@@ -9,8 +9,9 @@ use serde_json::{json, Map, Value};
 use tokio::{runtime, time::sleep};
 
 use crate::actions::{Report, Runnable};
-use crate::config::Config;
+use crate::cli::Args;
 use crate::expandable::{self};
+use crate::parser::BenchmarkConfig;
 use crate::tags::Tags;
 use crate::writer;
 
@@ -29,9 +30,9 @@ pub struct BenchmarkResult {
     pub duration: f64,
 }
 
-async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64) -> Result<Vec<Report>, io::Error> {
-    if config.rampup > 0 {
-        let delay = config.rampup / config.iterations;
+async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, benchmark_config: Arc<BenchmarkConfig>, iteration: usize) -> Result<Vec<Report>, io::Error> {
+    if benchmark_config.rampup > 0 {
+        let delay = benchmark_config.rampup / benchmark_config.iterations;
         sleep(Duration::new((delay * iteration) as u64, 0)).await;
     }
 
@@ -39,10 +40,10 @@ async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config
     let mut reports: Vec<Report> = Vec::new();
 
     context.insert("iteration".to_string(), json!(iteration.to_string()));
-    context.insert("base".to_string(), json!(config.base.to_string()));
+    context.insert("base".to_string(), json!(benchmark_config.base.to_string()));
 
     for item in benchmark.iter() {
-        item.execute(&mut context, &mut reports, &pool, &config).await?;
+        item.execute(&mut context, &mut reports, &pool, &benchmark_config).await?;
     }
 
     Ok(reports)
@@ -56,21 +57,19 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<u64>, verbose: bool, tags: &Tags) -> Result<BenchmarkResult, io::Error> {
-    let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.unwrap_or(10), verbose)?);
-
-    if report_path_option.is_some() {
+pub fn execute(benchmark_config: Arc<BenchmarkConfig>, app_args: &Args, tags: &Tags) -> Result<BenchmarkResult, io::Error> {
+    if app_args.report.is_some() {
         println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow());
     } else {
-        println!("{} {}", "Concurrency".yellow(), config.concurrency.to_string().purple());
-        println!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple());
-        println!("{} {}", "Rampup".yellow(), config.rampup.to_string().purple());
+        println!("{} {}", "Concurrency".yellow(), benchmark_config.concurrency.to_string().purple());
+        println!("{} {}", "Iterations".yellow(), benchmark_config.iterations.to_string().purple());
+        println!("{} {}", "Rampup".yellow(), benchmark_config.rampup.to_string().purple());
     }
 
-    println!("{} {}", "Base URL".yellow(), config.base.purple());
+    println!("{} {}", "Base URL".yellow(), benchmark_config.base.purple());
     println!();
 
-    let threads = std::cmp::min(num_cpus::get(), config.concurrency as usize);
+    let threads = std::cmp::min(num_cpus::get(), benchmark_config.concurrency as usize);
     let rt = runtime::Builder::new_multi_thread().enable_all().worker_threads(threads).build()?;
 
     rt.block_on(async {
@@ -87,19 +86,19 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
         let benchmark = Arc::new(benchmark);
         let pool = Arc::new(Mutex::new(pool_store));
 
-        if let Some(report_path) = report_path_option {
-            let reports = run_iteration(benchmark.clone(), pool.clone(), config, 0).await?;
+        if let Some(report_path) = app_args.report {
+            let reports = run_iteration(benchmark.clone(), pool.clone(), benchmark_config, 0).await?;
 
-            writer::write_file(report_path, join(reports, ""))?;
+            writer::write_file(args.report, join(reports, ""))?;
 
             Ok(BenchmarkResult {
                 reports: vec![],
                 duration: 0.0,
             })
         } else {
-            let children = (0..config.iterations).map(|iteration| run_iteration(benchmark.clone(), pool.clone(), config.clone(), iteration));
+            let children = (0..benchmark_config.iterations).map(|iteration| run_iteration(benchmark.clone(), pool.clone(), benchmark_config.clone(), iteration));
 
-            let buffered = stream::iter(children).buffer_unordered(config.concurrency as usize);
+            let buffered = stream::iter(children).buffer_unordered(benchmark_config.concurrency as usize);
 
             let begin = Instant::now();
 

@@ -1,7 +1,7 @@
-use crate::reader;
-use colored::*;
+use colored::Colorize;
+
+use crate::parser::BenchmarkConfig;
 use std::{collections::HashSet, io};
-use yaml_rust2::{Yaml, YamlEmitter};
 
 #[derive(Debug)]
 pub struct Tags<'a> {
@@ -26,83 +26,68 @@ impl<'a> Tags<'a> {
         })
     }
 
-    pub fn should_skip_item(&self, item: &Yaml) -> bool {
-        match item["tags"].as_vec() {
-            Some(item_tags_raw) => {
-                let item_tags: HashSet<&str> = item_tags_raw.iter().map(|t| t.as_str().unwrap()).collect();
-                if let Some(s) = &self.skip_tags {
-                    if !s.is_disjoint(&item_tags) {
-                        return true;
-                    }
-                }
-                if let Some(t) = &self.tags {
-                    if item_tags.contains("never") && !t.contains("never") {
-                        return true;
-                    }
-                    if !t.is_disjoint(&item_tags) {
-                        return false;
-                    }
-                }
-                if item_tags.contains("always") {
-                    return false;
-                }
-                if item_tags.contains("never") {
-                    return true;
-                }
-                self.tags.is_some()
+    pub fn is_excluded(&self, tags: &Vec<String>) -> bool {
+        if let Some(t) = &self.tags {
+            if tags.contains(&"never".to_string()) && !t.contains(&"never") {
+                return true;
             }
-            None => self.tags.is_some(),
+
+            if !t.is_disjoint(&tags.clone().iter().map(|s| s.as_str()).collect::<HashSet<&str>>()) {
+                return false;
+            }
         }
+        if tags.contains(&"always".to_string()) {
+            return false;
+        }
+        if tags.contains(&"never".to_string()) {
+            return true;
+        }
+        return false;
     }
 }
 
-pub fn list_benchmark_file_tasks(benchmark_file: &str, tags: &Tags) -> Result<(), io::Error> {
-    let docs = reader::read_file_as_yml(benchmark_file)?;
-    let items = reader::read_yaml_doc_accessor(&docs[0], Some("plan"))?;
+pub fn list_benchmark_file_tasks(benchmark_config: BenchmarkConfig, app_tags: &Tags) -> Result<(), io::Error> {
+    let items = benchmark_config.plan;
 
     println!();
 
-    if let Some(tags) = &tags.tags {
+    if let Some(tags) = &app_tags.tags {
         let mut tags: Vec<_> = tags.iter().collect();
         tags.sort();
         println!("{:width$} {:width2$?}", "Tags".green(), &tags, width = 15, width2 = 25);
     }
-    if let Some(tags) = &tags.skip_tags {
+    if let Some(tags) = &app_tags.skip_tags {
         let mut tags: Vec<_> = tags.iter().collect();
         tags.sort();
         println!("{:width$} {:width2$?}", "Skip-Tags".green(), &tags, width = 15, width2 = 25);
     }
-
-    let items: Vec<_> = items.iter().filter(|item| !tags.should_skip_item(item)).collect();
 
     if items.is_empty() {
         return Err(io::Error::new(io::ErrorKind::Other, "No items"));
     }
 
     for item in items {
-        let mut out_str = String::new();
-        let mut emitter = YamlEmitter::new(&mut out_str);
-        let _ = emitter.dump(item);
-        println!("{out_str}");
+        if app_tags.is_excluded(item.tags.as_ref().unwrap()) {
+            continue;
+        }
+        println!("{:?}", item);
     }
 
     Ok(())
 }
 
-pub fn list_benchmark_file_tags(benchmark_file: &str) -> Result<(), io::Error> {
-    let docs = reader::read_file_as_yml(benchmark_file)?;
-    let items = reader::read_yaml_doc_accessor(&docs[0], Some("plan"))?;
+pub fn list_benchmark_file_tags(benchmark_config: BenchmarkConfig) -> Result<(), io::Error> {
+    let items = benchmark_config.plan;
 
     println!();
 
     if items.is_empty() {
-        println!("{}", "No items".red());
-        std::process::exit(1)
+        return Err(io::Error::new(io::ErrorKind::Other, "No items"));
     }
     let mut tags: HashSet<&str> = HashSet::new();
     for item in items {
-        if let Some(item_tags_raw) = item["tags"].as_vec() {
-            tags.extend(item_tags_raw.iter().map(|t| t.as_str().unwrap()));
+        if let Some(item_tags) = item.tags {
+            tags.extend(item_tags.iter().map(|t| t.as_str()));
         }
     }
 

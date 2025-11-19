@@ -1,29 +1,21 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, prelude::*, BufReader};
 use std::path::Path;
 
 use hashlink::LinkedHashMap;
 use yaml_rust2::{yaml, Yaml};
 
-pub fn read_file(filepath: &str) -> Result<String, io::Error> {
-    // Create a path to the desired file
-    let path = Path::new(filepath);
+use crate::parser::BenchmarkConfig;
 
-    // Open the path in read-only mode, returns `io::Result<File>`
-    let mut file = File::open(path)?;
+pub fn read_file(filepath: &str) -> Result<BenchmarkConfig, io::Error> {
+    let content = fs::read_to_string(filepath)?;
 
-    // Read the file contents into a string, returns `io::Result<usize>`
-    let mut content = String::new();
-    let _ = file.read_to_string(&mut content)?;
-
-    Ok(content)
+    read_yaml_file(content.as_str())
 }
 
-pub fn read_file_as_yml(filepath: &str) -> Result<Vec<Yaml>, io::Error> {
-    let content = read_file(filepath)?;
-
-    match yaml_rust2::YamlLoader::load_from_str(content.as_str()) {
-        Ok(yaml_str) => Ok(yaml_str),
+pub fn read_yaml_file(content: &str) -> Result<BenchmarkConfig, io::Error> {
+    match serde_yaml_ng::from_str(content) {
+        Ok(config) => Ok(config),
         Err(err) => Err(io::Error::new(io::ErrorKind::Other, format!("Failed to parse YAML: {}", err))),
     }
 }

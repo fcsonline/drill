@@ -15,14 +15,16 @@ use yaml_rust2::Yaml;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
-use crate::actions::{extract, extract_optional};
 use crate::benchmark::{Context, Pool, Reports};
-use crate::config::Config;
+use crate::cli::Args;
 use crate::interpolator;
 
 use crate::actions::{Report, Runnable};
+use crate::parser::{Action, Item};
 
 static USER_AGENT: &str = "drill";
+static BODY_VERBS: [&str; 3] = ["POST", "PATCH", "PUT"];
+static DEFAULT_TIMEOUT: u64 = 60;
 
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -33,8 +35,8 @@ pub struct Request {
     method: String,
     headers: HashMap<String, String>,
     pub body: Option<String>,
-    pub with_item: Option<Yaml>,
-    pub index: Option<u32>,
+    pub with_item: Option<Vec<Item>>,
+    pub index: Option<usize>,
     pub assign: Option<String>,
 }
 
@@ -46,49 +48,30 @@ struct AssignedRequest {
 }
 
 impl Request {
-    pub fn is_that_you(item: &Yaml) -> bool {
-        item["request"].as_hash().is_some()
+    pub fn is_that_you(action: &Action) -> bool {
+        action.request.is_some()
     }
 
-    pub fn new(item: &Yaml, with_item: Option<Yaml>, index: Option<u32>) -> Result<Request, io::Error> {
-        let name = extract(item, "name")?;
-        let url = extract(&item["request"], "url")?;
-        let assign = extract_optional(item, "assign")?;
-
-        let method = match extract_optional(&item["request"], "method")? {
-            Some(v) => v.to_uppercase(),
+    pub fn new(action: &Action, index: Option<usize>) -> Result<Request, io::Error> {
+        let request = match action.request {
+            Some(ref item) => item,
+            None => return Err(io::Error::new(io::ErrorKind::InvalidData, "Request not found")),
+        };
+        let method = match request.method {
+            Some(ref method) => method.to_uppercase(),
             None => "GET".to_string(),
         };
 
-        let body_verbs = vec!["POST", "PATCH", "PUT"];
-        let body = if body_verbs.contains(&method.as_str()) {
-            Some(extract(&item["request"], "body")?)
-        } else {
-            None
-        };
-
-        let mut headers = HashMap::new();
-
-        if let Some(hash) = item["request"]["headers"].as_hash() {
-            for (key, val) in hash.iter() {
-                if let Some(vs) = val.as_str() {
-                    headers.insert(key.as_str().unwrap().to_string(), vs.to_string());
-                } else {
-                    return Err(io::Error::new(io::ErrorKind::Other, format!("{} Headers must be strings!!", "WARNING!".yellow().bold())));
-                }
-            }
-        }
-
         Ok(Request {
-            name,
-            url,
+            name: action.name.clone(),
+            url: request.url.clone(),
             time: 0.0,
             method,
-            headers,
-            body,
-            with_item,
+            headers: request.headers.clone().unwrap_or(HashMap::new()),
+            body: request.body.clone(),
+            with_item: action.with_items.clone(),
             index,
-            assign,
+            assign: action.assign.clone(),
         })
     }
 
@@ -100,19 +83,19 @@ impl Request {
         }
     }
 
-    async fn send_request(&self, context: &mut Context, pool: &Pool, config: &Config) -> Result<(Option<Response>, f64), io::Error> {
+    async fn send_request(&self, context: &mut Context, pool: &Pool, app_args: &Args) -> Result<(Option<Response>, f64), io::Error> {
         let mut uninterpolator = None;
 
         // Resolve the name
         let interpolated_name = if self.name.contains('{') {
-            uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(&self.name, !config.relaxed_interpolations)
+            uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(&self.name, !app_args.relaxed_interpolations)
         } else {
             Ok(self.name.clone())
         }?;
 
         // Resolve the url
         let interpolated_url = if self.url.contains('{') {
-            uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(&self.url, !config.relaxed_interpolations)
+            uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(&self.url, !app_args.relaxed_interpolations)
         } else {
             Ok(self.url.clone())
         }?;
@@ -163,7 +146,7 @@ impl Request {
                 }
             };
             let client = pool_lock.entry(domain).or_insert({
-                match ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build() {
+                match ClientBuilder::default().danger_accept_invalid_certs(app_args.no_check_certificate).build() {
                     Ok(client) => client,
                     Err(err) => {
                         return Err(io::Error::new(io::ErrorKind::Other, format!("Failed to create client: {}", err)));
@@ -172,7 +155,7 @@ impl Request {
             });
 
             let request = if let Some(body) = self.body.as_ref() {
-                interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations)?;
+                interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !app_args.relaxed_interpolations)?;
 
                 client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
             } else {
@@ -213,7 +196,7 @@ impl Request {
 
         // Resolve headers
         for (key, val) in self.headers.iter() {
-            let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(val, !config.relaxed_interpolations)?;
+            let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(val, !app_args.relaxed_interpolations)?;
             headers.insert(
                 HeaderName::from_bytes(key.as_bytes()).unwrap(),
                 match HeaderValue::from_str(&interpolated_header) {
@@ -226,7 +209,7 @@ impl Request {
             );
         }
 
-        let request_builder = request.headers(headers).timeout(Duration::from_secs(config.timeout));
+        let request_builder = request.headers(headers).timeout(Duration::from_secs(app_args.timeout.unwrap_or(DEFAULT_TIMEOUT)));
         let request = match request_builder.build() {
             Ok(request) => request,
             Err(err) => {
@@ -234,7 +217,7 @@ impl Request {
             }
         };
 
-        if config.verbose {
+        if app_args.verbose {
             log_request(&request);
         }
 
@@ -244,13 +227,13 @@ impl Request {
 
         match response_result {
             Err(e) => {
-                if !config.quiet || config.verbose {
+                if !app_args.quiet || app_args.verbose {
                     println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
                 }
                 Ok((None, duration_ms))
             }
             Ok(response) => {
-                if !config.quiet {
+                if !app_args.quiet {
                     let status = response.status();
                     let status_text = if status.is_server_error() {
                         status.to_string().red()
@@ -260,7 +243,7 @@ impl Request {
                         status.to_string().yellow()
                     };
 
-                    println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
+                    println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, app_args.nanosec).cyan(), width = 25);
                 }
 
                 Ok((Some(response), duration_ms))
@@ -298,13 +281,14 @@ fn yaml_to_json(data: Yaml) -> Result<Value, io::Error> {
 
 #[async_trait]
 impl Runnable for Request {
-    async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) -> Result<(), io::Error> {
-        match self.with_item.clone() {
-            Some(item) => {
-                context.insert("item".to_string(), yaml_to_json(item.clone())?);
-            }
-            None => {}
-        }
+    async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, app_args: &Args) -> Result<(), io::Error> {
+        // FIXME
+        // match self.with_item.clone() {
+        //     Some(item) => {
+        //         context.insert("item".to_string(), item.clone());
+        //     }
+        //     None => {}
+        // }
 
         match self.index {
             Some(index) => {
@@ -313,9 +297,9 @@ impl Runnable for Request {
             None => {}
         }
 
-        let (res, duration_ms) = self.send_request(context, pool, config).await?;
+        let (res, duration_ms) = self.send_request(context, pool, app_args).await?;
 
-        let log_message_response = if config.verbose {
+        let log_message_response = if app_args.verbose {
             Some(log_message_response(&res, duration_ms))
         } else {
             None
