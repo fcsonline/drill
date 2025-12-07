@@ -17,7 +17,7 @@ use reqwest::Client;
 
 use colored::*;
 
-pub type Benchmark = Vec<Box<(dyn Runnable + Sync + Send)>>;
+pub type Benchmark = Vec<Box<dyn Runnable + Sync + Send>>;
 pub type Context = Map<String, Value>;
 pub type Reports = Vec<Report>;
 pub type PoolStore = HashMap<String, Client>;
