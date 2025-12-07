@@ -198,6 +198,8 @@ your system, is with [cargo](https://doc.rust-lang.org/cargo/getting-started/ins
 
 ```
 cargo install drill
+OR
+cargo install --git https://github.com/mohamed-rekiba/drill.git
 drill --benchmark benchmark.yml --stats
 ```
 
