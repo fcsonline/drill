@@ -34,10 +34,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - uses: clippy-rs/clippy-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: -- -D warnings
+      - run: cargo clippy -- -D warnings
 
   coverage:
     name: Code coverage
