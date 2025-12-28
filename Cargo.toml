@@ -36,3 +36,6 @@ openssl-sys = "0.9.66"
 # Force openssl-sys to statically link in the openssl library. Necessary when
 # cross compiling to x86_64-unknown-linux-musl.
 vendored = ["openssl-sys/vendored"]
+
+[dev-dependencies]
+tempfile = "3.8"

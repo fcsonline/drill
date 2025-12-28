@@ -389,3 +389,316 @@ fn log_response(log_message_response: String, body: &Option<String>) {
   }
   println!("{message}");
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use serde_yaml::Value as YamlValue;
+  use std::io::Write;
+  use tempfile::NamedTempFile;
+
+  fn create_yaml_request_with_string_body(body_content: &str) -> YamlValue {
+    let yaml_str = format!(
+      r#"
+name: test_request
+request:
+  url: http://example.com
+  method: POST
+  body: "{}"
+"#,
+      body_content
+    );
+    serde_yaml::from_str(&yaml_str).unwrap()
+  }
+
+  fn create_yaml_request_with_hex_body(hex_content: &str) -> YamlValue {
+    let yaml_str = format!(
+      r#"
+name: test_request
+request:
+  url: http://example.com
+  method: POST
+  body:
+    hex: "{}"
+"#,
+      hex_content
+    );
+    serde_yaml::from_str(&yaml_str).unwrap()
+  }
+
+  fn create_yaml_request_with_file_body(file_path: &str) -> YamlValue {
+    let yaml_str = format!(
+      r#"
+name: test_request
+request:
+  url: http://example.com
+  method: POST
+  body:
+    file: "{}"
+"#,
+      file_path
+    );
+    serde_yaml::from_str(&yaml_str).unwrap()
+  }
+
+  #[test]
+  fn test_body_template_string() {
+    let yaml = create_yaml_request_with_string_body("Hello, World!");
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Template(content)) => {
+        assert_eq!(content, "Hello, World!");
+      }
+      _ => panic!("Expected Body::Template"),
+    }
+  }
+
+  #[test]
+  fn test_body_hex() {
+    // "Hello" in hex is "48656c6c6f"
+    let yaml = create_yaml_request_with_hex_body("48656c6c6f");
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, b"Hello");
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+
+  #[test]
+  fn test_body_hex_empty() {
+    let yaml = create_yaml_request_with_hex_body("");
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, b"");
+      }
+      _ => panic!("Expected Body::Binary with empty data"),
+    }
+  }
+
+  #[test]
+  fn test_body_hex_complex() {
+    // "Hello, World!" in hex
+    let yaml = create_yaml_request_with_hex_body("48656c6c6f2c20576f726c6421");
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, b"Hello, World!");
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+
+  #[test]
+  fn test_body_file() {
+    // Create a temporary file with test content
+    let mut temp_file = NamedTempFile::new().unwrap();
+    let test_content = b"Test file content";
+    temp_file.write_all(test_content).unwrap();
+    temp_file.flush().unwrap();
+    
+    let file_path = temp_file.path().to_str().unwrap();
+    let yaml = create_yaml_request_with_file_body(file_path);
+    
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, test_content);
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+
+  #[test]
+  fn test_body_file_empty() {
+    // Create an empty temporary file
+    let temp_file = NamedTempFile::new().unwrap();
+    let file_path = temp_file.path().to_str().unwrap();
+    
+    let yaml = create_yaml_request_with_file_body(file_path);
+    
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, b"");
+      }
+      _ => panic!("Expected Body::Binary with empty data"),
+    }
+  }
+
+  #[test]
+  fn test_body_file_binary_data() {
+    // Create a file with binary data (not UTF-8)
+    let mut temp_file = NamedTempFile::new().unwrap();
+    let binary_content = vec![0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD];
+    temp_file.write_all(&binary_content).unwrap();
+    temp_file.flush().unwrap();
+    
+    let file_path = temp_file.path().to_str().unwrap();
+    let yaml = create_yaml_request_with_file_body(file_path);
+    
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, binary_content);
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+
+  #[test]
+  fn test_body_file_large_content() {
+    // Create a file with larger content
+    let mut temp_file = NamedTempFile::new().unwrap();
+    let large_content: Vec<u8> = (0..10000).map(|i| (i % 256) as u8).collect();
+    temp_file.write_all(&large_content).unwrap();
+    temp_file.flush().unwrap();
+    
+    let file_path = temp_file.path().to_str().unwrap();
+    let yaml = create_yaml_request_with_file_body(file_path);
+    
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data.len(), 10000);
+        assert_eq!(data, large_content);
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+
+  #[test]
+  fn test_body_none_for_get() {
+    let yaml_str = r#"
+name: test_request
+request:
+  url: http://example.com
+  method: GET
+"#;
+    let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+    let request = Request::new(&yaml, None, None);
+    
+    assert!(request.body.is_none());
+  }
+
+  #[test]
+  fn test_body_none_for_delete() {
+    let yaml_str = r#"
+name: test_request
+request:
+  url: http://example.com
+  method: DELETE
+"#;
+    let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+    let request = Request::new(&yaml, None, None);
+    
+    assert!(request.body.is_none());
+  }
+
+  #[test]
+  fn test_body_hex_uppercase() {
+    // Test that hex decoding works with uppercase letters
+    let yaml = create_yaml_request_with_hex_body("48656C6C6F");
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, b"Hello");
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+
+  #[test]
+  fn test_body_hex_mixed_case() {
+    // Test that hex decoding works with mixed case
+    let yaml = create_yaml_request_with_hex_body("48656c6C6F");
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, b"Hello");
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+
+  #[test]
+  #[should_panic(expected = "Invalid hex string")]
+  fn test_body_hex_invalid() {
+    let yaml = create_yaml_request_with_hex_body("InvalidHexString!");
+    Request::new(&yaml, None, None);
+  }
+
+  #[test]
+  #[should_panic(expected = "Unable to open file")]
+  fn test_body_file_not_found() {
+    let yaml = create_yaml_request_with_file_body("/nonexistent/path/to/file.txt");
+    Request::new(&yaml, None, None);
+  }
+
+  #[test]
+  fn test_body_priority_string_over_hex() {
+    // When body is a string, it should be treated as Template, not hex
+    let yaml = create_yaml_request_with_string_body("48656c6c6f");
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Template(content)) => {
+        assert_eq!(content, "48656c6c6f");
+      }
+      _ => panic!("Expected Body::Template when body is a string"),
+    }
+  }
+
+  #[test]
+  fn test_body_put_method() {
+    let yaml_str = r#"
+name: test_request
+request:
+  url: http://example.com
+  method: PUT
+  body: "PUT body content"
+"#;
+    let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Template(content)) => {
+        assert_eq!(content, "PUT body content");
+      }
+      _ => panic!("Expected Body::Template"),
+    }
+  }
+
+  #[test]
+  fn test_body_patch_method() {
+    let yaml_str = r#"
+name: test_request
+request:
+  url: http://example.com
+  method: PATCH
+  body:
+    hex: "5061746368"
+"#;
+    let yaml: YamlValue = serde_yaml::from_str(yaml_str).unwrap();
+    let request = Request::new(&yaml, None, None);
+    
+    match request.body {
+      Some(Body::Binary(data)) => {
+        assert_eq!(data, b"Patch");
+      }
+      _ => panic!("Expected Body::Binary"),
+    }
+  }
+}
