@@ -1,4 +1,4 @@
-use yaml_rust::{Yaml, YamlLoader};
+use serde_yaml::Value;
 
 use crate::benchmark::Context;
 use crate::interpolator;
@@ -22,9 +22,7 @@ pub struct Config {
 
 impl Config {
   pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool) -> Config {
-    let config_file = reader::read_file(path);
-
-    let config_docs = YamlLoader::load_from_str(config_file.as_str()).unwrap();
+    let config_docs = reader::read_file_as_yml(path);
     let config_doc = &config_docs[0];
 
     let context: Context = Context::new();
@@ -54,8 +52,8 @@ impl Config {
   }
 }
 
-fn read_str_configuration(config_doc: &Yaml, interpolator: &interpolator::Interpolator, name: &str, default: &str) -> String {
-  match config_doc[name].as_str() {
+fn read_str_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: &str) -> String {
+  match config_doc.get(name).and_then(|v| v.as_str()) {
     Some(value) => {
       if value.contains('{') {
         interpolator.resolve(value, true)
@@ -64,7 +62,7 @@ fn read_str_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
       }
     }
     None => {
-      if config_doc[name].as_str().is_some() {
+      if config_doc.get(name).and_then(|v| v.as_str()).is_some() {
         println!("Invalid {name} value!");
       }
 
@@ -73,10 +71,10 @@ fn read_str_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
   }
 }
 
-fn read_i64_configuration(config_doc: &Yaml, interpolator: &interpolator::Interpolator, name: &str, default: i64) -> i64 {
-  let value = if let Some(value) = config_doc[name].as_i64() {
+fn read_i64_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: i64) -> i64 {
+  let value = if let Some(value) = config_doc.get(name).and_then(|v| v.as_i64()) {
     Some(value)
-  } else if let Some(key) = config_doc[name].as_str() {
+  } else if let Some(key) = config_doc.get(name).and_then(|v| v.as_str()) {
     interpolator.resolve(key, false).parse::<i64>().ok()
   } else {
     None
@@ -93,7 +91,7 @@ fn read_i64_configuration(config_doc: &Yaml, interpolator: &interpolator::Interp
       }
     }
     None => {
-      if config_doc[name].as_str().is_some() {
+      if config_doc.get(name).and_then(|v| v.as_str()).is_some() {
         println!("Invalid {name} value!");
       }
 

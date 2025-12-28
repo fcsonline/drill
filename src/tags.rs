@@ -1,7 +1,7 @@
 use crate::reader;
 use colored::*;
 use std::collections::HashSet;
-use yaml_rust::{Yaml, YamlEmitter};
+use serde_yaml::Value;
 
 #[derive(Debug)]
 pub struct Tags<'a> {
@@ -26,10 +26,10 @@ impl<'a> Tags<'a> {
     }
   }
 
-  pub fn should_skip_item(&self, item: &Yaml) -> bool {
-    match item["tags"].as_vec() {
+  pub fn should_skip_item(&self, item: &Value) -> bool {
+    match item.get("tags").and_then(|v| v.as_sequence()) {
       Some(item_tags_raw) => {
-        let item_tags: HashSet<&str> = item_tags_raw.iter().map(|t| t.as_str().unwrap()).collect();
+        let item_tags: HashSet<&str> = item_tags_raw.iter().filter_map(|t| t.as_str()).collect();
         if let Some(s) = &self.skip_tags {
           if !s.is_disjoint(&item_tags) {
             return true;
@@ -81,9 +81,7 @@ pub fn list_benchmark_file_tasks(benchmark_file: &str, tags: &Tags) {
   }
 
   for item in items {
-    let mut out_str = String::new();
-    let mut emitter = YamlEmitter::new(&mut out_str);
-    emitter.dump(item).unwrap();
+    let out_str = serde_yaml::to_string(item).unwrap();
     println!("{out_str}");
   }
 }
@@ -100,8 +98,8 @@ pub fn list_benchmark_file_tags(benchmark_file: &str) {
   }
   let mut tags: HashSet<&str> = HashSet::new();
   for item in items {
-    if let Some(item_tags_raw) = item["tags"].as_vec() {
-      tags.extend(item_tags_raw.iter().map(|t| t.as_str().unwrap()));
+    if let Some(item_tags_raw) = item.get("tags").and_then(|v| v.as_sequence()) {
+      tags.extend(item_tags_raw.iter().filter_map(|t| t.as_str()));
     }
   }
 
@@ -114,12 +112,12 @@ pub fn list_benchmark_file_tags(benchmark_file: &str) {
 mod tests {
   use super::*;
 
-  fn str_to_yaml(text: &str) -> Yaml {
-    let mut docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
-    docs.remove(0)
+  fn str_to_yaml(text: &str) -> Value {
+    let docs = crate::reader::read_file_as_yml_from_str(text);
+    docs[0].clone()
   }
 
-  fn prepare_default_item() -> Yaml {
+  fn prepare_default_item() -> Value {
     str_to_yaml("---\nname: foo\nrequest:\n  url: /\ntags:\n  - tag1\n  - tag2")
   }
 

@@ -1,21 +1,21 @@
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 use super::pick;
 use crate::actions::Request;
 use crate::benchmark::Benchmark;
 use crate::interpolator::INTERPOLATION_REGEX;
 
-pub fn is_that_you(item: &Yaml) -> bool {
-  item["request"].as_hash().is_some() && item["with_items"].as_vec().is_some()
+pub fn is_that_you(item: &Value) -> bool {
+  item.get("request").and_then(|v| v.as_mapping()).is_some() && item.get("with_items").and_then(|v| v.as_sequence()).is_some()
 }
 
-pub fn expand(item: &Yaml, benchmark: &mut Benchmark) {
-  if let Some(with_items) = item["with_items"].as_vec() {
+pub fn expand(item: &Value, benchmark: &mut Benchmark) {
+  if let Some(with_items) = item.get("with_items").and_then(|v| v.as_sequence()) {
     let mut with_items_list = with_items.clone();
 
-    if let Some(shuffle) = item["shuffle"].as_bool() {
+    if let Some(shuffle) = item.get("shuffle").and_then(|v| v.as_bool()) {
       if shuffle {
         let mut rng = thread_rng();
         with_items_list.shuffle(&mut rng);
@@ -44,7 +44,7 @@ mod tests {
   #[test]
   fn expand_multi() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - 3";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
@@ -57,7 +57,7 @@ mod tests {
   #[test]
   fn expand_multi_should_limit_requests_using_the_pick_option() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 2\nwith_items:\n  - 1\n  - 2\n  - 3";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
@@ -70,7 +70,7 @@ mod tests {
   #[test]
   fn expand_multi_should_work_with_pick_and_shuffle() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 1\nshuffle: true\nwith_items:\n  - 1\n  - 2\n  - 3";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
@@ -84,7 +84,7 @@ mod tests {
   #[should_panic]
   fn runtime_expand() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\nwith_items:\n  - 1\n  - 2\n  - foo{{ memory }}";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 

@@ -1,5 +1,5 @@
 use std::path::Path;
-use yaml_rust::{Yaml, YamlEmitter};
+use serde_yaml::Value;
 
 use crate::interpolator::INTERPOLATION_REGEX;
 
@@ -10,12 +10,12 @@ use crate::tags::Tags;
 
 use crate::reader;
 
-pub fn is_that_you(item: &Yaml) -> bool {
-  item["include"].as_str().is_some()
+pub fn is_that_you(item: &Value) -> bool {
+  item.get("include").and_then(|v| v.as_str()).is_some()
 }
 
-pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark, tags: &Tags) {
-  let include_path = item["include"].as_str().unwrap();
+pub fn expand(parent_path: &str, item: &Value, benchmark: &mut Benchmark, tags: &Tags) {
+  let include_path = item.get("include").and_then(|v| v.as_str()).unwrap();
 
   if INTERPOLATION_REGEX.is_match(include_path) {
     panic!("Interpolations not supported in 'include' property!");
@@ -61,9 +61,7 @@ pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, access
     } else if actions::Request::is_that_you(item) {
       benchmark.push(Box::new(actions::Request::new(item, None, None)));
     } else {
-      let mut out_str = String::new();
-      let mut emitter = YamlEmitter::new(&mut out_str);
-      emitter.dump(item).unwrap();
+      let out_str = serde_yaml::to_string(item).unwrap();
       panic!("Unknown node:\n\n{}\n\n", out_str);
     }
   }
@@ -78,7 +76,7 @@ mod tests {
   #[test]
   fn expand_include() {
     let text = "---\nname: Include comment\ninclude: comments.yml";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
@@ -92,7 +90,7 @@ mod tests {
   #[should_panic]
   fn invalid_expand() {
     let text = "---\nname: Include comment\ninclude: {{ memory }}.yml";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 

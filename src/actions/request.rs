@@ -9,7 +9,7 @@ use reqwest::{
 };
 use std::fmt::Write;
 use url::Url;
-use yaml_rust::Yaml;
+use serde_yaml::Value as YamlValue;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -32,7 +32,7 @@ pub struct Request {
   method: String,
   headers: HashMap<String, String>,
   pub body: Option<String>,
-  pub with_item: Option<Yaml>,
+  pub with_item: Option<YamlValue>,
   pub index: Option<u32>,
   pub assign: Option<String>,
 }
@@ -45,16 +45,17 @@ struct AssignedRequest {
 }
 
 impl Request {
-  pub fn is_that_you(item: &Yaml) -> bool {
-    item["request"].as_hash().is_some()
+  pub fn is_that_you(item: &YamlValue) -> bool {
+    item.get("request").and_then(|v| v.as_mapping()).is_some()
   }
 
-  pub fn new(item: &Yaml, with_item: Option<Yaml>, index: Option<u32>) -> Request {
+  pub fn new(item: &YamlValue, with_item: Option<YamlValue>, index: Option<u32>) -> Request {
     let name = extract(item, "name");
-    let url = extract(&item["request"], "url");
+    let request_val = item.get("request").expect("request field is required");
+    let url = extract(request_val, "url");
     let assign = extract_optional(item, "assign");
 
-    let method = if let Some(v) = extract_optional(&item["request"], "method") {
+    let method = if let Some(v) = extract_optional(request_val, "method") {
       v.to_uppercase()
     } else {
       "GET".to_string()
@@ -62,17 +63,21 @@ impl Request {
 
     let body_verbs = vec!["POST", "PATCH", "PUT"];
     let body = if body_verbs.contains(&method.as_str()) {
-      Some(extract(&item["request"], "body"))
+      Some(extract(request_val, "body"))
     } else {
       None
     };
 
     let mut headers = HashMap::new();
 
-    if let Some(hash) = item["request"]["headers"].as_hash() {
-      for (key, val) in hash.iter() {
+    if let Some(mapping) = request_val.get("headers").and_then(|v| v.as_mapping()) {
+      for (key, val) in mapping.iter() {
         if let Some(vs) = val.as_str() {
-          headers.insert(key.as_str().unwrap().to_string(), vs.to_string());
+          if let Some(key_str) = key.as_str() {
+            headers.insert(key_str.to_string(), vs.to_string());
+          } else {
+            panic!("{} Header keys must be strings!!", "WARNING!".yellow().bold());
+          }
         } else {
           panic!("{} Headers must be strings!!", "WARNING!".yellow().bold());
         }
@@ -222,31 +227,38 @@ impl Request {
   }
 }
 
-fn yaml_to_json(data: Yaml) -> Value {
-  if let Some(b) = data.as_bool() {
-    json!(b)
-  } else if let Some(i) = data.as_i64() {
-    json!(i)
-  } else if let Some(s) = data.as_str() {
-    json!(s)
-  } else if let Some(h) = data.as_hash() {
-    let mut map = Map::new();
-
-    for (key, value) in h.iter() {
-      map.entry(key.as_str().unwrap()).or_insert(yaml_to_json(value.clone()));
+fn yaml_to_json(data: YamlValue) -> Value {
+  match data {
+    YamlValue::Bool(b) => json!(b),
+    YamlValue::Number(n) => {
+      if let Some(i) = n.as_i64() {
+        json!(i)
+      } else if let Some(f) = n.as_f64() {
+        json!(f)
+      } else {
+        // Fallback: convert to string representation
+        json!(n.to_string())
+      }
     }
-
-    json!(map)
-  } else if let Some(v) = data.as_vec() {
-    let mut array = Vec::new();
-
-    for value in v.iter() {
-      array.push(yaml_to_json(value.clone()));
+    YamlValue::String(s) => json!(s),
+    YamlValue::Mapping(m) => {
+      let mut map = Map::new();
+      for (key, value) in m.iter() {
+        if let Some(key_str) = key.as_str() {
+          map.insert(key_str.to_string(), yaml_to_json(value.clone()));
+        }
+      }
+      json!(map)
     }
-
-    json!(array)
-  } else {
-    panic!("Unknown Yaml node")
+    YamlValue::Sequence(v) => {
+      let mut array = Vec::new();
+      for value in v.iter() {
+        array.push(yaml_to_json(value.clone()));
+      }
+      json!(array)
+    }
+    YamlValue::Null => json!(null),
+    _ => panic!("Unknown Yaml node")
   }
 }
 
