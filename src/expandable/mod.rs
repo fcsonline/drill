@@ -11,9 +11,9 @@ pub fn pick(item: &Value, with_items: &[Value]) -> usize {
   match item.get("pick").and_then(|v| v.as_i64()) {
     Some(value) => {
       if value.is_negative() {
-        panic!("pick option should not be negative, but was {}", value);
+        panic!("pick option should not be negative, but was {value}");
       } else if value as usize > with_items.len() {
-        panic!("pick option should not be greater than the provided items, but was {}", value);
+        panic!("pick option should not be greater than the provided items, but was {value}");
       } else {
         value as usize
       }

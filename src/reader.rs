@@ -10,14 +10,14 @@ pub fn read_file(filepath: &str) -> String {
 
   // Open the path in read-only mode, returns `io::Result<File>`
   let mut file = match File::open(path) {
-    Err(why) => panic!("couldn't open {}: {}", display, why),
+    Err(why) => panic!("couldn't open {display}: {why}"),
     Ok(file) => file,
   };
 
   // Read the file contents into a string, returns `io::Result<usize>`
   let mut content = String::new();
   if let Err(why) = file.read_to_string(&mut content) {
-    panic!("couldn't read {}: {}", display, why);
+    panic!("couldn't read {display}: {why}");
   }
 
   content
@@ -43,8 +43,8 @@ fn parse_yaml_content(content: &str) -> Vec<Value> {
             }
           }
           Err(e) => {
-            eprintln!("Error parsing YAML document: {}", e);
-            panic!("Failed to parse YAML: {}", e);
+            eprintln!("Error parsing YAML document: {e}");
+            panic!("Failed to parse YAML: {e}");
           }
         }
       }
@@ -66,8 +66,8 @@ fn parse_yaml_content(content: &str) -> Vec<Value> {
         }
       }
       Err(e) => {
-        eprintln!("Error parsing YAML content: {}", e);
-        panic!("Failed to parse YAML: {}", e);
+        eprintln!("Error parsing YAML content: {e}");
+        panic!("Failed to parse YAML: {e}");
       }
     }
   }
@@ -100,7 +100,7 @@ pub fn read_yaml_doc_accessor<'a>(doc: &'a Value, accessor: Option<&str>) -> &'a
       }
     }
   } else {
-    doc.as_sequence().expect(&format!("Expected document to be a sequence, got: {:?}", doc))
+    doc.as_sequence().unwrap_or_else(|| panic!("Expected document to be a sequence, got: {doc:?}"))
   }
 }
 
@@ -109,7 +109,7 @@ pub fn read_file_as_yml_array(filepath: &str) -> Vec<Value> {
   let display = path.display();
 
   let file = match File::open(path) {
-    Err(why) => panic!("couldn't open {}: {}", display, why),
+    Err(why) => panic!("couldn't open {display}: {why}"),
     Ok(file) => file,
   };
 
@@ -135,7 +135,7 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> Vec<Value> {
 
   // Open the path in read-only mode, returns `io::Result<File>`
   let file = match File::open(path) {
-    Err(why) => panic!("couldn't open {}: {}", display, why),
+    Err(why) => panic!("couldn't open {display}: {why}"),
     Ok(file) => file,
   };
 
@@ -144,7 +144,7 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> Vec<Value> {
   let mut items = Vec::new();
 
   let headers = match rdr.headers() {
-    Err(why) => panic!("error parsing header: {:?}", why),
+    Err(why) => panic!("error parsing header: {why:?}"),
     Ok(h) => h.clone(),
   };
 

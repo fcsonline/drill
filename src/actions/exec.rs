@@ -45,7 +45,7 @@ impl Runnable for Exec {
 
     let final_command = interpolator::Interpolator::new(context).resolve(&self.command, !config.relaxed_interpolations);
 
-    let args = vec!["bash", "-c", "--", final_command.as_str()];
+    let args = ["bash", "-c", "--", final_command.as_str()];
 
     let execution = Command::new(args[0]).args(&args[1..]).output().expect("Couldn't run it");
 
