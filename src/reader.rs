@@ -54,11 +54,7 @@ fn parse_yaml_content(content: &str) -> Vec<Value> {
   // If no documents were found (empty file or no "---"), try parsing the whole content
   if docs.is_empty() {
     // Remove leading "---\n" if present for single-document files
-    let content_to_parse = if trimmed_content.starts_with("---\n") {
-      &trimmed_content[4..]
-    } else {
-      trimmed_content
-    };
+    let content_to_parse = trimmed_content.strip_prefix("---\n").unwrap_or(trimmed_content);
     match serde_yaml::from_str::<Value>(content_to_parse.trim()) {
       Ok(doc) => {
         if !matches!(doc, Value::Null) {
@@ -85,6 +81,7 @@ pub fn read_file_as_yml(filepath: &str) -> Vec<Value> {
   parse_yaml_content(&content)
 }
 
+#[cfg(test)]
 pub fn read_file_as_yml_from_str(content: &str) -> Vec<Value> {
   parse_yaml_content(content)
 }
