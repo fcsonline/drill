@@ -171,7 +171,8 @@ mod tests {
 
   #[test]
   fn interpolates_environment_variables() {
-    std::env::set_var("FOO", "BAR");
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("FOO", "BAR") };
 
     let context: Context = Context::new();
     let interpolator = Interpolator::new(&context);
