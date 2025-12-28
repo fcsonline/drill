@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use serde_yaml::{Value, Number};
+use serde_yaml::{Number, Value};
 
 use crate::interpolator::INTERPOLATION_REGEX;
 
