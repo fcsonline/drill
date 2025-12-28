@@ -1,7 +1,7 @@
 use crate::reader;
 use colored::*;
-use std::collections::HashSet;
 use serde_yaml::Value;
+use std::collections::HashSet;
 
 #[derive(Debug)]
 pub struct Tags<'a> {

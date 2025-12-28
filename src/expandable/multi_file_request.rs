@@ -5,8 +5,8 @@ use crate::interpolator::INTERPOLATION_REGEX;
 use crate::reader;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use std::path::Path;
 use serde_yaml::Value;
+use std::path::Path;
 
 pub fn is_that_you(item: &Value) -> bool {
   item.get("request").and_then(|v| v.as_mapping()).is_some() && (item.get("with_items_from_file").and_then(|v| v.as_str()).is_some() || item.get("with_items_from_file").and_then(|v| v.as_mapping()).is_some())

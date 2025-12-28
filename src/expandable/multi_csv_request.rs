@@ -1,7 +1,7 @@
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use std::path::Path;
 use serde_yaml::Value;
+use std::path::Path;
 
 use super::pick;
 use crate::actions::Request;

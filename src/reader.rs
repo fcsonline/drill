@@ -1,7 +1,7 @@
+use serde_yaml::{Mapping, Value};
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::Path;
-use serde_yaml::{Value, Mapping};
 
 pub fn read_file(filepath: &str) -> String {
   // Create a path to the desired file
@@ -27,7 +27,7 @@ fn parse_yaml_content(content: &str) -> Vec<Value> {
   // serde_yaml doesn't support multiple documents natively, so we split by "---\n" and parse each
   let mut docs = Vec::new();
   let trimmed_content = content.trim();
-  
+
   // Handle multi-document YAML (separated by "---\n")
   if trimmed_content.contains("\n---\n") || (trimmed_content.starts_with("---\n") && trimmed_content.matches("---\n").count() > 1) {
     let parts: Vec<&str> = trimmed_content.split("---\n").collect();
@@ -50,7 +50,7 @@ fn parse_yaml_content(content: &str) -> Vec<Value> {
       }
     }
   }
-  
+
   // If no documents were found (empty file or no "---"), try parsing the whole content
   if docs.is_empty() {
     // Remove leading "---\n" if present for single-document files
@@ -71,12 +71,12 @@ fn parse_yaml_content(content: &str) -> Vec<Value> {
       }
     }
   }
-  
+
   // If still empty, return a single Null document to maintain compatibility
   if docs.is_empty() {
     docs.push(Value::Null);
   }
-  
+
   docs
 }
 

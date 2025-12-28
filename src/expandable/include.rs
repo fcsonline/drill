@@ -1,5 +1,5 @@
-use std::path::Path;
 use serde_yaml::Value;
+use std::path::Path;
 
 use crate::interpolator::INTERPOLATION_REGEX;
 

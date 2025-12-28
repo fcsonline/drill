@@ -7,9 +7,9 @@ use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
 };
+use serde_yaml::Value as YamlValue;
 use std::fmt::Write;
 use url::Url;
-use serde_yaml::Value as YamlValue;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -258,7 +258,7 @@ fn yaml_to_json(data: YamlValue) -> Value {
       json!(array)
     }
     YamlValue::Null => json!(null),
-    _ => panic!("Unknown Yaml node")
+    _ => panic!("Unknown Yaml node"),
   }
 }
 

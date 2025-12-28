@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use colored::*;
 use serde_json::json;
-use std::process::Command;
 use serde_yaml::Value;
+use std::process::Command;
 
 use crate::actions::Runnable;
 use crate::actions::{extract, extract_optional};

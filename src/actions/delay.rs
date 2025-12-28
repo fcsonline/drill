@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use colored::*;
-use tokio::time::sleep;
 use serde_yaml::Value;
+use tokio::time::sleep;
 
 use crate::actions::extract;
 use crate::actions::Runnable;
