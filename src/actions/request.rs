@@ -3,12 +3,15 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use colored::Colorize;
+use hex;
 use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
 };
 use serde_yaml::Value as YamlValue;
 use std::fmt::Write;
+use std::fs::File;
+use std::io::Read;
 use url::Url;
 
 use serde::{Deserialize, Serialize};
@@ -24,6 +27,12 @@ use crate::actions::{Report, Runnable};
 static USER_AGENT: &str = "drill";
 
 #[derive(Clone)]
+pub enum Body {
+  Template(String),
+  Binary(Vec<u8>),
+}
+
+#[derive(Clone)]
 #[allow(dead_code)]
 pub struct Request {
   name: String,
@@ -31,7 +40,7 @@ pub struct Request {
   time: f64,
   method: String,
   headers: HashMap<String, String>,
-  pub body: Option<String>,
+  pub body: Option<Body>,
   pub with_item: Option<YamlValue>,
   pub index: Option<u32>,
   pub assign: Option<String>,
@@ -63,7 +72,18 @@ impl Request {
 
     let body_verbs = ["POST", "PATCH", "PUT"];
     let body = if body_verbs.contains(&method.as_str()) {
-      Some(extract(request_val, "body"))
+      if let Some(body) = request_val.get("body").and_then(|v| v.as_str()) {
+        Some(Body::Template(body.to_string()))
+      } else if let Some(file_path) = request_val.get("body").and_then(|v| v.get("file")).and_then(|v| v.as_str()) {
+        let mut file = File::open(file_path).expect("Unable to open file");
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).expect("Unable to read file");
+        Some(Body::Binary(buffer))
+      } else if let Some(hex_str) = request_val.get("body").and_then(|v| v.get("hex")).and_then(|v| v.as_str()) {
+        Some(Body::Binary(hex::decode(hex_str).expect("Invalid hex string")))
+      } else {
+        panic!("{} Body must be string, file or hex!!", "WARNING!".yellow().bold());
+      }
     } else {
       None
     };
@@ -161,12 +181,13 @@ impl Request {
       let mut pool2 = pool.lock().unwrap();
       let client = pool2.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
 
-      let request = if let Some(body) = self.body.as_ref() {
-        interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(body, !config.relaxed_interpolations);
-
-        client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
-      } else {
-        client.request(method, interpolated_base_url.as_str())
+      let request = match self.body.as_ref() {
+        Some(Body::Template(template_body)) => {
+          interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(template_body, !config.relaxed_interpolations);
+          client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
+        }
+        Some(Body::Binary(binary_body)) => client.request(method, interpolated_base_url.as_str()).body(binary_body.clone()),
+        None => client.request(method, interpolated_base_url.as_str()),
       };
 
       (client.clone(), request)

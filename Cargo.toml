@@ -26,6 +26,7 @@ lazy_static = "1.4.0"
 num_cpus = "1.13.0"
 rand = "0.8.5"
 hdrhistogram = "7.4.0"
+hex = "0.4.3"
 
 # Add openssl-sys as a direct dependency so it can be cross compiled to
 # x86_64-unknown-linux-musl using the "vendored" feature below

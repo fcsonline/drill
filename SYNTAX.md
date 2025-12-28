@@ -62,6 +62,19 @@ Second, it can be a hash with the following properties:
  - `file_name`: csv file containing the records to be used as items
  - `quote_char`: character to use as quote in csv parsing.  Defaults to `"\""`, but can be set to `"\'"`.  If your csv file has quoted strings that contain commas and that causes parse errors, make sure this value is set correctly.
 
+#### body item properties
+
+The `body` property can be specified in different ways depending on the type of data you want to send in the request. Here are three variants:
+
+1. `body: "string with {{ templates }}"`
+  - This variant allows you to use a string with templates that can be interpolated with values from the context.
+
+2. `body: { hex: 65 78 61 6D 70 6C 65 }`
+  - This variant allows you to send a raw byte string value in the request body.
+
+3. `body: { file: path/to/file.txt }`
+  - This variant allows you to specify a file path, and the content of the file will be used as the request body.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.

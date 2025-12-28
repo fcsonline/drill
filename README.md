@@ -124,6 +124,20 @@ plan:
       method: POST
       body: foo=bar&arg={{ bar }}
 
+  - name: Support for hex-encoded request body
+    request:
+      url: /api/blob
+      method: POST
+      body:
+        hex: 65 78 61 6D 70 6C 65
+
+  - name: Support request body loaded from a file
+    request:
+      url: /api/blob
+      method: POST
+      body:
+        file: ./image.png
+
   - name: Login user
     request:
       url: /login?user=example&password=3x4mpl3
