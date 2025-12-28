@@ -62,7 +62,7 @@ pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, access
       benchmark.push(Box::new(actions::Request::new(item, None, None)));
     } else {
       let out_str = serde_yaml::to_string(item).unwrap();
-      panic!("Unknown node:\n\n{}\n\n", out_str);
+      panic!("Unknown node:\n\n{out_str}\n\n");
     }
   }
 }

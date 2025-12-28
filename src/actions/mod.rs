@@ -46,7 +46,7 @@ pub fn extract_optional<'a>(item: &'a Value, attr: &'a str) -> Option<String> {
   if let Some(s) = item.get(attr).and_then(|v| v.as_str()) {
     Some(s.to_string())
   } else if item.get(attr).and_then(|v| v.as_mapping()).is_some() {
-    panic!("`{}` needs to be a string. Try adding quotes", attr);
+    panic!("`{attr}` needs to be a string. Try adding quotes");
   } else {
     None
   }
@@ -58,7 +58,7 @@ pub fn extract<'a>(item: &'a Value, attr: &'a str) -> String {
   } else if let Some(s) = item.get(attr).and_then(|v| v.as_str()) {
     s.to_string()
   } else if item.get(attr).and_then(|v| v.as_mapping()).is_some() {
-    panic!("`{}` is required needs to be a string. Try adding quotes", attr);
+    panic!("`{attr}` is required needs to be a string. Try adding quotes");
   } else {
     panic!("Unknown node `{}` => {:?}", attr, item.get(attr));
   }
