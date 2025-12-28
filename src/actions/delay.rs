@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use colored::*;
 use tokio::time::sleep;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 use crate::actions::extract;
 use crate::actions::Runnable;
@@ -18,13 +18,14 @@ pub struct Delay {
 }
 
 impl Delay {
-  pub fn is_that_you(item: &Yaml) -> bool {
-    item["delay"].as_hash().is_some()
+  pub fn is_that_you(item: &Value) -> bool {
+    item.get("delay").and_then(|v| v.as_mapping()).is_some()
   }
 
-  pub fn new(item: &Yaml, _with_item: Option<Yaml>) -> Delay {
+  pub fn new(item: &Value, _with_item: Option<Value>) -> Delay {
     let name = extract(item, "name");
-    let seconds = u64::try_from(item["delay"]["seconds"].as_i64().unwrap()).expect("Invalid number of seconds");
+    let delay_val = item.get("delay").expect("delay field is required");
+    let seconds = u64::try_from(delay_val.get("seconds").and_then(|v| v.as_i64()).expect("Invalid number of seconds")).expect("Invalid number of seconds");
 
     Delay {
       name,

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use colored::*;
 use serde_json::json;
 use std::process::Command;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 use crate::actions::Runnable;
 use crate::actions::{extract, extract_optional};
@@ -18,13 +18,14 @@ pub struct Exec {
 }
 
 impl Exec {
-  pub fn is_that_you(item: &Yaml) -> bool {
-    item["exec"].as_hash().is_some()
+  pub fn is_that_you(item: &Value) -> bool {
+    item.get("exec").and_then(|v| v.as_mapping()).is_some()
   }
 
-  pub fn new(item: &Yaml, _with_item: Option<Yaml>) -> Exec {
+  pub fn new(item: &Value, _with_item: Option<Value>) -> Exec {
     let name = extract(item, "name");
-    let command = extract(&item["exec"], "command");
+    let exec_val = item.get("exec").expect("exec field is required");
+    let command = extract(exec_val, "command");
     let assign = extract_optional(item, "assign");
 
     Exec {

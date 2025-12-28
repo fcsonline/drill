@@ -6,14 +6,14 @@ use crate::reader;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::path::Path;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
-pub fn is_that_you(item: &Yaml) -> bool {
-  item["request"].as_hash().is_some() && (item["with_items_from_file"].as_str().is_some() || item["with_items_from_file"].as_hash().is_some())
+pub fn is_that_you(item: &Value) -> bool {
+  item.get("request").and_then(|v| v.as_mapping()).is_some() && (item.get("with_items_from_file").and_then(|v| v.as_str()).is_some() || item.get("with_items_from_file").and_then(|v| v.as_mapping()).is_some())
 }
 
-pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
-  let with_items_path = if let Some(with_items_path) = item["with_items_from_file"].as_str() {
+pub fn expand(parent_path: &str, item: &Value, benchmark: &mut Benchmark) {
+  let with_items_path = if let Some(with_items_path) = item.get("with_items_from_file").and_then(|v| v.as_str()) {
     with_items_path
   } else {
     unreachable!();
@@ -28,7 +28,7 @@ pub fn expand(parent_path: &str, item: &Yaml, benchmark: &mut Benchmark) {
 
   let mut with_items_file = reader::read_file_as_yml_array(final_path);
 
-  if let Some(shuffle) = item["shuffle"].as_bool() {
+  if let Some(shuffle) = item.get("shuffle").and_then(|v| v.as_bool()) {
     if shuffle {
       let mut rng = thread_rng();
       with_items_file.shuffle(&mut rng);
@@ -50,7 +50,7 @@ mod test {
   #[test]
   fn expand_multi() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item.id }}\nwith_items_from_file: ./fixtures/texts.txt";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
@@ -63,7 +63,7 @@ mod test {
   #[test]
   fn expand_multi_should_limit_requests_using_the_pick_option() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 2\nwith_items_from_file: ./fixtures/texts.txt";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 
@@ -76,7 +76,7 @@ mod test {
   #[test]
   fn expand_multi_should_work_with_pick_and_shuffle() {
     let text = "---\nname: foobar\nrequest:\n  url: /api/{{ item }}\npick: 1\nshuffle: true\nwith_items_from_file: ./fixtures/texts.txt";
-    let docs = yaml_rust::YamlLoader::load_from_str(text).unwrap();
+    let docs = crate::reader::read_file_as_yml_from_str(text);
     let doc = &docs[0];
     let mut benchmark: Benchmark = Benchmark::new();
 

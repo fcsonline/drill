@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use colored::*;
 use serde_json::json;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 use crate::actions::extract;
 use crate::actions::Runnable;
@@ -16,14 +16,15 @@ pub struct Assign {
 }
 
 impl Assign {
-  pub fn is_that_you(item: &Yaml) -> bool {
-    item["assign"].as_hash().is_some()
+  pub fn is_that_you(item: &Value) -> bool {
+    item.get("assign").and_then(|v| v.as_mapping()).is_some()
   }
 
-  pub fn new(item: &Yaml, _with_item: Option<Yaml>) -> Assign {
+  pub fn new(item: &Value, _with_item: Option<Value>) -> Assign {
     let name = extract(item, "name");
-    let key = extract(&item["assign"], "key");
-    let value = extract(&item["assign"], "value");
+    let assign_val = item.get("assign").expect("assign field is required");
+    let key = extract(assign_val, "key");
+    let value = extract(assign_val, "value");
 
     Assign {
       name,

@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use yaml_rust::Yaml;
+use serde_yaml::Value;
 
 mod assert;
 mod assign;
@@ -42,24 +42,24 @@ impl fmt::Display for Report {
   }
 }
 
-pub fn extract_optional<'a>(item: &'a Yaml, attr: &'a str) -> Option<String> {
-  if let Some(s) = item[attr].as_str() {
+pub fn extract_optional<'a>(item: &'a Value, attr: &'a str) -> Option<String> {
+  if let Some(s) = item.get(attr).and_then(|v| v.as_str()) {
     Some(s.to_string())
-  } else if item[attr].as_hash().is_some() {
+  } else if item.get(attr).and_then(|v| v.as_mapping()).is_some() {
     panic!("`{}` needs to be a string. Try adding quotes", attr);
   } else {
     None
   }
 }
 
-pub fn extract<'a>(item: &'a Yaml, attr: &'a str) -> String {
-  if let Some(s) = item[attr].as_i64() {
+pub fn extract<'a>(item: &'a Value, attr: &'a str) -> String {
+  if let Some(s) = item.get(attr).and_then(|v| v.as_i64()) {
     s.to_string()
-  } else if let Some(s) = item[attr].as_str() {
+  } else if let Some(s) = item.get(attr).and_then(|v| v.as_str()) {
     s.to_string()
-  } else if item[attr].as_hash().is_some() {
+  } else if item.get(attr).and_then(|v| v.as_mapping()).is_some() {
     panic!("`{}` is required needs to be a string. Try adding quotes", attr);
   } else {
-    panic!("Unknown node `{}` => {:?}", attr, item[attr]);
+    panic!("Unknown node `{}` => {:?}", attr, item.get(attr));
   }
 }

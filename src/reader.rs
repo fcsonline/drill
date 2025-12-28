@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 use std::path::Path;
+use serde_yaml::{Value, Mapping};
 
 pub fn read_file(filepath: &str) -> String {
   // Create a path to the desired file
@@ -22,14 +23,75 @@ pub fn read_file(filepath: &str) -> String {
   content
 }
 
-pub fn read_file_as_yml(filepath: &str) -> Vec<yaml_rust::Yaml> {
-  let content = read_file(filepath);
-  yaml_rust::YamlLoader::load_from_str(content.as_str()).unwrap()
+fn parse_yaml_content(content: &str) -> Vec<Value> {
+  // serde_yaml doesn't support multiple documents natively, so we split by "---\n" and parse each
+  let mut docs = Vec::new();
+  let trimmed_content = content.trim();
+  
+  // Handle multi-document YAML (separated by "---\n")
+  if trimmed_content.contains("\n---\n") || (trimmed_content.starts_with("---\n") && trimmed_content.matches("---\n").count() > 1) {
+    let parts: Vec<&str> = trimmed_content.split("---\n").collect();
+    for doc_str in parts {
+      let trimmed = doc_str.trim();
+      // Skip empty parts and parts that are only comments
+      if !trimmed.is_empty() && !trimmed.chars().all(|c| c == '#' || c.is_whitespace() || c == '\n') {
+        match serde_yaml::from_str::<Value>(trimmed) {
+          Ok(doc) => {
+            // Skip Null documents (which can result from comments-only content)
+            if !matches!(doc, Value::Null) {
+              docs.push(doc);
+            }
+          }
+          Err(e) => {
+            eprintln!("Error parsing YAML document: {}", e);
+            panic!("Failed to parse YAML: {}", e);
+          }
+        }
+      }
+    }
+  }
+  
+  // If no documents were found (empty file or no "---"), try parsing the whole content
+  if docs.is_empty() {
+    // Remove leading "---\n" if present for single-document files
+    let content_to_parse = if trimmed_content.starts_with("---\n") {
+      &trimmed_content[4..]
+    } else {
+      trimmed_content
+    };
+    match serde_yaml::from_str::<Value>(content_to_parse.trim()) {
+      Ok(doc) => {
+        if !matches!(doc, Value::Null) {
+          docs.push(doc);
+        }
+      }
+      Err(e) => {
+        eprintln!("Error parsing YAML content: {}", e);
+        panic!("Failed to parse YAML: {}", e);
+      }
+    }
+  }
+  
+  // If still empty, return a single Null document to maintain compatibility
+  if docs.is_empty() {
+    docs.push(Value::Null);
+  }
+  
+  docs
 }
 
-pub fn read_yaml_doc_accessor<'a>(doc: &'a yaml_rust::Yaml, accessor: Option<&str>) -> &'a Vec<yaml_rust::Yaml> {
+pub fn read_file_as_yml(filepath: &str) -> Vec<Value> {
+  let content = read_file(filepath);
+  parse_yaml_content(&content)
+}
+
+pub fn read_file_as_yml_from_str(content: &str) -> Vec<Value> {
+  parse_yaml_content(content)
+}
+
+pub fn read_yaml_doc_accessor<'a>(doc: &'a Value, accessor: Option<&str>) -> &'a Vec<Value> {
   if let Some(accessor_id) = accessor {
-    match doc[accessor_id].as_vec() {
+    match doc.get(accessor_id).and_then(|v| v.as_sequence()) {
       Some(items) => items,
       None => {
         println!("Node missing on config: {accessor_id}");
@@ -38,11 +100,11 @@ pub fn read_yaml_doc_accessor<'a>(doc: &'a yaml_rust::Yaml, accessor: Option<&st
       }
     }
   } else {
-    doc.as_vec().unwrap()
+    doc.as_sequence().expect(&format!("Expected document to be a sequence, got: {:?}", doc))
   }
 }
 
-pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
+pub fn read_file_as_yml_array(filepath: &str) -> Vec<Value> {
   let path = Path::new(filepath);
   let display = path.display();
 
@@ -52,11 +114,11 @@ pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
   };
 
   let reader = BufReader::new(file);
-  let mut items = yaml_rust::yaml::Array::new();
+  let mut items = Vec::new();
   for line in reader.lines() {
     match line {
       Ok(text) => {
-        items.push(yaml_rust::Yaml::String(text));
+        items.push(Value::String(text));
       }
       Err(e) => println!("error parsing line: {e:?}"),
     }
@@ -66,7 +128,7 @@ pub fn read_file_as_yml_array(filepath: &str) -> yaml_rust::yaml::Array {
 }
 
 // TODO: Try to split this fn into two
-pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array {
+pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> Vec<Value> {
   // Create a path to the desired file
   let path = Path::new(filepath);
   let display = path.display();
@@ -79,7 +141,7 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
 
   let mut rdr = csv::ReaderBuilder::new().has_headers(true).quote(quote).from_reader(file);
 
-  let mut items = yaml_rust::yaml::Array::new();
+  let mut items = Vec::new();
 
   let headers = match rdr.headers() {
     Err(why) => panic!("error parsing header: {:?}", why),
@@ -89,16 +151,16 @@ pub fn read_csv_file_as_yml(filepath: &str, quote: u8) -> yaml_rust::yaml::Array
   for result in rdr.records() {
     match result {
       Ok(record) => {
-        let mut linked_hash_map = linked_hash_map::LinkedHashMap::new();
+        let mut mapping = Mapping::new();
 
         for (i, header) in headers.iter().enumerate() {
-          let item_key = yaml_rust::Yaml::String(header.to_string());
-          let item_value = yaml_rust::Yaml::String(record.get(i).unwrap().to_string());
+          let item_key = Value::String(header.to_string());
+          let item_value = Value::String(record.get(i).unwrap().to_string());
 
-          linked_hash_map.insert(item_key, item_value);
+          mapping.insert(item_key, item_value);
         }
 
-        items.push(yaml_rust::Yaml::Hash(linked_hash_map));
+        items.push(Value::Mapping(mapping));
       }
       Err(e) => println!("error parsing header: {e:?}"),
     }
