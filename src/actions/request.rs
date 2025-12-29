@@ -3,7 +3,6 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use colored::Colorize;
-use hex;
 use reqwest::{
   header::{self, HeaderMap, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
