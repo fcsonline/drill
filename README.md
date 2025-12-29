@@ -305,13 +305,14 @@ FLAGS:
     -v, --verbose                   Toggle verbose output
 
 OPTIONS:
-    -b, --benchmark <benchmark>    Sets the benchmark file
-    -c, --compare <compare>        Sets a compare file
-    -r, --report <report>          Sets a report file
-        --skip-tags <skip-tags>    Tags to exclude
-        --tags <tags>              Tags to include
-    -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
-    -o, --timeout <timeout>        Set timeout in seconds for all requests
+    -b, --benchmark <benchmark>      Sets the benchmark file
+    -c, --compare <compare>          Sets a compare file
+    -r, --report <report>            Sets a report file
+        --skip-tags <skip-tags>      Tags to exclude
+        --tags <tags>                Tags to include
+    -t, --threshold <threshold>      Sets a threshold value in ms amongst the compared file
+    -o, --timeout <timeout>          Set timeout in seconds for all requests
+    -w, --histogram-max-width <int>  Set the max width of the request histogram
 ```
 
 ## Roadmap
