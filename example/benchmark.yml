@@ -109,7 +109,7 @@ plan:
       url: /api/users/contacts/{{ item.id }}
     with_items_from_csv:
       file_name: ./fixtures/users.csv
-      quote_char: "\'"
+      quote_char: "\\'"
 
   - name: POST some crafted JSONs stored in CSV
     request:
@@ -120,7 +120,7 @@ plan:
         Content-Type: 'application/json'
     with_items_from_csv:
       file_name: ./fixtures/transactions.csv
-      quote_char: "\'"
+      quote_char: "\\'"
 
   - name: Fetch no relative url
     request:

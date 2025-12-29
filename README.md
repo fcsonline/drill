@@ -108,7 +108,7 @@ plan:
         Content-Type: 'application/json'
     with_items_from_csv:
       file_name: ./fixtures/transactions.csv
-      quote_char: "\'"
+      quote_char: "\\'"
 
   - name: Fetch no relative url
     request:
