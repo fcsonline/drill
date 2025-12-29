@@ -70,7 +70,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
   println!();
 
   let threads = std::cmp::min(num_cpus::get(), config.concurrency as usize);
-  let rt = runtime::Builder::new_multi_thread().enable_all().worker_threads(threads).build().unwrap();
+  let rt = runtime::Builder::new_current_thread().enable_all().worker_threads(threads).build().unwrap();
 
   rt.block_on(async {
     let mut benchmark: Benchmark = Benchmark::new();

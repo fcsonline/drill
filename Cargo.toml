@@ -19,7 +19,7 @@ serde_yaml = "0.9"
 url = "2.1.1"
 linked-hash-map = "0.5.3"
 tokio = { version = "1.43.1", features = ["time", "net"] }
-reqwest = { version = "0.11.11", features = ["cookies", "trust-dns"] }
+reqwest = { version = "0.12.28", features = ["cookies", "trust-dns"] }
 async-trait = "0.1.30"
 futures = "0.3.5"
 lazy_static = "1.4.0"
