@@ -3,6 +3,8 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch: null
+  push: null
 
 jobs:
   release:
@@ -23,9 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: Compile and release
-        uses: rust-build/rust-build.action@v1.4.0
+        uses: rust-build/rust-build.action@v1.4.5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUSTTARGET: ${{ matrix.target }}
+          TOOLCHAIN_VERSION: 1.83.0
           EXTRA_FILES: "README.md"
           ARCHIVE_TYPES: ${{ matrix.archive }}
