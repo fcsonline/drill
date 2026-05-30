@@ -285,12 +285,12 @@ fn yaml_to_json(data: YamlValue) -> Value {
 #[async_trait]
 impl Runnable for Request {
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) {
-    if self.with_item.is_some() {
-      context.insert("item".to_string(), yaml_to_json(self.with_item.clone().unwrap()));
+    if let Some(with_item) = &self.with_item {
+      context.insert("item".to_string(), yaml_to_json(with_item.clone()));
     }
 
-    if self.index.is_some() {
-      context.insert("index".to_string(), json!(self.index.unwrap()));
+    if let Some(index) = self.index {
+      context.insert("index".to_string(), json!(index));
     }
 
     let (res, duration_ms) = self.send_request(context, pool, config).await;
