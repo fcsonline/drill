@@ -9,33 +9,24 @@ license = "GPL-3.0"
 edition = "2021"
 
 [dependencies]
-clap = "2.32.0"
-colored = "2.0.0"
-csv = "1.0.5"
-regex = "1.5.5"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.39"
-serde_yaml = "0.9"
-url = "2.1.1"
-linked-hash-map = "0.5.3"
-tokio = { version = "1.43.1", features = ["time", "net"] }
-reqwest = { version = "0.12.28", features = ["cookies", "trust-dns"] }
-async-trait = "0.1.30"
-futures = "0.3.5"
-lazy_static = "1.4.0"
-num_cpus = "1.13.0"
-rand = "0.8.5"
-hdrhistogram = "7.4.0"
+clap = { version = "4.6.1", features = ["cargo"] }
+colored = "3.1.1"
+csv = "1.4.0"
+regex = "1.12.3"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+serde_yaml = "0.9.34"
+url = "2.5.8"
+linked-hash-map = "0.5.6"
+tokio = { version = "1.52.3", features = ["time", "net"] }
+reqwest = { version = "0.13.4", features = ["cookies", "hickory-dns"] }
+async-trait = "0.1.89"
+futures = "0.3.32"
+lazy_static = "1.5.0"
+num_cpus = "1.17.0"
+rand = "0.10.1"
+hdrhistogram = "7.5.4"
 hex = "0.4.3"
 
-# Add openssl-sys as a direct dependency so it can be cross compiled to
-# x86_64-unknown-linux-musl using the "vendored" feature below
-openssl-sys = "0.9.66"
-
-[features]
-# Force openssl-sys to statically link in the openssl library. Necessary when
-# cross compiling to x86_64-unknown-linux-musl.
-vendored = ["openssl-sys/vendored"]
-
 [dev-dependencies]
-tempfile = "3.8"
+tempfile = "3.27.0"

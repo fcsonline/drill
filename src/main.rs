@@ -9,8 +9,7 @@ mod tags;
 mod writer;
 
 use crate::actions::Report;
-use clap::crate_version;
-use clap::{App, Arg};
+use clap::{crate_version, Arg, ArgAction, Command};
 use colored::*;
 use hdrhistogram::Histogram;
 use linked_hash_map::LinkedHashMap;
@@ -19,21 +18,21 @@ use std::process;
 
 fn main() {
   let matches = app_args();
-  let benchmark_file = matches.value_of("benchmark").unwrap();
-  let report_path_option = matches.value_of("report");
-  let stats_option = matches.is_present("stats");
-  let compare_path_option = matches.value_of("compare");
-  let threshold_option = matches.value_of("threshold");
-  let no_check_certificate = matches.is_present("no-check-certificate");
-  let relaxed_interpolations = matches.is_present("relaxed-interpolations");
-  let quiet = matches.is_present("quiet");
-  let nanosec = matches.is_present("nanosec");
-  let timeout = matches.value_of("timeout");
-  let verbose = matches.is_present("verbose");
-  let tags_option = matches.value_of("tags");
-  let skip_tags_option = matches.value_of("skip-tags");
-  let list_tags = matches.is_present("list-tags");
-  let list_tasks = matches.is_present("list-tasks");
+  let benchmark_file = matches.get_one::<String>("benchmark").unwrap().as_str();
+  let report_path_option = matches.get_one::<String>("report").map(|s| s.as_str());
+  let stats_option = matches.get_flag("stats");
+  let compare_path_option = matches.get_one::<String>("compare").map(|s| s.as_str());
+  let threshold_option = matches.get_one::<String>("threshold").map(|s| s.as_str());
+  let no_check_certificate = matches.get_flag("no-check-certificate");
+  let relaxed_interpolations = matches.get_flag("relaxed-interpolations");
+  let quiet = matches.get_flag("quiet");
+  let nanosec = matches.get_flag("nanosec");
+  let timeout = matches.get_one::<String>("timeout").map(|s| s.as_str());
+  let verbose = matches.get_flag("verbose");
+  let tags_option = matches.get_one::<String>("tags").map(|s| s.as_str());
+  let skip_tags_option = matches.get_one::<String>("skip-tags").map(|s| s.as_str());
+  let list_tags = matches.get_flag("list-tags");
+  let list_tasks = matches.get_flag("list-tasks");
 
   #[cfg(windows)]
   let _ = control::set_virtual_terminal(true);
@@ -60,25 +59,25 @@ fn main() {
   process::exit(0)
 }
 
-fn app_args<'a>() -> clap::ArgMatches<'a> {
-  App::new("drill")
+fn app_args() -> clap::ArgMatches {
+  Command::new("drill")
     .version(crate_version!())
     .about("HTTP load testing application written in Rust inspired by Ansible syntax")
-    .arg(Arg::with_name("benchmark").help("Sets the benchmark file").long("benchmark").short("b").required(true).takes_value(true))
-    .arg(Arg::with_name("stats").short("s").long("stats").help("Shows request statistics").takes_value(false).conflicts_with("compare"))
-    .arg(Arg::with_name("report").short("r").long("report").help("Sets a report file").takes_value(true).conflicts_with("compare"))
-    .arg(Arg::with_name("compare").short("c").long("compare").help("Sets a compare file").takes_value(true).conflicts_with("report"))
-    .arg(Arg::with_name("threshold").short("t").long("threshold").help("Sets a threshold value in ms amongst the compared file").takes_value(true).conflicts_with("report"))
-    .arg(Arg::with_name("relaxed-interpolations").long("relaxed-interpolations").help("Do not panic if an interpolation is not present. (Not recommended)").takes_value(false))
-    .arg(Arg::with_name("no-check-certificate").long("no-check-certificate").help("Disables SSL certification check. (Not recommended)").takes_value(false))
-    .arg(Arg::with_name("tags").long("tags").help("Tags to include").takes_value(true))
-    .arg(Arg::with_name("skip-tags").long("skip-tags").help("Tags to exclude").takes_value(true))
-    .arg(Arg::with_name("list-tags").long("list-tags").help("List all benchmark tags").takes_value(false).conflicts_with_all(&["tags", "skip-tags"]))
-    .arg(Arg::with_name("list-tasks").long("list-tasks").help("List benchmark tasks (executes --tags/--skip-tags filter)").takes_value(false))
-    .arg(Arg::with_name("quiet").short("q").long("quiet").help("Disables output").takes_value(false))
-    .arg(Arg::with_name("timeout").short("o").long("timeout").help("Set timeout in seconds for all requests").takes_value(true))
-    .arg(Arg::with_name("nanosec").short("n").long("nanosec").help("Shows statistics in nanoseconds").takes_value(false))
-    .arg(Arg::with_name("verbose").short("v").long("verbose").help("Toggle verbose output").takes_value(false))
+    .arg(Arg::new("benchmark").help("Sets the benchmark file").long("benchmark").short('b').required(true))
+    .arg(Arg::new("stats").short('s').long("stats").help("Shows request statistics").action(ArgAction::SetTrue).conflicts_with("compare"))
+    .arg(Arg::new("report").short('r').long("report").help("Sets a report file").conflicts_with("compare"))
+    .arg(Arg::new("compare").short('c').long("compare").help("Sets a compare file").conflicts_with("report"))
+    .arg(Arg::new("threshold").short('t').long("threshold").help("Sets a threshold value in ms amongst the compared file").conflicts_with("report"))
+    .arg(Arg::new("relaxed-interpolations").long("relaxed-interpolations").help("Do not panic if an interpolation is not present. (Not recommended)").action(ArgAction::SetTrue))
+    .arg(Arg::new("no-check-certificate").long("no-check-certificate").help("Disables SSL certification check. (Not recommended)").action(ArgAction::SetTrue))
+    .arg(Arg::new("tags").long("tags").help("Tags to include"))
+    .arg(Arg::new("skip-tags").long("skip-tags").help("Tags to exclude"))
+    .arg(Arg::new("list-tags").long("list-tags").help("List all benchmark tags").action(ArgAction::SetTrue).conflicts_with_all(["tags", "skip-tags"]))
+    .arg(Arg::new("list-tasks").long("list-tasks").help("List benchmark tasks (executes --tags/--skip-tags filter)").action(ArgAction::SetTrue))
+    .arg(Arg::new("quiet").short('q').long("quiet").help("Disables output").action(ArgAction::SetTrue))
+    .arg(Arg::new("timeout").short('o').long("timeout").help("Set timeout in seconds for all requests"))
+    .arg(Arg::new("nanosec").short('n').long("nanosec").help("Shows statistics in nanoseconds").action(ArgAction::SetTrue))
+    .arg(Arg::new("verbose").short('v').long("verbose").help("Toggle verbose output").action(ArgAction::SetTrue))
     .get_matches()
 }
 
