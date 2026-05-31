@@ -101,6 +101,9 @@ impl DrillStats {
   fn value_at_quantile(&self, quantile: f64) -> f64 {
     self.hist.value_at_quantile(quantile) as f64 / 1_000.0
   }
+  fn max_duration(&self) -> f64 {
+    self.hist.max() as f64 / 1_000.0
+  }
 }
 
 fn compute_stats(sub_reports: &[Report]) -> DrillStats {
@@ -159,6 +162,7 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
     println!("{:width$} {:width2$} {}", name.green(), "99.0'th percentile".yellow(), format_time(substats.value_at_quantile(0.99), nanosec).purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "99.5'th percentile".yellow(), format_time(substats.value_at_quantile(0.995), nanosec).purple(), width = 25, width2 = 25);
     println!("{:width$} {:width2$} {}", name.green(), "99.9'th percentile".yellow(), format_time(substats.value_at_quantile(0.999), nanosec).purple(), width = 25, width2 = 25);
+    println!("{:width$} {:width2$} {}", name.green(), "Max time per request".yellow(), format_time(substats.max_duration(), nanosec).purple(), width = 25, width2 = 25);
   }
 
   // compute global stats
@@ -178,6 +182,7 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, nanosec: bool, d
   println!("{:width2$} {}", "99.0'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.99), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "99.5'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.995), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "99.9'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.999), nanosec).purple(), width2 = 25);
+  println!("{:width2$} {}", "Max time per request".yellow(), format_time(global_stats.max_duration(), nanosec).purple(), width2 = 25);
 }
 
 fn compare_benchmark(list_reports: &[Vec<Report>], compare_path_option: Option<&str>, threshold_option: Option<&str>) {
