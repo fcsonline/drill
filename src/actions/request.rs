@@ -3,8 +3,9 @@ use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use colored::Colorize;
+use encoding_rs::{Encoding, UTF_8};
 use reqwest::{
-  ClientBuilder, Method, Response,
+  ClientBuilder, Method, StatusCode,
   header::{self, HeaderMap, HeaderName, HeaderValue},
 };
 use serde_yaml::Value as YamlValue;
@@ -50,6 +51,26 @@ struct AssignedRequest {
   status: u16,
   body: Value,
   headers: Map<String, Value>,
+}
+
+/// An owned snapshot of an HTTP response, captured before its body is consumed.
+///
+/// The latency timer now spans the full body download (time-to-last-byte), which
+/// means the streaming `reqwest::Response` is consumed while the clock is still
+/// running. Anything that borrows the response -- status, headers, cookies, and
+/// the final URL -- is therefore cloned out into this struct *before* the body is
+/// drained, so callers retain access to it afterwards.
+struct ResponseData {
+  /// Final request URL, used by verbose response logging.
+  url: Url,
+  /// HTTP status of the response.
+  status: StatusCode,
+  /// Response headers, surfaced to later plan steps through `assign`.
+  headers: HeaderMap,
+  /// `Set-Cookie` name/value pairs, materialized for the cookie jar.
+  cookies: Vec<(String, String)>,
+  /// Decoded response body, retained only when the request has an `assign`.
+  body: Option<String>,
 }
 
 impl Request {
@@ -124,7 +145,7 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut Context, pool: &Pool, config: &Config) -> (Option<Response>, f64) {
+  async fn send_request(&self, context: &mut Context, pool: &Pool, config: &Config) -> (Option<ResponseData>, f64) {
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -218,33 +239,110 @@ impl Request {
 
     let begin = Instant::now();
     let response_result = client.execute(request).await;
-    let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
 
-    match response_result {
+    let mut response = match response_result {
       Err(e) => {
+        let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
         if !config.quiet || config.verbose {
           println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
         }
-        (None, duration_ms)
+        return (None, duration_ms);
       }
-      Ok(response) => {
-        if !config.quiet {
-          let status = response.status();
-          let status_text = if status.is_server_error() {
-            status.to_string().red()
-          } else if status.is_client_error() {
-            status.to_string().purple()
-          } else {
-            status.to_string().yellow()
-          };
+      Ok(response) => response,
+    };
 
-          println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
+    // Snapshot everything that borrows the response before the body stream is
+    // consumed below.
+    let url = response.url().clone();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let cookies: Vec<(String, String)> = response.cookies().map(|cookie| (cookie.name().to_string(), cookie.value().to_string())).collect();
+
+    // Read the full response body so the measured latency reflects
+    // time-to-last-byte, matching wrk, k6, vegeta and other load-testing tools.
+    // The timer previously stopped at the response headers, which under-reported
+    // any endpoint serving a non-trivial body (files, large JSON).
+    //
+    // The body is drained one chunk at a time. It is only buffered when an
+    // `assign` needs to decode it; otherwise each chunk is dropped immediately,
+    // so peak memory stays O(chunk) rather than O(body) even for large responses.
+    let mut body_buf = self.assign.is_some().then(Vec::new);
+    let drain_result = loop {
+      match response.chunk().await {
+        Ok(Some(chunk)) => {
+          if let Some(buf) = body_buf.as_mut() {
+            buf.extend_from_slice(&chunk);
+          }
         }
-
-        (Some(response), duration_ms)
+        Ok(None) => break Ok(()),
+        Err(e) => break Err(e),
       }
+    };
+    let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
+
+    if let Err(e) = drain_result {
+      if !config.quiet || config.verbose {
+        println!("Error reading body '{}': {:?}", interpolated_base_url.as_str(), e);
+      }
+      return (None, duration_ms);
     }
+
+    if !config.quiet {
+      let status_text = if status.is_server_error() {
+        status.to_string().red()
+      } else if status.is_client_error() {
+        status.to_string().purple()
+      } else {
+        status.to_string().yellow()
+      };
+
+      println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
+    }
+
+    // Decode the buffered body (only present for `assign`) using the response
+    // charset, mirroring reqwest's `Response::text`, so non-UTF-8 bodies are not
+    // corrupted.
+    let body = body_buf.map(|buf| decode_body(&headers, &buf));
+
+    (
+      Some(ResponseData {
+        url,
+        status,
+        headers,
+        cookies,
+        body,
+      }),
+      duration_ms,
+    )
   }
+}
+
+/// Decodes a response body using the charset declared in the `Content-Type`
+/// header, defaulting to UTF-8 when none is present or the label is unknown.
+///
+/// This mirrors reqwest's `Response::text`, which drill can no longer call
+/// directly: the body is drained as raw bytes inside the latency timer (so the
+/// measured duration covers the full transfer), and only then decoded for the
+/// `assign` path. Decoding the drained bytes here keeps charset-aware behaviour
+/// for non-UTF-8 responses (e.g. `charset=iso-8859-1`).
+fn decode_body(headers: &HeaderMap, bytes: &[u8]) -> String {
+  let encoding = headers.get(header::CONTENT_TYPE).and_then(|value| value.to_str().ok()).and_then(charset_from_content_type).and_then(|label| Encoding::for_label(label.as_bytes())).unwrap_or(UTF_8);
+
+  encoding.decode(bytes).0.into_owned()
+}
+
+/// Extracts the `charset` parameter value from a `Content-Type` header value,
+/// e.g. `text/html; charset=iso-8859-1` -> `iso-8859-1`. Surrounding quotes are
+/// stripped. Returns `None` when no `charset` parameter is present.
+fn charset_from_content_type(content_type: &str) -> Option<&str> {
+  content_type.split(';').skip(1).find_map(|param| {
+    let (key, value) = param.split_once('=')?;
+    if key.trim().eq_ignore_ascii_case("charset") {
+      Some(value.trim().trim_matches('"'))
+    } else {
+      None
+    }
+  })
 }
 
 fn yaml_to_json(data: YamlValue) -> Value {
@@ -308,7 +406,7 @@ impl Runnable for Request {
         status: 520u16,
       }),
       Some(response) => {
-        let status = response.status().as_u16();
+        let status = response.status.as_u16();
 
         reports.push(Report {
           name: self.name.to_owned(),
@@ -316,19 +414,19 @@ impl Runnable for Request {
           status,
         });
 
-        for cookie in response.cookies() {
+        for (name, value) in &response.cookies {
           let cookies = context.entry("cookies").or_insert_with(|| json!({})).as_object_mut().unwrap();
-          cookies.insert(cookie.name().to_string(), json!(cookie.value().to_string()));
+          cookies.insert(name.clone(), json!(value));
         }
 
         let data = if let Some(ref key) = self.assign {
           let mut headers = Map::new();
 
-          response.headers().iter().for_each(|(header, value)| {
+          response.headers.iter().for_each(|(header, value)| {
             headers.insert(header.to_string(), json!(value.to_str().unwrap()));
           });
 
-          let data = response.text().await.unwrap();
+          let data = response.body.clone().unwrap_or_default();
 
           let body: Value = serde_json::from_str(&data).unwrap_or(serde_json::Value::Null);
 
@@ -364,13 +462,13 @@ fn log_request(request: &reqwest::Request) {
   println!("{message}");
 }
 
-fn log_message_response(response: &Option<reqwest::Response>, duration_ms: f64) -> String {
+fn log_message_response(response: &Option<ResponseData>, duration_ms: f64) -> String {
   let mut message = String::new();
   match response {
     Some(response) => {
-      write!(message, " {} {},", "URL:".bold(), response.url()).unwrap();
-      write!(message, " {} {},", "STATUS:".bold(), response.status()).unwrap();
-      write!(message, " {} {:?}", "HEADERS:".bold(), response.headers()).unwrap();
+      write!(message, " {} {},", "URL:".bold(), response.url).unwrap();
+      write!(message, " {} {},", "STATUS:".bold(), response.status).unwrap();
+      write!(message, " {} {:?}", "HEADERS:".bold(), response.headers).unwrap();
       write!(message, " {} {:.4} ms,", "DURATION:".bold(), duration_ms).unwrap();
     }
     None => {
@@ -699,5 +797,134 @@ request:
       }
       _ => panic!("Expected Body::Binary"),
     }
+  }
+
+  fn test_config() -> Config {
+    Config {
+      base: String::new(),
+      concurrency: 1,
+      iterations: 1,
+      relaxed_interpolations: false,
+      no_check_certificate: false,
+      rampup: 0,
+      quiet: true,
+      nanosec: false,
+      timeout: 10,
+      verbose: false,
+    }
+  }
+
+  #[test]
+  fn charset_parsed_from_content_type() {
+    assert_eq!(charset_from_content_type("text/html; charset=iso-8859-1"), Some("iso-8859-1"));
+    assert_eq!(charset_from_content_type("text/plain;charset=\"UTF-16\""), Some("UTF-16"));
+    assert_eq!(charset_from_content_type("application/json"), None);
+    assert_eq!(charset_from_content_type("text/html; boundary=x"), None);
+  }
+
+  #[test]
+  fn decode_body_honors_declared_charset() {
+    // 0xE9 is 'e-acute' in ISO-8859-1 but invalid as standalone UTF-8.
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("text/plain; charset=iso-8859-1"));
+    assert_eq!(decode_body(&headers, &[0xE9]), "\u{e9}");
+  }
+
+  #[test]
+  fn decode_body_defaults_to_utf8() {
+    let headers = HeaderMap::new();
+    assert_eq!(decode_body(&headers, "hello \u{e9}".as_bytes()), "hello \u{e9}");
+  }
+
+  /// The latency timer must span the full body download (time-to-last-byte):
+  /// a server that streams its body 300ms after the headers should measure at
+  /// roughly 300ms, not ~0ms. Regression guard for the bug where the timer
+  /// stopped at the response headers and the body was never read (#74).
+  #[test]
+  fn measures_full_body_transfer_time() {
+    use std::collections::HashMap;
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let body_delay = Duration::from_millis(300);
+
+    // A bare HTTP/1.1 server that sends the response head immediately but delays
+    // the body, so time-to-headers and time-to-last-byte differ measurably.
+    let server = thread::spawn(move || {
+      let (mut stream, _) = listener.accept().unwrap();
+      let mut buf = [0u8; 1024];
+      let _ = stream.read(&mut buf).unwrap();
+
+      let body = "x".repeat(4096);
+      let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
+      stream.write_all(head.as_bytes()).unwrap();
+      stream.flush().unwrap();
+      thread::sleep(body_delay);
+      stream.write_all(body.as_bytes()).unwrap();
+      stream.flush().unwrap();
+    });
+
+    let url = format!("http://{addr}/");
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: delayed-body\nrequest:\n  url: {url}\n")).unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context: Context = Context::new();
+    let pool: Pool = Arc::new(Mutex::new(HashMap::new()));
+    let config = test_config();
+
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    let (response, duration_ms) = runtime.block_on(request.send_request(&mut context, &pool, &config));
+
+    server.join().unwrap();
+
+    assert!(response.is_some(), "expected a successful response");
+    assert!(duration_ms >= 250.0, "measured {duration_ms}ms; expected >= 250ms to include the 300ms body-transfer delay");
+  }
+
+  /// A request without `assign` must still fully drain a large body (so the
+  /// timer covers the transfer and the connection can be reused), but must not
+  /// retain it -- the chunks are dropped as they arrive rather than buffered.
+  #[test]
+  fn large_body_without_assign_is_drained_not_retained() {
+    use std::collections::HashMap;
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let body_len = 1024 * 1024; // 1 MiB
+
+    let server = thread::spawn(move || {
+      let (mut stream, _) = listener.accept().unwrap();
+      let mut buf = [0u8; 1024];
+      let _ = stream.read(&mut buf).unwrap();
+
+      let body = "x".repeat(body_len);
+      let head = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
+      stream.write_all(head.as_bytes()).unwrap();
+      stream.write_all(body.as_bytes()).unwrap();
+      stream.flush().unwrap();
+    });
+
+    let url = format!("http://{addr}/");
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: large-body\nrequest:\n  url: {url}\n")).unwrap();
+    let request = Request::new(&yaml, None, None); // no `assign`
+    let mut context: Context = Context::new();
+    let pool: Pool = Arc::new(Mutex::new(HashMap::new()));
+    let config = test_config();
+
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    let (response, _duration_ms) = runtime.block_on(request.send_request(&mut context, &pool, &config));
+
+    server.join().unwrap();
+
+    let response = response.expect("expected a successful response after draining the body");
+    assert_eq!(response.status.as_u16(), 200);
+    assert!(response.body.is_none(), "a non-assign body must be drained and dropped, not retained");
   }
 }

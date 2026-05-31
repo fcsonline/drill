@@ -27,6 +27,7 @@ num_cpus = "1.17.0"
 rand = "0.10.1"
 hdrhistogram = "7.5.4"
 hex = "0.4.3"
+encoding_rs = "0.8"
 
 [dev-dependencies]
 tempfile = "3.27.0"
