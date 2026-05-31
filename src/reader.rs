@@ -1,6 +1,6 @@
 use serde_yaml::{Mapping, Value};
 use std::fs::File;
-use std::io::{prelude::*, BufReader};
+use std::io::{BufReader, prelude::*};
 use std::path::Path;
 
 pub fn read_file(filepath: &str) -> String {

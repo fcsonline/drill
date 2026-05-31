@@ -3,8 +3,8 @@ use colored::*;
 use serde_yaml::Value;
 use tokio::time::sleep;
 
-use crate::actions::extract;
 use crate::actions::Runnable;
+use crate::actions::extract;
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 

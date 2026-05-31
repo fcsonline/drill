@@ -9,7 +9,7 @@ mod tags;
 mod writer;
 
 use crate::actions::Report;
-use clap::{crate_version, Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, Command, crate_version};
 use colored::*;
 use hdrhistogram::Histogram;
 use linked_hash_map::LinkedHashMap;
