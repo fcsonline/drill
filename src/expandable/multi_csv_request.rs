@@ -34,11 +34,11 @@ pub fn expand(parent_path: &str, item: &Value, benchmark: &mut Benchmark) {
 
   let mut with_items_file = reader::read_csv_file_as_yml(final_path, quote_char);
 
-  if let Some(shuffle) = item.get("shuffle").and_then(|v| v.as_bool()) {
-    if shuffle {
-      let mut rng = rand::rng();
-      with_items_file.shuffle(&mut rng);
-    }
+  if let Some(shuffle) = item.get("shuffle").and_then(|v| v.as_bool())
+    && shuffle
+  {
+    let mut rng = rand::rng();
+    with_items_file.shuffle(&mut rng);
   }
 
   let pick = pick(item, &with_items_file);

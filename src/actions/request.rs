@@ -4,8 +4,8 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use colored::Colorize;
 use reqwest::{
-  header::{self, HeaderMap, HeaderName, HeaderValue},
   ClientBuilder, Method, Response,
+  header::{self, HeaderMap, HeaderName, HeaderValue},
 };
 use serde_yaml::Value as YamlValue;
 use std::fmt::Write;
@@ -14,7 +14,7 @@ use std::io::Read;
 use url::Url;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::actions::{extract, extract_optional};
 use crate::benchmark::{Context, Pool, Reports};

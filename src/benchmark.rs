@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use tokio::{runtime, time::sleep};
 
 use crate::actions::{Report, Runnable};

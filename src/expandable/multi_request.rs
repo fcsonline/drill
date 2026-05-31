@@ -14,11 +14,11 @@ pub fn expand(item: &Value, benchmark: &mut Benchmark) {
   if let Some(with_items) = item.get("with_items").and_then(|v| v.as_sequence()) {
     let mut with_items_list = with_items.clone();
 
-    if let Some(shuffle) = item.get("shuffle").and_then(|v| v.as_bool()) {
-      if shuffle {
-        let mut rng = rand::rng();
-        with_items_list.shuffle(&mut rng);
-      }
+    if let Some(shuffle) = item.get("shuffle").and_then(|v| v.as_bool())
+      && shuffle
+    {
+      let mut rng = rand::rng();
+      with_items_list.shuffle(&mut rng);
     }
 
     let pick = pick(item, &with_items_list);

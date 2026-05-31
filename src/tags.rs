@@ -14,10 +14,10 @@ impl<'a> Tags<'a> {
     let tags: Option<HashSet<&str>> = tags_option.map(|m| m.split(',').map(|s| s.trim()).collect());
     let skip_tags: Option<HashSet<&str>> = skip_tags_option.map(|m| m.split(',').map(|s| s.trim()).collect());
 
-    if let (Some(t), Some(s)) = (&tags, &skip_tags) {
-      if !t.is_disjoint(s) {
-        panic!("`tags` and `skip-tags` must not contain the same values!");
-      }
+    if let (Some(t), Some(s)) = (&tags, &skip_tags)
+      && !t.is_disjoint(s)
+    {
+      panic!("`tags` and `skip-tags` must not contain the same values!");
     }
 
     Tags {
@@ -30,10 +30,10 @@ impl<'a> Tags<'a> {
     match item.get("tags").and_then(|v| v.as_sequence()) {
       Some(item_tags_raw) => {
         let item_tags: HashSet<&str> = item_tags_raw.iter().filter_map(|t| t.as_str()).collect();
-        if let Some(s) = &self.skip_tags {
-          if !s.is_disjoint(&item_tags) {
-            return true;
-          }
+        if let Some(s) = &self.skip_tags
+          && !s.is_disjoint(&item_tags)
+        {
+          return true;
         }
         if let Some(t) = &self.tags {
           if item_tags.contains("never") && !t.contains("never") {

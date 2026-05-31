@@ -3,8 +3,8 @@ use colored::*;
 use serde_json::json;
 use serde_yaml::Value;
 
-use crate::actions::extract;
 use crate::actions::Runnable;
+use crate::actions::extract;
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
