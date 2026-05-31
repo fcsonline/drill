@@ -14,3 +14,6 @@ example/server/node_modules
 
 # Editor temp files
 .vscode
+
+# Claude Code local tooling
+.claude
