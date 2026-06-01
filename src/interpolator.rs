@@ -40,11 +40,13 @@ impl<'a> Interpolator<'a> {
           return item;
         }
 
+        let message = unknown_variable_message(capture);
+
         if strict {
-          panic!("Unknown '{}' variable!", &capture);
+          panic!("{}", message);
         }
 
-        eprintln!("{} Unknown '{}' variable!", "WARNING!".yellow().bold(), &capture);
+        eprintln!("{} {}", "WARNING!".yellow().bold(), message);
 
         "".to_string()
       })
@@ -74,6 +76,16 @@ impl<'a> Interpolator<'a> {
       });
     }
     None
+  }
+}
+
+fn unknown_variable_message(variable: &str) -> String {
+  // `index` is only seeded inside with_items/range/csv/file expansions. When it
+  // is missing the user most likely wants the iteration counter, so point them there.
+  if variable == "index" {
+    "Unknown 'index' variable! It is only available inside 'with_items', 'with_items_range', 'with_items_from_csv' or 'with_items_from_file' requests. Use 'iteration' for the current iteration number.".to_string()
+  } else {
+    format!("Unknown '{variable}' variable!")
   }
 }
 
@@ -130,6 +142,15 @@ mod tests {
     let interpolator = Interpolator::new(&context);
     let url = String::from("/users/{{ userId }}");
     interpolator.resolve(&url, true);
+  }
+
+  #[test]
+  #[should_panic(expected = "Use 'iteration'")]
+  fn index_outside_expansion_suggests_iteration() {
+    let context: Context = Context::new();
+
+    let interpolator = Interpolator::new(&context);
+    interpolator.resolve("/users/{{ index }}", true);
   }
 
   #[test]

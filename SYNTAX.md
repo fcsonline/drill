@@ -75,6 +75,15 @@ The `body` property can be specified in different ways depending on the type of 
 3. `body: { file: path/to/file.txt }`
   - This variant allows you to specify a file path, and the content of the file will be used as the request body.
 
+#### Built-in interpolation variables
+
+Besides anything you `assign`, a few variables are always available to `{{ }}` templates in URLs, headers and bodies:
+
+- `base`: the benchmark `base` URL.
+- `iteration`: the current iteration number (0-based).
+- `item`: the current item, only inside `with_items`, `with_items_range`, `with_items_from_csv` or `with_items_from_file` requests.
+- `index`: the position of the current item, only inside the `with_items*` requests above. Outside them it is **not** defined — use `iteration` for the current iteration number. Referencing `{{ index }}` where it is not available raises an error (or a warning under `--relaxed-interpolations`) suggesting `iteration`.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
