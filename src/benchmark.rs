@@ -39,6 +39,8 @@ async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config
 
   context.insert("iteration".to_string(), json!(iteration.to_string()));
   context.insert("base".to_string(), json!(config.base.to_string()));
+  // Default `index` to the iteration counter so `{{ index }}` resolves in a plain request; with_items expansions override it with the item position at execute time.
+  context.insert("index".to_string(), json!(iteration));
 
   for item in benchmark.iter() {
     item.execute(&mut context, &mut reports, &pool, &config).await;
