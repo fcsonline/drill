@@ -62,6 +62,8 @@ pub fn expand_sequence(parent_path: &str, items: &[Value], benchmark: &mut Bench
       benchmark.push(Box::new(actions::Assign::new(item, None)));
     } else if actions::Assert::is_that_you(item) {
       benchmark.push(Box::new(actions::Assert::new(item, None)));
+    } else if actions::ForEach::is_that_you(item) {
+      benchmark.push(Box::new(actions::ForEach::new(item, parent_path, tags)));
     } else if actions::Request::is_that_you(item) {
       benchmark.push(Box::new(actions::Request::new(item, None, None)));
     } else {

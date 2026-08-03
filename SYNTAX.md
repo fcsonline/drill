@@ -216,6 +216,38 @@ plan:
 
 Lifecycle hooks are optional. If a phase is omitted, Drill behaves as before and runs only the `plan`.
 
+#### Iterating over context arrays
+
+Drill can iterate over a JSON array stored in the context (for example, a response body from a previous request) using the `for_each` action. This is the runtime equivalent of `with_items`.
+
+```yaml
+- name: Fetch users
+  request:
+    url: /api/users
+  assign: users
+
+- name: Fetch each user
+  for_each:
+    items: '{{ users.body }}'
+    item_key: user
+    index_key: idx
+    plan:
+      - name: Fetch user details
+        request:
+          url: /api/users/{{ user.id }}
+```
+
+Properties:
+
+- `items`: interpolation expression resolving to a JSON array. Required.
+- `item_key`: name of the variable exposed to the sub-plan for each item. Default: `item`.
+- `index_key`: optional name of the variable holding the 0-based index.
+- `shuffle`: randomly shuffle the array before iterating. Default: `false`.
+- `pick`: limit the number of items to iterate.
+- `plan`: list of plan items to execute per item. Required.
+
+The sub-plan runs in the current iteration context, with the current item and index added. Items are processed sequentially.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
