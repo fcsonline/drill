@@ -128,6 +128,41 @@ Add a locale prefix before the value name to generate culturally localized data:
 
 Supported locales: `en`, `zh_cn`, `zh_tw`, `fr_fr`, `de_de`, `it_it`, `ja_jp`, `pt_br`, `pt_pt`, `ar_sa`, `cy_gb`.
 
+#### Results generation
+
+Drill can write per-request and overall statistics to files after the benchmark completes, similar to Locust's CSV and HTML reports. Enable it with the top-level `results` key.
+
+Simple usage — output to a directory, generating both CSV and HTML:
+
+```yaml
+---
+concurrency: 4
+base: 'http://example.com'
+iterations: 100
+results: ./drill-results
+
+plan:
+  - name: Fetch users
+    request:
+      url: /api/users.json
+```
+
+Advanced usage:
+
+```yaml
+results:
+  output_dir: ./drill-results
+  csv: true
+  html: true
+```
+
+Generated files:
+
+- `stats.csv` — per-request and overall stats: request count, failures, median/average/min/max/std-dev response times, requests/s, failures/s, and percentiles.
+- `report.html` — self-contained report with a stats table, requests-per-second-over-time chart, average-response-time bar chart, and a failures table.
+
+The default output directory is `drill-results`. Set `csv: false` or `html: false` to skip one of the outputs.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
