@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use colored::Colorize;
@@ -392,6 +392,7 @@ impl Runnable for Request {
     }
 
     let (res, duration_ms) = self.send_request(context, pool, config).await;
+    let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
 
     let log_message_response = if config.verbose {
       Some(log_message_response(&res, duration_ms))
@@ -404,6 +405,7 @@ impl Runnable for Request {
         name: self.name.to_owned(),
         duration: duration_ms,
         status: 520u16,
+        timestamp,
       }),
       Some(response) => {
         let status = response.status.as_u16();
@@ -412,6 +414,7 @@ impl Runnable for Request {
           name: self.name.to_owned(),
           duration: duration_ms,
           status,
+          timestamp,
         });
 
         for (name, value) in &response.cookies {
@@ -811,6 +814,7 @@ request:
       nanosec: false,
       timeout: 10,
       verbose: false,
+      results: None,
     }
   }
 

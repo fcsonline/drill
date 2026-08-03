@@ -28,17 +28,18 @@ pub struct Report {
   pub name: String,
   pub duration: f64,
   pub status: u16,
+  pub timestamp: f64,
 }
 
 impl fmt::Debug for Report {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "\n- name: {}\n  duration: {}\n", self.name, self.duration)
+    write!(f, "\n- name: {}\n  duration: {}\n  timestamp: {}\n", self.name, self.duration, self.timestamp)
   }
 }
 
 impl fmt::Display for Report {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "\n- name: {}\n  duration: {}\n  status: {}\n", self.name, self.duration, self.status)
+    write!(f, "\n- name: {}\n  duration: {}\n  status: {}\n  timestamp: {}\n", self.name, self.duration, self.status, self.timestamp)
   }
 }
 
