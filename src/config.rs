@@ -7,6 +7,23 @@ use crate::reader;
 const NITERATIONS: i64 = 1;
 const NRAMPUP: i64 = 0;
 
+#[derive(Clone)]
+pub struct ResultsConfig {
+  pub output_dir: String,
+  pub csv: bool,
+  pub html: bool,
+}
+
+impl Default for ResultsConfig {
+  fn default() -> Self {
+    ResultsConfig {
+      output_dir: "drill-results".to_string(),
+      csv: true,
+      html: true,
+    }
+  }
+}
+
 pub struct Config {
   pub base: String,
   pub concurrency: i64,
@@ -18,6 +35,7 @@ pub struct Config {
   pub nanosec: bool,
   pub timeout: u64,
   pub verbose: bool,
+  pub results: Option<ResultsConfig>,
 }
 
 impl Config {
@@ -32,6 +50,7 @@ impl Config {
     let concurrency = read_i64_configuration(config_doc, &interpolator, "concurrency", iterations);
     let rampup = read_i64_configuration(config_doc, &interpolator, "rampup", NRAMPUP);
     let base = read_str_configuration(config_doc, &interpolator, "base", "");
+    let results = read_results_configuration(config_doc);
 
     if concurrency > iterations {
       panic!("The concurrency can not be higher than the number of iterations")
@@ -48,8 +67,38 @@ impl Config {
       nanosec,
       timeout,
       verbose,
+      results,
     }
   }
+}
+
+fn read_results_configuration(config_doc: &Value) -> Option<ResultsConfig> {
+  let value = config_doc.get("results")?;
+
+  let mut config = ResultsConfig::default();
+
+  if let Some(dir) = value.as_str() {
+    config.output_dir = dir.to_string();
+    return Some(config);
+  }
+
+  if let Some(mapping) = value.as_mapping() {
+    if let Some(dir) = mapping.get("output_dir").and_then(|v| v.as_str()) {
+      config.output_dir = dir.to_string();
+    }
+
+    if let Some(csv) = mapping.get("csv").and_then(|v| v.as_bool()) {
+      config.csv = csv;
+    }
+
+    if let Some(html) = mapping.get("html").and_then(|v| v.as_bool()) {
+      config.html = html;
+    }
+
+    return Some(config);
+  }
+
+  None
 }
 
 fn read_str_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: &str) -> String {
