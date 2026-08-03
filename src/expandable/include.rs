@@ -31,6 +31,10 @@ pub fn expand_from_filepath(parent_path: &str, benchmark: &mut Benchmark, access
   let docs = reader::read_file_as_yml(parent_path);
   let items = reader::read_yaml_doc_accessor(&docs[0], accessor);
 
+  expand_sequence(parent_path, items, benchmark, tags);
+}
+
+pub fn expand_sequence(parent_path: &str, items: &[Value], benchmark: &mut Benchmark, tags: &Tags) {
   for item in items {
     if include::is_that_you(item) {
       include::expand(parent_path, item, benchmark, tags);
@@ -95,5 +99,17 @@ mod tests {
     let mut benchmark: Benchmark = Benchmark::new();
 
     expand("example/benchmark.yml", doc, &mut benchmark, &Tags::new(None, None));
+  }
+
+  #[test]
+  fn expand_sequence_parses_plan_items() {
+    let text = "---\n- name: First\n  assign:\n    key: a\n    value: '1'\n- name: Second\n  assign:\n    key: b\n    value: '2'\n";
+    let docs = crate::reader::read_file_as_yml_from_str(text);
+    let items = crate::reader::read_yaml_doc_accessor(&docs[0], None);
+    let mut benchmark: Benchmark = Benchmark::new();
+
+    super::expand_sequence("example/benchmark.yml", items, &mut benchmark, &Tags::new(None, None));
+
+    assert_eq!(benchmark.len(), 2);
   }
 }

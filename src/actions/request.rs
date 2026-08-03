@@ -815,6 +815,7 @@ request:
       timeout: 10,
       verbose: false,
       results: None,
+      lifecycle: Default::default(),
     }
   }
 

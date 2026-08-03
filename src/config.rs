@@ -24,6 +24,14 @@ impl Default for ResultsConfig {
   }
 }
 
+#[derive(Clone, Default)]
+pub struct LifecycleConfig {
+  pub setup: Option<Value>,
+  pub teardown: Option<Value>,
+  pub iteration_start: Option<Value>,
+  pub iteration_stop: Option<Value>,
+}
+
 pub struct Config {
   pub base: String,
   pub concurrency: i64,
@@ -36,6 +44,7 @@ pub struct Config {
   pub timeout: u64,
   pub verbose: bool,
   pub results: Option<ResultsConfig>,
+  pub lifecycle: LifecycleConfig,
 }
 
 impl Config {
@@ -51,6 +60,7 @@ impl Config {
     let rampup = read_i64_configuration(config_doc, &interpolator, "rampup", NRAMPUP);
     let base = read_str_configuration(config_doc, &interpolator, "base", "");
     let results = read_results_configuration(config_doc);
+    let lifecycle = read_lifecycle_configuration(config_doc);
 
     if concurrency > iterations {
       panic!("The concurrency can not be higher than the number of iterations")
@@ -68,6 +78,7 @@ impl Config {
       timeout,
       verbose,
       results,
+      lifecycle,
     }
   }
 }
@@ -99,6 +110,27 @@ fn read_results_configuration(config_doc: &Value) -> Option<ResultsConfig> {
   }
 
   None
+}
+
+fn read_lifecycle_configuration(config_doc: &Value) -> LifecycleConfig {
+  let mut lifecycle = LifecycleConfig::default();
+
+  if let Some(mapping) = config_doc.get("lifecycle").and_then(|v| v.as_mapping()) {
+    if let Some(value) = mapping.get("setup").cloned() {
+      lifecycle.setup = Some(value);
+    }
+    if let Some(value) = mapping.get("teardown").cloned() {
+      lifecycle.teardown = Some(value);
+    }
+    if let Some(value) = mapping.get("iteration_start").cloned() {
+      lifecycle.iteration_start = Some(value);
+    }
+    if let Some(value) = mapping.get("iteration_stop").cloned() {
+      lifecycle.iteration_stop = Some(value);
+    }
+  }
+
+  lifecycle
 }
 
 fn read_str_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: &str) -> String {
@@ -146,5 +178,38 @@ fn read_i64_configuration(config_doc: &Value, interpolator: &interpolator::Inter
 
       default
     }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use std::io::Write;
+  use tempfile::NamedTempFile;
+
+  use super::Config;
+
+  #[test]
+  fn lifecycle_configuration_is_optional() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\n").unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+
+    assert!(config.lifecycle.setup.is_none());
+    assert!(config.lifecycle.teardown.is_none());
+    assert!(config.lifecycle.iteration_start.is_none());
+    assert!(config.lifecycle.iteration_stop.is_none());
+  }
+
+  #[test]
+  fn lifecycle_configuration_is_parsed() {
+    let yaml = b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\nlifecycle:\n  setup:\n    - name: Setup\n      assign:\n        key: setup\n        value: '1'\n  teardown:\n    - name: Teardown\n      assign:\n        key: teardown\n        value: '1'\n  iteration_start:\n    - name: Iteration Start\n      assign:\n        key: iteration_start\n        value: '1'\n  iteration_stop:\n    - name: Iteration Stop\n      assign:\n        key: iteration_stop\n        value: '1'\n";
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(yaml).unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+
+    assert!(config.lifecycle.setup.is_some());
+    assert!(config.lifecycle.teardown.is_some());
+    assert!(config.lifecycle.iteration_start.is_some());
+    assert!(config.lifecycle.iteration_stop.is_some());
   }
 }

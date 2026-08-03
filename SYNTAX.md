@@ -163,6 +163,59 @@ Generated files:
 
 The default output directory is `drill-results`. Set `csv: false` or `html: false` to skip one of the outputs.
 
+#### Lifecycle hooks
+
+Drill supports optional lifecycle hooks similar to Locust's `test_start`/`test_stop` events. Use the top-level `lifecycle` key to define phases that run outside the main `plan`.
+
+Phases:
+
+- `setup`: runs once before any iteration. Its final context is cloned and used as the starting context for every iteration.
+- `teardown`: runs once after all iterations complete, with the same context produced by `setup`.
+- `iteration_start`: runs at the beginning of every iteration.
+- `iteration_stop`: runs at the end of every iteration.
+
+Each phase is a list of the same plan items supported in `plan`: `request`, `assign`, `exec`, `assert`, `delay`, and `include`.
+
+```yaml
+---
+concurrency: 4
+base: 'http://example.com'
+iterations: 100
+
+lifecycle:
+  setup:
+    - name: Create test user
+      request:
+        url: /api/users
+        method: POST
+        body: '{"name":"drill"}'
+        headers:
+          Content-Type: 'application/json'
+      assign: user
+  teardown:
+    - name: Delete test user
+      request:
+        url: /api/users/{{ user.body.id }}
+        method: DELETE
+  iteration_start:
+    - name: Set iteration marker
+      assign:
+        key: started
+        value: 'true'
+  iteration_stop:
+    - name: Clear iteration marker
+      assign:
+        key: started
+        value: 'false'
+
+plan:
+  - name: Fetch user
+    request:
+      url: /api/users/{{ user.body.id }}
+```
+
+Lifecycle hooks are optional. If a phase is omitted, Drill behaves as before and runs only the `plan`.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
