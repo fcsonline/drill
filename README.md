@@ -255,6 +255,10 @@ This is the list of all features supported by the current version of `drill`:
 - **Thresholds:** compare the current benchmark performance against a stored one session and fail if a threshold is exceeded.
 - **Tags:** specify test plan items by tags.
 - **Fake data generation:** generate randomized names, emails, addresses, and more at runtime using `{{ fake.name }}` interpolations.
+- **Locale-aware fake data:** generate culturally localized fake data using `{{ fake.<locale>.name }}` interpolations.
+- **Results generation:** write per-request CSV stats and a self-contained HTML report after the benchmark, similar to Locust.
+- **Lifecycle hooks:** run optional `setup`, `teardown`, `iteration_start`, and `iteration_stop` phases around the main plan.
+- **Dynamic iteration over context arrays:** iterate over a JSON array from a previous response using the `for_each` action.
 
 ## Test it
 

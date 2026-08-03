@@ -36,8 +36,19 @@ plan:
 - `include`: Include all requests in the given file.
 - `request`: Execute a HTTP request.
 - `assign`: Assign a value in the context to be interpolated later.
+- `exec`: Execute a shell command.
+- `assert`: Assert a value in the context.
+- `delay`: Introduce a controlled delay.
+- `for_each`: Iterate over a JSON array in the context and execute a sub-plan.
 
-All those three items can be combined with `name` property to be show in logs.
+All those items can be combined with `name` property to be show in logs.
+
+#### Additional features
+
+- **Fake data generation:** generate random data with `{{ fake.name }}` and locale-specific variants. See [Fake data generation](#fake-data-generation).
+- **Results generation:** write CSV stats and HTML reports after the benchmark. See [Results generation](#results-generation).
+- **Lifecycle hooks:** run `setup`, `teardown`, `iteration_start`, and `iteration_stop` phases. See [Lifecycle hooks](#lifecycle-hooks).
+- **Dynamic iteration:** iterate over response arrays with `for_each`. See [Iterating over context arrays](#iterating-over-context-arrays).
 
 #### Request item properties
 
