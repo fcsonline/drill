@@ -44,6 +44,7 @@ pub struct Request {
   pub with_item: Option<YamlValue>,
   pub index: Option<u32>,
   pub assign: Option<String>,
+  weight: u32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -108,6 +109,8 @@ impl Request {
       None
     };
 
+    let weight = item.get("weight").and_then(|v| v.as_u64()).map(|v| v as u32).unwrap_or(1);
+
     let mut headers = HashMap::new();
 
     if let Some(mapping) = request_val.get("headers").and_then(|v| v.as_mapping()) {
@@ -134,6 +137,7 @@ impl Request {
       with_item,
       index,
       assign,
+      weight,
     }
   }
 
@@ -382,6 +386,10 @@ fn yaml_to_json(data: YamlValue) -> Value {
 
 #[async_trait]
 impl Runnable for Request {
+  fn weight(&self) -> u32 {
+    self.weight
+  }
+
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) {
     if let Some(with_item) = &self.with_item {
       context.insert("item".to_string(), yaml_to_json(with_item.clone()));
@@ -816,6 +824,7 @@ request:
       verbose: false,
       results: None,
       lifecycle: Default::default(),
+      load_shape: None,
     }
   }
 

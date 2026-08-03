@@ -259,6 +259,8 @@ This is the list of all features supported by the current version of `drill`:
 - **Results generation:** write per-request CSV stats and a self-contained HTML report after the benchmark, similar to Locust.
 - **Lifecycle hooks:** run optional `setup`, `teardown`, `iteration_start`, and `iteration_stop` phases around the main plan.
 - **Dynamic iteration over context arrays:** iterate over a JSON array from a previous response using the `for_each` action.
+- **Task weights:** control the relative frequency of plan items with a `weight` property.
+- **Custom load shapes:** vary the number of concurrent users over time with staged `load_shape` definitions.
 
 ## Test it
 

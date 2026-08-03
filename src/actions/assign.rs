@@ -13,6 +13,7 @@ pub struct Assign {
   name: String,
   key: String,
   value: String,
+  weight: u32,
 }
 
 impl Assign {
@@ -25,17 +26,23 @@ impl Assign {
     let assign_val = item.get("assign").expect("assign field is required");
     let key = extract(assign_val, "key");
     let value = extract(assign_val, "value");
+    let weight = item.get("weight").and_then(|v| v.as_u64()).map(|v| v as u32).unwrap_or(1);
 
     Assign {
       name,
       key,
       value,
+      weight,
     }
   }
 }
 
 #[async_trait]
 impl Runnable for Assign {
+  fn weight(&self) -> u32 {
+    self.weight
+  }
+
   async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     if !config.quiet {
       println!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width = 25);

@@ -15,6 +15,7 @@ use std::time::Duration;
 pub struct Delay {
   name: String,
   seconds: u64,
+  weight: u32,
 }
 
 impl Delay {
@@ -26,16 +27,22 @@ impl Delay {
     let name = extract(item, "name");
     let delay_val = item.get("delay").expect("delay field is required");
     let seconds = u64::try_from(delay_val.get("seconds").and_then(|v| v.as_i64()).expect("Invalid number of seconds")).expect("Invalid number of seconds");
+    let weight = item.get("weight").and_then(|v| v.as_u64()).map(|v| v as u32).unwrap_or(1);
 
     Delay {
       name,
       seconds,
+      weight,
     }
   }
 }
 
 #[async_trait]
 impl Runnable for Delay {
+  fn weight(&self) -> u32 {
+    self.weight
+  }
+
   async fn execute(&self, _context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     sleep(Duration::from_secs(self.seconds)).await;
 

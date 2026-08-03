@@ -15,6 +15,7 @@ pub struct Exec {
   name: String,
   command: String,
   pub assign: Option<String>,
+  weight: u32,
 }
 
 impl Exec {
@@ -27,17 +28,23 @@ impl Exec {
     let exec_val = item.get("exec").expect("exec field is required");
     let command = extract(exec_val, "command");
     let assign = extract_optional(item, "assign");
+    let weight = item.get("weight").and_then(|v| v.as_u64()).map(|v| v as u32).unwrap_or(1);
 
     Exec {
       name,
       command,
       assign,
+      weight,
     }
   }
 }
 
 #[async_trait]
 impl Runnable for Exec {
+  fn weight(&self) -> u32 {
+    self.weight
+  }
+
   async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     if !config.quiet {
       println!("{:width$} {}", self.name.green(), self.command.cyan().bold(), width = 25);

@@ -18,6 +18,7 @@ pub struct ForEach {
   index_key: Option<String>,
   shuffle: bool,
   pick: Option<usize>,
+  weight: u32,
   plan: Benchmark,
 }
 
@@ -35,6 +36,7 @@ impl ForEach {
     let index_key = extract_optional(for_each, "index_key");
     let shuffle = for_each.get("shuffle").and_then(|v| v.as_bool()).unwrap_or(false);
     let pick = for_each.get("pick").and_then(|v| v.as_i64()).map(|v| v as usize);
+    let weight = item.get("weight").and_then(|v| v.as_u64()).map(|v| v as u32).unwrap_or(1);
 
     let mut plan = Benchmark::new();
     if let Some(plan_items) = for_each.get("plan").and_then(|v| v.as_sequence()) {
@@ -48,6 +50,7 @@ impl ForEach {
       index_key,
       shuffle,
       pick,
+      weight,
       plan,
     }
   }
@@ -55,6 +58,10 @@ impl ForEach {
 
 #[async_trait]
 impl Runnable for ForEach {
+  fn weight(&self) -> u32 {
+    self.weight
+  }
+
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) {
     if !config.quiet {
       println!("{:width$} {}", self.name.green(), self.items.cyan().bold(), width = 25);
@@ -118,6 +125,7 @@ mod tests {
       verbose: false,
       results: None,
       lifecycle: Default::default(),
+      load_shape: None,
     }
   }
 

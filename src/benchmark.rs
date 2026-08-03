@@ -44,11 +44,12 @@ async fn run_lifecycle_phase(phase: &Option<Benchmark>, context: &mut Context, r
   }
 }
 
-async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64, lifecycle: Arc<Lifecycle>, mut context: Context) -> Vec<Report> {
-  if config.rampup > 0 {
-    let delay = config.rampup / config.iterations;
-    sleep(Duration::new((delay * iteration) as u64, 0)).await;
-  }
+fn has_weights(benchmark: &Benchmark) -> bool {
+  benchmark.iter().any(|item| item.weight() != 1)
+}
+
+async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64, lifecycle: Arc<Lifecycle>, mut context: Context, start_delay: Duration) -> Vec<Report> {
+  sleep(start_delay).await;
 
   let mut reports: Vec<Report> = Vec::new();
 
@@ -56,13 +57,62 @@ async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config
 
   run_lifecycle_phase(&lifecycle.iteration_start, &mut context, &mut reports, &pool, &config).await;
 
-  for item in benchmark.iter() {
-    item.execute(&mut context, &mut reports, &pool, &config).await;
+  if has_weights(&benchmark) {
+    use rand::distr::weighted::WeightedIndex;
+    use rand::prelude::*;
+
+    let weights: Vec<u32> = benchmark.iter().map(|item| item.weight()).collect();
+    let dist = WeightedIndex::new(&weights).expect("Invalid task weights");
+    let mut rng = rand::rng();
+    let idx = dist.sample(&mut rng);
+
+    benchmark[idx].execute(&mut context, &mut reports, &pool, &config).await;
+  } else {
+    for item in benchmark.iter() {
+      item.execute(&mut context, &mut reports, &pool, &config).await;
+    }
   }
 
   run_lifecycle_phase(&lifecycle.iteration_stop, &mut context, &mut reports, &pool, &config).await;
 
   reports
+}
+
+fn compute_load_shape_schedule(load_shape: &crate::config::LoadShapeConfig, iterations: i64) -> Vec<Duration> {
+  let mut users_per_second = Vec::new();
+  let mut current_users: i64 = 0;
+
+  for stage in &load_shape.stages {
+    let duration = stage.duration as i64;
+    let end_users = stage.users as i64;
+
+    for t in 0..duration {
+      let target_users = if duration <= 1 {
+        end_users
+      } else {
+        current_users + (end_users - current_users) * (t + 1) / duration
+      };
+      users_per_second.push(target_users.max(0) as u64);
+    }
+
+    current_users = end_users;
+  }
+
+  let cumulative: Vec<u64> = users_per_second.iter().scan(0u64, |acc, &u| {
+    *acc += u;
+    Some(*acc)
+  }).collect();
+
+  let total_user_seconds = cumulative.last().copied().unwrap_or(0);
+  let iterations = iterations.max(1);
+
+  (0..iterations)
+    .map(|i| {
+      let target = (i as u64) * total_user_seconds / (iterations as u64);
+      let t = cumulative.iter().position(|&c| c >= target).unwrap_or(cumulative.len()) as u64;
+      Duration::from_secs(t)
+    })
+    .collect()
 }
 
 fn build_lifecycle(benchmark_path: &str, config: &Config, tags: &Tags) -> Lifecycle {
@@ -148,7 +198,7 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
       run_lifecycle_phase(&lifecycle.setup, &mut setup_context, &mut setup_reports, &pool, &config).await;
 
       let iteration_context = setup_context.clone();
-      let mut reports = run_iteration(benchmark.clone(), pool.clone(), config.clone(), 0, lifecycle.clone(), iteration_context).await;
+      let mut reports = run_iteration(benchmark.clone(), pool.clone(), config.clone(), 0, lifecycle.clone(), iteration_context, Duration::ZERO).await;
 
       run_lifecycle_phase(&lifecycle.teardown, &mut setup_context, &mut reports, &pool, &config).await;
       reports.extend(setup_reports);
@@ -163,10 +213,34 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
       let mut setup_reports = Vec::new();
       run_lifecycle_phase(&lifecycle.setup, &mut setup_context, &mut setup_reports, &pool, &config).await;
 
-      let base_context = setup_context.clone();
-      let children = (0..config.iterations).map(|iteration| run_iteration(benchmark.clone(), pool.clone(), config.clone(), iteration, lifecycle.clone(), base_context.clone()));
+      let start_delays = if let Some(load_shape) = config.load_shape.as_ref() {
+        compute_load_shape_schedule(load_shape, config.iterations)
+      } else {
+        (0..config.iterations)
+          .map(|iteration| {
+            if config.rampup > 0 {
+              let delay = config.rampup / config.iterations;
+              Duration::new((delay * iteration) as u64, 0)
+            } else {
+              Duration::ZERO
+            }
+          })
+          .collect()
+      };
 
-      let buffered = stream::iter(children).buffer_unordered(config.concurrency as usize);
+      let max_concurrency = if let Some(load_shape) = config.load_shape.as_ref() {
+        load_shape.stages.iter().map(|s| s.users).max().unwrap_or(1) as usize
+      } else {
+        config.concurrency as usize
+      };
+
+      let base_context = setup_context.clone();
+      let children = (0..config.iterations).map(|iteration| {
+        let start_delay = start_delays[iteration as usize];
+        run_iteration(benchmark.clone(), pool.clone(), config.clone(), iteration, lifecycle.clone(), base_context.clone(), start_delay)
+      });
+
+      let buffered = stream::iter(children).buffer_unordered(max_concurrency);
 
       let begin = Instant::now();
       let mut reports: Vec<Vec<Report>> = buffered.collect::<Vec<_>>().await;
@@ -188,4 +262,57 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
       }
     }
   })
+}
+
+#[cfg(test)]
+mod tests {
+  use std::time::Duration;
+
+  use serde_yaml::Value;
+
+  use crate::benchmark::{Benchmark, has_weights};
+  use crate::actions::Assign;
+
+  fn yaml(text: &str) -> Value {
+    let docs = crate::reader::read_file_as_yml_from_str(text);
+    docs[0].clone()
+  }
+
+  #[test]
+  fn has_weights_false_when_all_default() {
+    let benchmark: Benchmark = vec![
+      Box::new(Assign::new(&yaml("---\nname: A\nassign:\n  key: a\n  value: '1'"), None)),
+      Box::new(Assign::new(&yaml("---\nname: B\nassign:\n  key: b\n  value: '2'"), None)),
+    ];
+
+    assert!(!has_weights(&benchmark));
+  }
+
+  #[test]
+  fn has_weights_true_when_any_differ() {
+    let benchmark: Benchmark = vec![
+      Box::new(Assign::new(&yaml("---\nname: A\nassign:\n  key: a\n  value: '1'\nweight: 3"), None)),
+      Box::new(Assign::new(&yaml("---\nname: B\nassign:\n  key: b\n  value: '2'"), None)),
+    ];
+
+    assert!(has_weights(&benchmark));
+  }
+
+  #[test]
+  fn load_shape_schedule_spaces_iterations_by_user_seconds() {
+    use crate::config::{LoadShapeConfig, LoadShapeStage};
+
+    let load_shape = LoadShapeConfig {
+      stages: vec![
+        LoadShapeStage { duration: 2, users: 10, spawn_rate: None },
+        LoadShapeStage { duration: 2, users: 10, spawn_rate: None },
+      ],
+    };
+
+    let schedule = super::compute_load_shape_schedule(&load_shape, 4);
+
+    assert_eq!(schedule.len(), 4);
+    assert_eq!(schedule[0], Duration::from_secs(0));
+    assert_eq!(schedule[3], Duration::from_secs(3));
+  }
 }

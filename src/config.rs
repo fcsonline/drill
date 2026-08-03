@@ -32,6 +32,21 @@ pub struct LifecycleConfig {
   pub iteration_stop: Option<Value>,
 }
 
+#[derive(Clone, Debug)]
+pub struct LoadShapeStage {
+  pub duration: u64,
+  pub users: u64,
+  // Reserved for future enforcement; the current scheduler uses the target
+  // users per stage as the concurrency limit.
+  #[allow(dead_code)]
+  pub spawn_rate: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+pub struct LoadShapeConfig {
+  pub stages: Vec<LoadShapeStage>,
+}
+
 pub struct Config {
   pub base: String,
   pub concurrency: i64,
@@ -45,6 +60,7 @@ pub struct Config {
   pub verbose: bool,
   pub results: Option<ResultsConfig>,
   pub lifecycle: LifecycleConfig,
+  pub load_shape: Option<LoadShapeConfig>,
 }
 
 impl Config {
@@ -61,8 +77,9 @@ impl Config {
     let base = read_str_configuration(config_doc, &interpolator, "base", "");
     let results = read_results_configuration(config_doc);
     let lifecycle = read_lifecycle_configuration(config_doc);
+    let load_shape = read_load_shape_configuration(config_doc);
 
-    if concurrency > iterations {
+    if concurrency > iterations && load_shape.is_none() {
       panic!("The concurrency can not be higher than the number of iterations")
     }
 
@@ -79,6 +96,7 @@ impl Config {
       verbose,
       results,
       lifecycle,
+      load_shape,
     }
   }
 }
@@ -131,6 +149,26 @@ fn read_lifecycle_configuration(config_doc: &Value) -> LifecycleConfig {
   }
 
   lifecycle
+}
+
+fn read_load_shape_configuration(config_doc: &Value) -> Option<LoadShapeConfig> {
+  let stages = config_doc.get("load_shape").and_then(|v| v.get("stages")).and_then(|v| v.as_sequence())?;
+
+  let mut parsed = Vec::new();
+
+  for stage in stages {
+    let duration = stage.get("duration").and_then(|v| v.as_u64()).expect("load_shape stage requires a duration");
+    let users = stage.get("users").and_then(|v| v.as_u64()).expect("load_shape stage requires a users count");
+    let spawn_rate = stage.get("spawn_rate").and_then(|v| v.as_u64());
+
+    parsed.push(LoadShapeStage { duration, users, spawn_rate });
+  }
+
+  if parsed.is_empty() {
+    None
+  } else {
+    Some(LoadShapeConfig { stages: parsed })
+  }
 }
 
 fn read_str_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: &str) -> String {
@@ -211,5 +249,31 @@ mod tests {
     assert!(config.lifecycle.teardown.is_some());
     assert!(config.lifecycle.iteration_start.is_some());
     assert!(config.lifecycle.iteration_stop.is_some());
+  }
+
+  #[test]
+  fn load_shape_configuration_is_optional() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\n").unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+
+    assert!(config.load_shape.is_none());
+  }
+
+  #[test]
+  fn load_shape_configuration_is_parsed() {
+    let yaml = b"---\niterations: 10\nbase: 'http://localhost'\nload_shape:\n  stages:\n    - duration: 2\n      users: 5\n      spawn_rate: 2\n    - duration: 3\n      users: 10\n";
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(yaml).unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+
+    let load_shape = config.load_shape.expect("load_shape should be parsed");
+    assert_eq!(load_shape.stages.len(), 2);
+    assert_eq!(load_shape.stages[0].duration, 2);
+    assert_eq!(load_shape.stages[0].users, 5);
+    assert_eq!(load_shape.stages[0].spawn_rate, Some(2));
+    assert_eq!(load_shape.stages[1].duration, 3);
+    assert_eq!(load_shape.stages[1].users, 10);
+    assert_eq!(load_shape.stages[1].spawn_rate, None);
   }
 }

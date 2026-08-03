@@ -259,6 +259,59 @@ Properties:
 
 The sub-plan runs in the current iteration context, with the current item and index added. Items are processed sequentially.
 
+#### Task weights
+
+Add a `weight` property to any plan item to control how often it runs relative to other items. When at least one item has a weight other than `1`, Drill switches to weighted random selection: each iteration picks exactly one item based on the weights.
+
+```yaml
+plan:
+  - name: Rare task
+    request:
+      url: /api/rare
+    weight: 1
+
+  - name: Common task
+    request:
+      url: /api/common
+    weight: 4
+```
+
+In this example, `Common task` runs roughly 4 times more often than `Rare task`. If no weights are present, Drill runs all plan items sequentially in each iteration, as before.
+
+`weight` applies to `request`, `assign`, `exec`, `assert`, `delay`, and `for_each` items.
+
+#### Custom load shapes
+
+By default, Drill starts all iterations as fast as possible, optionally using `rampup` for a linear ramp. For more complex load profiles, use `load_shape` with a list of stages.
+
+```yaml
+---
+iterations: 1000
+base: 'http://example.com'
+
+load_shape:
+  stages:
+    - duration: 60
+      users: 100
+    - duration: 120
+      users: 100
+    - duration: 60
+      users: 0
+
+plan:
+  - name: Load task
+    request:
+      url: /api/users
+```
+
+Each stage defines:
+
+- `duration`: stage length in seconds. Required.
+- `users`: target number of concurrent users at the end of the stage. Required.
+- `spawn_rate`: reserved for future use; currently the scheduler uses the target users as the concurrency limit.
+
+Drill spaces iterations over the total duration according to the area under the users curve. The concurrency limit is set to the maximum `users` value across all stages. When `load_shape` is present, `concurrency` and `rampup` are ignored.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
