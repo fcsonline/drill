@@ -28,6 +28,7 @@ rand = "0.10.1"
 hdrhistogram = "7.5.4"
 hex = "0.4.3"
 encoding_rs = "0.8"
+fake = { version = "4.0", features = ["derive", "http"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
