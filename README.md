@@ -254,6 +254,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Stats:** get nice statistics about all the requests. Example: [cookies.yml](./example/cookies.yml)
 - **Thresholds:** compare the current benchmark performance against a stored one session and fail if a threshold is exceeded.
 - **Tags:** specify test plan items by tags.
+- **Fake data generation:** generate randomized names, emails, addresses, and more at runtime using `{{ fake.name }}` interpolations.
 
 ## Test it
 

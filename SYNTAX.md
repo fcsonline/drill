@@ -84,6 +84,50 @@ Besides anything you `assign`, a few variables are always available to `{{ }}` t
 - `item`: the current item, only inside `with_items`, `with_items_range`, `with_items_from_csv` or `with_items_from_file` requests.
 - `index`: the position of the current item, only inside the `with_items*` requests above. Outside them it is **not** defined — use `iteration` for the current iteration number. Referencing `{{ index }}` where it is not available raises an error (or a warning under `--relaxed-interpolations`) suggesting `iteration`.
 
+#### Fake data generation
+
+Drill can generate fake data at runtime using the `fake.` namespace in `{{ }}` interpolations. This is useful for creating randomized request bodies, URLs, or headers without maintaining data files.
+
+```yaml
+- name: Create random user
+  request:
+    url: /api/users
+    method: POST
+    body: '{"name":"{{ fake.name }}","email":"{{ fake.email }}","city":"{{ fake.city }}"}'
+    headers:
+      Content-Type: 'application/json'
+```
+
+Supported fake values include:
+
+- **Name**: `name`, `first_name`, `last_name`, `title`, `suffix`, `name_with_title`
+- **Internet**: `email`, `free_email`, `username`, `password`, `ipv4`, `ipv6`, `ip`, `mac`, `user_agent`, `domain_suffix`, `free_email_provider`
+- **Phone**: `phone`, `cell`
+- **Lorem**: `word`, `words`, `sentence`, `sentences`, `paragraph`, `paragraphs`
+- **Address**: `city`, `country`, `country_code`, `street`, `state`, `state_abbr`, `zip`, `postcode`, `building_number`, `secondary_address`, `time_zone`, `latitude`, `longitude`
+- **Company**: `company`, `company_suffix`, `catch_phrase`, `buzzword`, `bs`, `profession`, `industry`
+- **Finance**: `currency_code`, `currency_name`, `currency_symbol`, `credit_card`
+- **Filesystem**: `file_path`, `file_name`, `file_extension`, `dir_path`
+- **Misc**: `digit`, `boolean`, `number`, `status_code`, `rfc_status_code`
+
+Context variables take precedence over fake values, so assigning a key named `fake` can shadow the namespace.
+
+##### Locale-specific fake data
+
+Add a locale prefix before the value name to generate culturally localized data:
+
+```yaml
+- name: Create localized users
+  request:
+    url: /api/users
+    method: POST
+    body: '{"name":"{{ fake.zh_cn.name }}","city":"{{ fake.fr_fr.city }}"}'
+    headers:
+      Content-Type: 'application/json'
+```
+
+Supported locales: `en`, `zh_cn`, `zh_tw`, `fr_fr`, `de_de`, `it_it`, `ja_jp`, `pt_br`, `pt_pt`, `ar_sa`, `cy_gb`.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.
