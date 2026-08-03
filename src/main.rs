@@ -3,6 +3,7 @@ mod benchmark;
 mod checker;
 mod config;
 mod expandable;
+mod faker;
 mod interpolator;
 mod reader;
 mod tags;

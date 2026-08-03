@@ -4,6 +4,7 @@ use regex::{Captures, Regex};
 use serde_json::json;
 
 use crate::benchmark::Context;
+use crate::faker;
 
 static INTERPOLATION_PREFIX: &str = "{{";
 static INTERPOLATION_SUFFIX: &str = "}}";
@@ -33,6 +34,10 @@ impl<'a> Interpolator<'a> {
         let capture = &caps[1];
 
         if let Some(item) = self.resolve_context_interpolation(capture) {
+          return item;
+        }
+
+        if let Some(item) = resolve_faker(capture) {
           return item;
         }
 
@@ -76,6 +81,33 @@ impl<'a> Interpolator<'a> {
       });
     }
     None
+  }
+}
+
+fn resolve_faker(capture: &str) -> Option<String> {
+  let prefix = "fake.";
+
+  if let Some(rest) = capture.strip_prefix(prefix) {
+    let (locale, key) = parse_fake_locale(rest);
+
+    if locale == "en" {
+      return faker::resolve(key);
+    }
+
+    return faker::resolve_locale(locale, key);
+  }
+
+  None
+}
+
+fn parse_fake_locale(rest: &str) -> (&str, &str) {
+  let locales = [
+    "zh_cn", "zh_tw", "fr_fr", "de_de", "it_it", "ja_jp", "pt_br", "pt_pt", "ar_sa", "cy_gb",
+  ];
+
+  match rest.split_once('.') {
+    Some((head, tail)) if locales.contains(&head) => (head, tail),
+    _ => ("en", rest),
   }
 }
 
@@ -201,5 +233,64 @@ mod tests {
     let interpolated = interpolator.resolve(&url, true);
 
     assert_eq!(interpolated, "http://example.com/postalcode/BAR");
+  }
+
+  #[test]
+  fn interpolates_fake_values() {
+    let context: Context = Context::new();
+    let interpolator = Interpolator::new(&context);
+
+    let url = interpolator.resolve("/users/{{ fake.name }}", true);
+    assert!(!url.contains("{{"));
+    assert!(url.starts_with("/users/"));
+    assert!(url.len() > "/users/".len());
+  }
+
+  #[test]
+  fn interpolates_fake_values_in_body() {
+    let context: Context = Context::new();
+    let interpolator = Interpolator::new(&context);
+
+    let body = interpolator.resolve("{\"email\":\"{{ fake.email }}\"}", true);
+    assert!(body.contains('@'));
+  }
+
+  #[test]
+  fn interpolates_multiple_fake_values() {
+    let context: Context = Context::new();
+    let interpolator = Interpolator::new(&context);
+
+    let url = interpolator.resolve("/users/{{ fake.first_name }}/{{ fake.last_name }}", true);
+    assert!(!url.contains("{{"));
+    assert!(url.starts_with("/users/"));
+  }
+
+  #[test]
+  fn fake_values_can_be_overridden_by_context() {
+    let mut context: Context = Context::new();
+    context.insert(String::from("fake"), json!({"name": "Override"}));
+
+    let interpolator = Interpolator::new(&context);
+    let url = interpolator.resolve("/users/{{ fake.name }}", true);
+    assert_eq!(url, "/users/Override");
+  }
+
+  #[test]
+  fn interpolates_localized_fake_values() {
+    let context: Context = Context::new();
+    let interpolator = Interpolator::new(&context);
+
+    let url = interpolator.resolve("/users/{{ fake.zh_cn.name }}", true);
+    assert!(!url.contains("{{"));
+    assert!(url.starts_with("/users/"));
+  }
+
+  #[test]
+  fn interpolates_localized_fake_values_in_body() {
+    let context: Context = Context::new();
+    let interpolator = Interpolator::new(&context);
+
+    let body = interpolator.resolve("{\"ville\":\"{{ fake.fr_fr.city }}\"}", true);
+    assert!(!body.contains("{{"));
   }
 }
