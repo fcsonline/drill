@@ -10,6 +10,7 @@ use tokio::{runtime, time::sleep};
 use crate::actions::{Report, Runnable};
 use crate::config::Config;
 use crate::expandable::include;
+use crate::results;
 use crate::tags::Tags;
 use crate::writer;
 
@@ -103,6 +104,10 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
       let begin = Instant::now();
       let reports: Vec<Vec<Report>> = buffered.collect::<Vec<_>>().await;
       let duration = begin.elapsed().as_secs_f64();
+
+      if let Some(results_config) = config.results.as_ref() {
+        results::generate(&reports, duration, results_config);
+      }
 
       BenchmarkResult {
         reports,
