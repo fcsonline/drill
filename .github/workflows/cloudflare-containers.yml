@@ -1,0 +1,65 @@
+name: Cloudflare Container Image
+
+on:
+  workflow_run:
+    workflows: ["Rust"]
+    types:
+      - completed
+    branches:
+      - master
+  workflow_dispatch:
+
+env:
+  DOCKER_DEFAULT_PLATFORM: linux/amd64
+
+jobs:
+  build-and-push:
+    name: Build and push drill image to Cloudflare
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute version
+        id: version
+        run: |
+          VERSION="$(date +%Y%m).${{ github.run_id }}"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install wrangler
+        run: npm install -g wrangler@latest
+
+      - name: Build linux/amd64 image
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          docker buildx build --platform linux/amd64 --load -t "drill:${VERSION}" -t drill:latest .
+
+      - name: Verify image architecture
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          docker inspect --format='{{.Os}}/{{.Architecture}}' "drill:${VERSION}"
+
+      - name: Push versioned image to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          npx wrangler@latest containers push "drill:${VERSION}"
+
+      - name: Push latest image to Cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler@latest containers push drill:latest

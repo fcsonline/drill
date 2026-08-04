@@ -24,6 +24,14 @@ jobs:
           #   archive: zip
     steps:
       - uses: actions/checkout@master
+
+      - name: Compute version
+        id: version
+        run: |
+          VERSION="$(date +%Y%m).${{ github.run_id }}"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION"
+
       - name: Compile and release
         uses: rust-build/rust-build.action@v1.4.5
         env:
@@ -32,3 +40,4 @@ jobs:
           TOOLCHAIN_VERSION: stable
           EXTRA_FILES: "README.md"
           ARCHIVE_TYPES: ${{ matrix.archive }}
+          ARCHIVE_NAME: "drill-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}.${{ matrix.archive }}"
