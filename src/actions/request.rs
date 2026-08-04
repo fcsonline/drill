@@ -2,22 +2,27 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use colored::Colorize;
 use encoding_rs::{Encoding, UTF_8};
 use reqwest::{
   ClientBuilder, Method, StatusCode,
   header::{self, HeaderMap, HeaderName, HeaderValue},
+  multipart::{Form, Part},
 };
 use serde_yaml::Value as YamlValue;
 use std::fmt::Write;
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
 use url::Url;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use crate::actions::{extract, extract_optional};
+use crate::actions::save::LAST_RESPONSE_KEY;
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
@@ -30,6 +35,45 @@ static USER_AGENT: &str = "drill";
 pub enum Body {
   Template(String),
   Binary(Vec<u8>),
+  UrlEncoded(HashMap<String, String>),
+  FormData(Vec<FormPart>),
+  GraphQL {
+    query: String,
+    variables: Option<HashMap<String, String>>,
+  },
+}
+
+/// One field of a `multipart/form-data` body: either a text field (`value`)
+/// or a file field (`file`, with an optional `content_type`).
+#[derive(Clone)]
+pub struct FormPart {
+  pub key: String,
+  pub value: Option<String>,
+  pub file: Option<String>,
+  pub content_type: Option<String>,
+}
+
+#[derive(Clone)]
+pub enum ApiKeyLocation {
+  Header,
+  Query,
+}
+
+/// Authentication scheme attached to a request via its `auth` block:
+/// `apikey`, `oauth2` (`client_credentials` flow), `basic` or `bearer`.
+#[derive(Clone)]
+pub enum AuthConfig {
+  Basic { username: String, password: String },
+  Bearer { token: String },
+  ApiKey { key: String, value: String, location: ApiKeyLocation },
+  OAuth2ClientCredentials {
+    token_url: String,
+    client_id: String,
+    client_secret: String,
+    scope: Option<String>,
+    /// Context key caching the obtained token and its expiry (`<key>_expires`).
+    save_token_as: Option<String>,
+  },
 }
 
 #[derive(Clone)]
@@ -40,6 +84,7 @@ pub struct Request {
   time: f64,
   method: String,
   headers: HashMap<String, String>,
+  auth: Option<AuthConfig>,
   pub body: Option<Body>,
   pub with_item: Option<YamlValue>,
   pub index: Option<u32>,
@@ -102,8 +147,10 @@ impl Request {
         Some(Body::Binary(buffer))
       } else if let Some(hex_str) = request_val.get("body").and_then(|v| v.get("hex")).and_then(|v| v.as_str()) {
         Some(Body::Binary(hex::decode(hex_str).expect("Invalid hex string")))
+      } else if let Some(body) = request_val.get("body") {
+        Some(parse_structured_body(body))
       } else {
-        panic!("{} Body must be string, file or hex!!", "WARNING!".yellow().bold());
+        panic!("{} Body must be string, file, hex, urlencoded, formdata or graphql!!", "WARNING!".yellow().bold());
       }
     } else {
       None
@@ -127,12 +174,49 @@ impl Request {
       }
     }
 
+    let auth = request_val.get("auth").map(|auth_val| {
+      match extract(auth_val, "type").to_lowercase().as_str() {
+        "apikey" => {
+          let key = extract(auth_val, "key");
+          let value = extract(auth_val, "value");
+          let location = match extract(auth_val, "in").to_lowercase().as_str() {
+            "query" => ApiKeyLocation::Query,
+            _ => ApiKeyLocation::Header,
+          };
+          AuthConfig::ApiKey { key, value, location }
+        }
+        "oauth2" => {
+          let flow = extract(auth_val, "flow").to_lowercase();
+          if flow != "client_credentials" {
+            panic!("{} Only the 'client_credentials' OAuth2 flow is supported!", "WARNING!".yellow().bold());
+          }
+          let token_url = extract(auth_val, "token_url");
+          let client_id = extract(auth_val, "client_id");
+          let client_secret = extract(auth_val, "client_secret");
+          let scope = extract_optional(auth_val, "scope");
+          let save_token_as = extract_optional(auth_val, "save_token_as");
+          AuthConfig::OAuth2ClientCredentials { token_url, client_id, client_secret, scope, save_token_as }
+        }
+        "basic" => {
+          let username = extract(auth_val, "username");
+          let password = extract(auth_val, "password");
+          AuthConfig::Basic { username, password }
+        }
+        "bearer" => {
+          let token = extract(auth_val, "token");
+          AuthConfig::Bearer { token }
+        }
+        other => panic!("{} Unknown auth type '{}'!", "WARNING!".yellow().bold(), other),
+      }
+    });
+
     Request {
       name,
       url,
       time: 0.0,
       method,
       headers,
+      auth,
       body,
       with_item,
       index,
@@ -150,6 +234,11 @@ impl Request {
   }
 
   async fn send_request(&self, context: &mut Context, pool: &Pool, config: &Config) -> (Option<ResponseData>, f64) {
+    // Resolve authentication first. OAuth2 client credentials may perform a
+    // token exchange and mutate the context, so it runs before the lazy
+    // interpolator below borrows the context.
+    let resolved_auth = self.resolve_auth(context, pool, config).await;
+
     let mut uninterpolator = None;
 
     // Resolve the name
@@ -187,6 +276,17 @@ impl Request {
     let url = Url::parse(&interpolated_base_url).expect("Invalid url!");
     let domain = format!("{}://{}:{}", url.scheme(), url.host_str().unwrap(), url.port().unwrap_or(0)); // Unique domain key for keep-alive
 
+    // API keys sent in the query string are appended here so the pooled client
+    // builds the final URL below.
+    let request_url = match &resolved_auth {
+      Some(ResolvedAuth::Query(key, value)) => {
+        let mut url = Url::parse(&interpolated_base_url).expect("Invalid url!");
+        url.query_pairs_mut().append_pair(key, value);
+        url.to_string()
+      }
+      _ => interpolated_base_url.clone(),
+    };
+
     let interpolated_body;
 
     // Method
@@ -208,10 +308,55 @@ impl Request {
       let request = match self.body.as_ref() {
         Some(Body::Template(template_body)) => {
           interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(template_body, !config.relaxed_interpolations);
-          client.request(method, interpolated_base_url.as_str()).body(interpolated_body)
+          client.request(method, request_url.as_str()).body(interpolated_body)
         }
-        Some(Body::Binary(binary_body)) => client.request(method, interpolated_base_url.as_str()).body(binary_body.clone()),
-        None => client.request(method, interpolated_base_url.as_str()),
+        Some(Body::Binary(binary_body)) => client.request(method, request_url.as_str()).body(binary_body.clone()),
+        Some(Body::UrlEncoded(params)) => {
+          let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
+          let encoded: Vec<(String, String)> = params
+            .iter()
+            .map(|(key, value)| (key.clone(), interpolator.resolve(value, !config.relaxed_interpolations)))
+            .collect();
+          client.request(method, request_url.as_str()).form(&encoded)
+        }
+        Some(Body::FormData(parts)) => {
+          let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
+          let mut form = Form::new();
+          for part in parts {
+            let key = interpolator.resolve(&part.key, !config.relaxed_interpolations);
+            if let Some(file_path) = &part.file {
+              let file_path = interpolator.resolve(file_path, !config.relaxed_interpolations);
+              let mut file = File::open(&file_path).expect("Unable to open file");
+              let mut buffer = Vec::new();
+              file.read_to_end(&mut buffer).expect("Unable to read file");
+              let file_name = Path::new(&file_path).file_name().and_then(|name| name.to_str()).unwrap_or("file").to_string();
+              let mut file_part = Part::bytes(buffer).file_name(file_name);
+              if let Some(content_type) = &part.content_type {
+                let content_type = interpolator.resolve(content_type, !config.relaxed_interpolations);
+                file_part = file_part.mime_str(&content_type).expect("Invalid content type");
+              }
+              form = form.part(key, file_part);
+            } else {
+              let value = part.value.as_ref().map(|value| interpolator.resolve(value, !config.relaxed_interpolations)).unwrap_or_default();
+              form = form.text(key, value);
+            }
+          }
+          client.request(method, request_url.as_str()).multipart(form)
+        }
+        Some(Body::GraphQL { query, variables }) => {
+          let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
+          let query = interpolator.resolve(query, !config.relaxed_interpolations);
+          let variables = variables.as_ref().map(|variables| {
+            let mut map = Map::new();
+            for (key, value) in variables.iter() {
+              map.insert(key.clone(), json!(interpolator.resolve(value, !config.relaxed_interpolations)));
+            }
+            json!(map)
+          });
+          let payload = json!({ "query": query, "variables": variables });
+          client.request(method, request_url.as_str()).json(&payload)
+        }
+        None => client.request(method, request_url.as_str()),
       };
 
       (client.clone(), request)
@@ -232,6 +377,12 @@ impl Request {
     for (key, val) in self.headers.iter() {
       let interpolated_header = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(val, !config.relaxed_interpolations);
       headers.insert(HeaderName::from_bytes(key.as_bytes()).unwrap(), HeaderValue::from_str(&interpolated_header).unwrap());
+    }
+
+    // Apply the resolved authentication header (API-key header, basic, bearer
+    // or OAuth2 token). API-key query params were already merged into the URL.
+    if let Some(ResolvedAuth::Header(name, value)) = &resolved_auth {
+      headers.insert(name.clone(), value.clone());
     }
 
     let request_builder = request.headers(headers).timeout(Duration::from_secs(config.timeout));
@@ -319,6 +470,115 @@ impl Request {
       duration_ms,
     )
   }
+
+  /// Applies the configured auth scheme, returning the header or query
+  /// parameter to attach. Interpolates values and, for `oauth2`, acquires and
+  /// caches a client-credentials token when needed.
+  async fn resolve_auth(&self, context: &mut Context, pool: &Pool, config: &Config) -> Option<ResolvedAuth> {
+    match &self.auth {
+      Some(AuthConfig::Basic { username, password }) => {
+        let interpolator = interpolator::Interpolator::new(context);
+        let username = interpolator.resolve(username, !config.relaxed_interpolations);
+        let password = interpolator.resolve(password, !config.relaxed_interpolations);
+        let encoded = BASE64.encode(format!("{username}:{password}"));
+        Some(ResolvedAuth::Header(header::AUTHORIZATION, HeaderValue::from_str(&format!("Basic {encoded}")).expect("invalid basic auth header")))
+      }
+      Some(AuthConfig::Bearer { token }) => {
+        let interpolator = interpolator::Interpolator::new(context);
+        let token = interpolator.resolve(token, !config.relaxed_interpolations);
+        Some(ResolvedAuth::Header(header::AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {token}")).expect("invalid bearer token")))
+      }
+      Some(AuthConfig::ApiKey { key, value, location }) => {
+        let interpolator = interpolator::Interpolator::new(context);
+        let key = interpolator.resolve(key, !config.relaxed_interpolations);
+        let value = interpolator.resolve(value, !config.relaxed_interpolations);
+        match location {
+          ApiKeyLocation::Header => Some(ResolvedAuth::Header(HeaderName::from_bytes(key.as_bytes()).expect("invalid api key header name"), HeaderValue::from_str(&value).expect("invalid api key header value"))),
+          ApiKeyLocation::Query => Some(ResolvedAuth::Query(key, value)),
+        }
+      }
+      Some(AuthConfig::OAuth2ClientCredentials { .. }) => {
+        let token = self.oauth2_token(context, pool, config).await;
+        Some(ResolvedAuth::Header(header::AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {token}")).expect("invalid oauth2 token")))
+      }
+      None => None,
+    }
+  }
+
+  /// Obtains an OAuth2 access token for the `client_credentials` flow. A
+  /// previously acquired token is reused while its cached expiry has not been
+  /// reached; otherwise a new token is requested from `token_url` and stored in
+  /// the context under `save_token_as` (expiry under `<save_token_as>_expires`).
+  async fn oauth2_token(&self, context: &mut Context, pool: &Pool, config: &Config) -> String {
+    let (token_url, client_id, client_secret, scope, save_token_as) = match &self.auth {
+      Some(AuthConfig::OAuth2ClientCredentials { token_url, client_id, client_secret, scope, save_token_as }) => (token_url, client_id, client_secret, scope, save_token_as),
+      _ => unreachable!("oauth2_token called without an OAuth2 auth config"),
+    };
+
+    if let Some(save_token_as) = save_token_as {
+      let expires_key = format!("{save_token_as}_expires");
+      let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
+      if let (Some(token), Some(expires)) = (context.get(save_token_as), context.get(&expires_key))
+        && let (Some(token), Some(expires)) = (token.as_str(), expires.as_f64())
+        && now < expires
+      {
+        return token.to_string();
+      }
+    }
+
+    let interpolator = interpolator::Interpolator::new(context);
+    let token_url = interpolator.resolve(token_url, !config.relaxed_interpolations);
+    let client_id = interpolator.resolve(client_id, !config.relaxed_interpolations);
+    let client_secret = interpolator.resolve(client_secret, !config.relaxed_interpolations);
+    let scope = scope.as_ref().map(|s| interpolator.resolve(s, !config.relaxed_interpolations));
+
+    let mut params: Vec<(String, String)> = vec![
+      ("grant_type".to_string(), "client_credentials".to_string()),
+      ("client_id".to_string(), client_id),
+      ("client_secret".to_string(), client_secret),
+    ];
+    if let Some(scope) = scope {
+      params.push(("scope".to_string(), scope));
+    }
+
+    let token_url_parsed = Url::parse(&token_url).expect("Invalid token url");
+    let token_domain = format!("{}://{}:{}", token_url_parsed.scheme(), token_url_parsed.host_str().unwrap(), token_url_parsed.port().unwrap_or(0));
+    let client = {
+      let mut pool2 = pool.lock().unwrap();
+      pool2.entry(token_domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap()).clone()
+    };
+
+    let response = client.post(&token_url).form(&params).send().await;
+    let response = match response {
+      Ok(response) => response,
+      Err(e) => panic!("OAuth2 token request to '{}' failed: {:?}", token_url, e),
+    };
+
+    let status = response.status();
+    let payload: Value = response.json().await.unwrap_or_else(|_| panic!("OAuth2 token response from '{}' is not valid JSON (status '{}')", token_url, status));
+    if !status.is_success() {
+      panic!("OAuth2 token request to '{}' failed with status '{}': {}", token_url, status, payload);
+    }
+
+    let token = payload.get("access_token").and_then(|v| v.as_str()).unwrap_or_else(|| panic!("OAuth2 token response from '{}' is missing 'access_token': {}", token_url, payload)).to_string();
+    let expires_in = payload.get("expires_in").and_then(|v| v.as_u64()).unwrap_or(3600);
+
+    if let Some(save_token_as) = save_token_as {
+      let expires_key = format!("{save_token_as}_expires");
+      let expires_at = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64() + expires_in as f64;
+      context.insert(save_token_as.clone(), json!(token));
+      context.insert(expires_key, json!(expires_at));
+    }
+
+    token
+  }
+}
+
+/// Result of applying the request's `auth` block: a header to attach or a
+/// query parameter to merge into the URL.
+enum ResolvedAuth {
+  Header(HeaderName, HeaderValue),
+  Query(String, String),
 }
 
 /// Decodes a response body using the charset declared in the `Content-Type`
@@ -347,6 +607,50 @@ fn charset_from_content_type(content_type: &str) -> Option<&str> {
       None
     }
   })
+}
+
+/// Parses a structured `body` mapping (urlencoded, formdata or graphql) into a
+/// `Body` variant. The string/file/hex shorthand forms are handled in
+/// `Request::new`.
+fn parse_structured_body(body: &YamlValue) -> Body {
+  if let Some(mapping) = body.get("urlencoded").and_then(|v| v.as_mapping()) {
+    let mut params = HashMap::new();
+    for (key, value) in mapping.iter() {
+      let key = key.as_str().unwrap_or_else(|| panic!("{} Urlencoded keys must be strings!!", "WARNING!".yellow().bold()));
+      let value = value.as_str().unwrap_or_else(|| panic!("{} Urlencoded values must be strings!!", "WARNING!".yellow().bold()));
+      params.insert(key.to_string(), value.to_string());
+    }
+    Body::UrlEncoded(params)
+  } else if let Some(parts) = body.get("formdata").and_then(|v| v.as_sequence()) {
+    let mut form_parts = Vec::new();
+    for entry in parts.iter() {
+      let key = entry.get("key").and_then(|v| v.as_str()).unwrap_or_else(|| panic!("{} FormData parts must have a string 'key'!!", "WARNING!".yellow().bold())).to_string();
+      let value = entry.get("value").and_then(|v| v.as_str()).map(str::to_string);
+      let file = entry.get("file").and_then(|v| v.as_str()).map(str::to_string);
+      let content_type = entry.get("content_type").and_then(|v| v.as_str()).map(str::to_string);
+      form_parts.push(FormPart {
+        key,
+        value,
+        file,
+        content_type,
+      });
+    }
+    Body::FormData(form_parts)
+  } else if let Some(graphql) = body.get("graphql") {
+    let query = graphql.get("query").and_then(|v| v.as_str()).unwrap_or_else(|| panic!("{} GraphQL body must have a string 'query'!!", "WARNING!".yellow().bold())).to_string();
+    let variables = graphql.get("variables").and_then(|v| v.as_mapping()).map(|mapping| {
+      let mut vars = HashMap::new();
+      for (key, value) in mapping.iter() {
+        let key = key.as_str().unwrap_or_else(|| panic!("{} GraphQL variable keys must be strings!!", "WARNING!".yellow().bold()));
+        let value = value.as_str().unwrap_or_else(|| panic!("{} GraphQL variable values must be strings!!", "WARNING!".yellow().bold()));
+        vars.insert(key.to_string(), value.to_string());
+      }
+      vars
+    });
+    Body::GraphQL { query, variables }
+  } else {
+    panic!("{} Body must be string, file, hex, urlencoded, formdata or graphql!!", "WARNING!".yellow().bold());
+  }
 }
 
 fn yaml_to_json(data: YamlValue) -> Value {
@@ -456,6 +760,27 @@ impl Runnable for Request {
           None
         };
 
+        // Snapshot of the last response for later `save` plan steps.
+        let mut response_headers = Map::new();
+        response.headers.iter().for_each(|(header, value)| {
+          let value = value
+            .to_str()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|_| String::from_utf8_lossy(value.as_bytes()).into_owned());
+          response_headers.insert(header.to_string(), json!(value));
+        });
+
+        context.insert(
+          LAST_RESPONSE_KEY.to_string(),
+          json!({
+            "status": status,
+            "body": data.clone().unwrap_or_default(),
+            "headers": response_headers,
+            "url": response.url.to_string(),
+            "duration": duration_ms,
+          }),
+        );
+
         if let Some(msg) = log_message_response {
           log_response(msg, &data)
         }
@@ -502,8 +827,42 @@ fn log_response(log_message_response: String, body: &Option<String>) {
 mod tests {
   use super::*;
   use serde_yaml::Value as YamlValue;
-  use std::io::Write;
+  use std::io::{Read, Write};
+  use std::net::{SocketAddr, TcpListener};
+  use std::sync::{Arc, Mutex};
+  use std::thread;
   use tempfile::NamedTempFile;
+
+  /// Spawns a bare HTTP/1.1 server that answers `connections` requests with a
+  /// fixed JSON body, capturing the raw request head of each one so tests can
+  /// assert on the headers/query/auth actually sent.
+  fn spawn_mock_server(response_body: &str, connections: usize) -> (SocketAddr, Arc<Mutex<Vec<String>>>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let captured: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let captured_thread = captured.clone();
+    let body = response_body.to_string();
+
+    thread::spawn(move || {
+      for _ in 0..connections {
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut buf = [0u8; 8192];
+        let n = stream.read(&mut buf).unwrap();
+        captured_thread.lock().unwrap().push(String::from_utf8_lossy(&buf[..n]).to_string());
+        let head = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
+        stream.write_all(head.as_bytes()).unwrap();
+        stream.flush().unwrap();
+      }
+    });
+
+    (addr, captured)
+  }
+
+  fn send_with_context(request: &Request, context: &mut Context, config: &Config) {
+    let pool: Pool = Arc::new(Mutex::new(HashMap::new()));
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    runtime.block_on(request.send_request(context, &pool, config));
+  }
 
   fn create_yaml_request_with_string_body(body_content: &str) -> YamlValue {
     let yaml_str = format!(
@@ -810,6 +1169,170 @@ request:
     }
   }
 
+  fn create_yaml_request_with_urlencoded_body() -> YamlValue {
+    let yaml_str = r#"
+name: test_request
+request:
+  url: http://example.com
+  method: POST
+  body:
+    urlencoded:
+      key1: value1
+      key2: "{{ fake.email }}"
+"#;
+    serde_yaml::from_str(yaml_str).unwrap()
+  }
+
+  fn create_yaml_request_with_formdata_body() -> YamlValue {
+    let yaml_str = r#"
+name: test_request
+request:
+  url: http://example.com
+  method: POST
+  body:
+    formdata:
+      - key: field1
+        value: text value
+      - key: avatar
+        file: path/to/image.png
+        content_type: image/png
+"#;
+    serde_yaml::from_str(yaml_str).unwrap()
+  }
+
+  fn create_yaml_request_with_graphql_body() -> YamlValue {
+    let yaml_str = r#"
+name: test_request
+request:
+  url: http://example.com
+  method: POST
+  body:
+    graphql:
+      query: "query { user(id: 1) { name } }"
+      variables:
+        id: "{{ item.id }}"
+"#;
+    serde_yaml::from_str(yaml_str).unwrap()
+  }
+
+  #[test]
+  fn parses_urlencoded_body() {
+    let yaml = create_yaml_request_with_urlencoded_body();
+    let request = Request::new(&yaml, None, None);
+
+    match request.body {
+      Some(Body::UrlEncoded(params)) => {
+        assert_eq!(params.get("key1").map(String::as_str), Some("value1"));
+        assert_eq!(params.get("key2").map(String::as_str), Some("{{ fake.email }}"));
+        assert_eq!(params.len(), 2);
+      }
+      _ => panic!("Expected Body::UrlEncoded"),
+    }
+  }
+
+  #[test]
+  fn parses_formdata_body() {
+    let yaml = create_yaml_request_with_formdata_body();
+    let request = Request::new(&yaml, None, None);
+
+    match request.body {
+      Some(Body::FormData(parts)) => {
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0].key, "field1");
+        assert_eq!(parts[0].value.as_deref(), Some("text value"));
+        assert!(parts[0].file.is_none());
+        assert!(parts[0].content_type.is_none());
+        assert_eq!(parts[1].key, "avatar");
+        assert!(parts[1].value.is_none());
+        assert_eq!(parts[1].file.as_deref(), Some("path/to/image.png"));
+        assert_eq!(parts[1].content_type.as_deref(), Some("image/png"));
+      }
+      _ => panic!("Expected Body::FormData"),
+    }
+  }
+
+  #[test]
+  fn parses_graphql_body() {
+    let yaml = create_yaml_request_with_graphql_body();
+    let request = Request::new(&yaml, None, None);
+
+    match request.body {
+      Some(Body::GraphQL { query, variables }) => {
+        assert_eq!(query, "query { user(id: 1) { name } }");
+        let variables = variables.expect("expected variables");
+        assert_eq!(variables.get("id").map(String::as_str), Some("{{ item.id }}"));
+      }
+      _ => panic!("Expected Body::GraphQL"),
+    }
+  }
+
+  #[test]
+  fn sends_urlencoded_body() {
+    let (addr, captured) = spawn_mock_server("{}", 1);
+    let yaml: YamlValue = serde_yaml::from_str(&format!(
+      "name: test\nrequest:\n  url: http://{addr}/api\n  method: POST\n  body:\n    urlencoded:\n      key1: value1\n      key2: \"{{{{ email }}}}\"\n"
+    ))
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    context.insert("email".to_string(), json!("user@example.com"));
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let head = captured.lock().unwrap()[0].clone();
+    assert!(head.contains("content-type: application/x-www-form-urlencoded"), "missing urlencoded content type in: {head}");
+    assert!(head.contains("key1=value1"), "missing key1=value1 in: {head}");
+    assert!(head.contains("key2=user%40example.com") || head.contains("key2=user@example.com"), "missing interpolated key2 in: {head}");
+  }
+
+  #[test]
+  fn sends_formdata_body_with_text_and_file() {
+    let mut temp_file = NamedTempFile::new().unwrap();
+    temp_file.write_all(b"file-content").unwrap();
+    temp_file.flush().unwrap();
+    let file_path = temp_file.path().to_str().unwrap();
+
+    let (addr, captured) = spawn_mock_server("{}", 1);
+    let yaml: YamlValue = serde_yaml::from_str(&format!(
+      "name: test\nrequest:\n  url: http://{addr}/api\n  method: POST\n  body:\n    formdata:\n      - key: field1\n        value: text value\n      - key: avatar\n        file: {file_path}\n        content_type: text/plain\n"
+    ))
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let head = captured.lock().unwrap()[0].to_lowercase();
+    assert!(head.contains("content-type: multipart/form-data; boundary="), "missing multipart content type in: {head}");
+    assert!(head.contains("name=\"field1\""), "missing text field in: {head}");
+    assert!(head.contains("text value"), "missing text field value in: {head}");
+    assert!(head.contains("name=\"avatar\""), "missing file field in: {head}");
+    assert!(head.contains("filename=\""), "missing file name in: {head}");
+    assert!(head.contains("content-type: text/plain"), "missing file content type in: {head}");
+    assert!(head.contains("file-content"), "missing file content in: {head}");
+  }
+
+  #[test]
+  fn sends_graphql_body() {
+    let (addr, captured) = spawn_mock_server("{}", 1);
+    let yaml: YamlValue = serde_yaml::from_str(&format!(
+      "name: test\nrequest:\n  url: http://{addr}/api\n  method: POST\n  body:\n    graphql:\n      query: \"query {{ user(id: 1) {{ name }} }}\"\n      variables:\n        id: \"{{{{ item_id }}}}\"\n"
+    ))
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    context.insert("item_id".to_string(), json!("42"));
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let head = captured.lock().unwrap()[0].clone();
+    assert!(head.contains("content-type: application/json"), "missing json content type in: {head}");
+    assert!(head.contains("{\"query\":\"query { user(id: 1) { name } }\",\"variables\":{\"id\":\"42\"}}"), "missing graphql payload in: {head}");
+  }
+
   fn test_config() -> Config {
     Config {
       base: String::new(),
@@ -940,5 +1463,244 @@ request:
     let response = response.expect("expected a successful response after draining the body");
     assert_eq!(response.status.as_u16(), 200);
     assert!(response.body.is_none(), "a non-assign body must be drained and dropped, not retained");
+  }
+
+  #[test]
+  fn parses_apikey_header_auth() {
+    let yaml: YamlValue = serde_yaml::from_str(
+      r#"
+name: test
+request:
+  url: http://example.com
+  auth:
+    type: apikey
+    key: X-API-Key
+    value: "{{ api_key }}"
+    in: header
+"#,
+    )
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+
+    match request.auth {
+      Some(AuthConfig::ApiKey { key, value, location }) => {
+        assert_eq!(key, "X-API-Key");
+        assert_eq!(value, "{{ api_key }}");
+        assert!(matches!(location, ApiKeyLocation::Header));
+      }
+      _ => panic!("expected ApiKey auth"),
+    }
+  }
+
+  #[test]
+  fn parses_apikey_query_auth() {
+    let yaml: YamlValue = serde_yaml::from_str(
+      r#"
+name: test
+request:
+  url: http://example.com
+  auth:
+    type: apikey
+    key: api_key
+    value: "{{ api_key }}"
+    in: query
+"#,
+    )
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+
+    match request.auth {
+      Some(AuthConfig::ApiKey { key, value, location }) => {
+        assert_eq!(key, "api_key");
+        assert_eq!(value, "{{ api_key }}");
+        assert!(matches!(location, ApiKeyLocation::Query));
+      }
+      _ => panic!("expected ApiKey auth"),
+    }
+  }
+
+  #[test]
+  fn parses_basic_auth() {
+    let yaml: YamlValue = serde_yaml::from_str(
+      r#"
+name: test
+request:
+  url: http://example.com
+  auth:
+    type: basic
+    username: admin
+    password: secret
+"#,
+    )
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+
+    match request.auth {
+      Some(AuthConfig::Basic { username, password }) => {
+        assert_eq!(username, "admin");
+        assert_eq!(password, "secret");
+      }
+      _ => panic!("expected Basic auth"),
+    }
+  }
+
+  #[test]
+  fn parses_bearer_auth() {
+    let yaml: YamlValue = serde_yaml::from_str(
+      r#"
+name: test
+request:
+  url: http://example.com
+  auth:
+    type: bearer
+    token: my-token
+"#,
+    )
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+
+    match request.auth {
+      Some(AuthConfig::Bearer { token }) => assert_eq!(token, "my-token"),
+      _ => panic!("expected Bearer auth"),
+    }
+  }
+
+  #[test]
+  fn parses_oauth2_client_credentials_auth() {
+    let yaml: YamlValue = serde_yaml::from_str(
+      r#"
+name: test
+request:
+  url: http://example.com
+  auth:
+    type: oauth2
+    flow: client_credentials
+    token_url: http://auth.example.com/token
+    client_id: my-client
+    client_secret: secret
+    scope: read write
+    save_token_as: access_token
+"#,
+    )
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+
+    match request.auth {
+      Some(AuthConfig::OAuth2ClientCredentials { token_url, client_id, client_secret, scope, save_token_as }) => {
+        assert_eq!(token_url, "http://auth.example.com/token");
+        assert_eq!(client_id, "my-client");
+        assert_eq!(client_secret, "secret");
+        assert_eq!(scope.as_deref(), Some("read write"));
+        assert_eq!(save_token_as.as_deref(), Some("access_token"));
+      }
+      _ => panic!("expected OAuth2ClientCredentials auth"),
+    }
+  }
+
+  #[test]
+  fn apikey_header_is_sent() {
+    let (addr, captured) = spawn_mock_server("{}", 1);
+    let auth_yaml = "    type: apikey\n    key: X-API-Key\n    value: \"{{ api_key }}\"\n    in: header\n";
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{addr}/api/data\n  auth:\n{auth_yaml}")).unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    context.insert("api_key".to_string(), json!("my-key"));
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let head = captured.lock().unwrap()[0].clone();
+    assert!(head.contains("x-api-key: my-key"), "missing api key header in: {head}");
+  }
+
+  #[test]
+  fn apikey_query_is_appended_to_url() {
+    let (addr, captured) = spawn_mock_server("{}", 1);
+    let auth_yaml = "    type: apikey\n    key: api_key\n    value: \"{{ api_key }}\"\n    in: query\n";
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{addr}/api/data\n  auth:\n{auth_yaml}")).unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    context.insert("api_key".to_string(), json!("my-key"));
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let head = captured.lock().unwrap()[0].clone();
+    assert!(head.contains("api_key=my-key"), "missing api key query param in: {head}");
+  }
+
+  #[test]
+  fn basic_auth_header_is_sent() {
+    let (addr, captured) = spawn_mock_server("{}", 1);
+    let auth_yaml = "    type: basic\n    username: admin\n    password: secret\n";
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{addr}/api/data\n  auth:\n{auth_yaml}")).unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let head = captured.lock().unwrap()[0].clone();
+    assert!(head.contains("authorization: Basic YWRtaW46c2VjcmV0"), "missing basic auth header in: {head}");
+  }
+
+  #[test]
+  fn bearer_auth_header_is_sent() {
+    let (addr, captured) = spawn_mock_server("{}", 1);
+    let auth_yaml = "    type: bearer\n    token: my-token\n";
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{addr}/api/data\n  auth:\n{auth_yaml}")).unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let head = captured.lock().unwrap()[0].clone();
+    assert!(head.contains("authorization: Bearer my-token"), "missing bearer auth header in: {head}");
+  }
+
+  #[test]
+  fn oauth2_client_credentials_acquires_and_sends_token() {
+    let (token_addr, token_captured) = spawn_mock_server(r#"{"access_token": "tok-123", "expires_in": 3600}"#, 1);
+    let (api_addr, api_captured) = spawn_mock_server("{}", 1);
+    let auth_yaml = format!("    type: oauth2\n    flow: client_credentials\n    token_url: http://{token_addr}/oauth/token\n    client_id: my-client\n    client_secret: secret\n    scope: read write\n    save_token_as: access_token\n");
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{api_addr}/api/data\n  auth:\n{auth_yaml}")).unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+
+    let token_head = token_captured.lock().unwrap()[0].clone();
+    assert!(token_head.contains("grant_type=client_credentials"), "missing grant_type in token request: {token_head}");
+    assert!(token_head.contains("client_id=my-client"), "missing client_id in token request: {token_head}");
+    assert!(token_head.contains("client_secret=secret"), "missing client_secret in token request: {token_head}");
+    assert!(token_head.contains("scope=read+write"), "missing scope in token request: {token_head}");
+
+    let api_head = api_captured.lock().unwrap()[0].clone();
+    assert!(api_head.contains("authorization: Bearer tok-123"), "missing bearer token on api request: {api_head}");
+
+    assert_eq!(context.get("access_token"), Some(&json!("tok-123")));
+    assert!(context.get("access_token_expires").is_some(), "token expiry must be cached");
+  }
+
+  #[test]
+  fn oauth2_client_credentials_reuses_cached_token() {
+    let (token_addr, token_captured) = spawn_mock_server(r#"{"access_token": "tok-123", "expires_in": 3600}"#, 1);
+    let (api_addr, api_captured) = spawn_mock_server("{}", 2);
+    let auth_yaml = format!("    type: oauth2\n    flow: client_credentials\n    token_url: http://{token_addr}/oauth/token\n    client_id: my-client\n    client_secret: secret\n    save_token_as: access_token\n");
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{api_addr}/api/data\n  auth:\n{auth_yaml}")).unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context = Context::new();
+    let config = test_config();
+
+    send_with_context(&request, &mut context, &config);
+    send_with_context(&request, &mut context, &config);
+
+    assert_eq!(token_captured.lock().unwrap().len(), 1, "token endpoint must be hit only once when the token is cached");
+    let api_heads = api_captured.lock().unwrap();
+    assert_eq!(api_heads.len(), 2);
+    assert!(api_heads[0].contains("authorization: Bearer tok-123"), "first request missing bearer token: {}", api_heads[0]);
+    assert!(api_heads[1].contains("authorization: Bearer tok-123"), "second request missing bearer token: {}", api_heads[1]);
   }
 }

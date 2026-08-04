@@ -60,6 +60,8 @@ pub fn expand_sequence(parent_path: &str, items: &[Value], benchmark: &mut Bench
       benchmark.push(Box::new(actions::Exec::new(item, None)));
     } else if actions::Assign::is_that_you(item) {
       benchmark.push(Box::new(actions::Assign::new(item, None)));
+    } else if actions::Save::is_that_you(item) {
+      benchmark.push(Box::new(actions::Save::new(item, None)));
     } else if actions::Assert::is_that_you(item) {
       benchmark.push(Box::new(actions::Assert::new(item, None)));
     } else if actions::ForEach::is_that_you(item) {
@@ -113,5 +115,17 @@ mod tests {
     super::expand_sequence("example/benchmark.yml", items, &mut benchmark, &Tags::new(None, None));
 
     assert_eq!(benchmark.len(), 2);
+  }
+
+  #[test]
+  fn expand_sequence_parses_save_actions() {
+    let text = "---\n- name: Save token\n  save:\n    source: response_body\n    jsonpath: '$.token'\n    key: auth_token\n";
+    let docs = crate::reader::read_file_as_yml_from_str(text);
+    let items = crate::reader::read_yaml_doc_accessor(&docs[0], None);
+    let mut benchmark: Benchmark = Benchmark::new();
+
+    super::expand_sequence("example/benchmark.yml", items, &mut benchmark, &Tags::new(None, None));
+
+    assert_eq!(benchmark.len(), 1);
   }
 }

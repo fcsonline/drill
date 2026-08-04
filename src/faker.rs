@@ -24,6 +24,28 @@ pub fn resolve(key: &str) -> Option<String> {
   resolve_locale("en", key)
 }
 
+/// Generate a random RFC 4122 version 4 UUID formatted with hyphens.
+///
+/// The `fake` crate (4.x) does not ship a `Uuid` faker behind any of its
+/// features, so this is generated directly with `rand` and `hex`.
+fn random_uuid() -> String {
+  let mut bytes = rand::random::<[u8; 16]>();
+
+  // Set the version (4) and variant (RFC 4122) bits.
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  let encoded = hex::encode(bytes);
+  format!(
+    "{}-{}-{}-{}-{}",
+    &encoded[0..8],
+    &encoded[8..12],
+    &encoded[12..16],
+    &encoded[16..20],
+    &encoded[20..32]
+  )
+}
+
 macro_rules! resolve_with_locale {
   ($locale:expr, $key:expr) => {{
     match $key {
@@ -47,6 +69,7 @@ macro_rules! resolve_with_locale {
       "user_agent" => Some(UserAgent($locale).fake::<String>()),
       "domain_suffix" => Some(DomainSuffix($locale).fake::<String>()),
       "free_email_provider" => Some(FreeEmailProvider($locale).fake::<String>()),
+      "uuid" => Some(random_uuid()),
 
       // Phone
       "phone" => Some(PhoneNumber($locale).fake::<String>()),

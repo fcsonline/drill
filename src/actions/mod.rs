@@ -7,6 +7,7 @@ mod delay;
 mod exec;
 mod for_each;
 mod request;
+mod save;
 
 pub use self::assert::Assert;
 pub use self::assign::Assign;
@@ -14,6 +15,7 @@ pub use self::delay::Delay;
 pub use self::exec::Exec;
 pub use self::for_each::ForEach;
 pub use self::request::Request;
+pub use self::save::Save;
 
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
