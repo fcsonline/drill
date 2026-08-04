@@ -36,6 +36,7 @@ fn main() {
   let skip_tags_option = matches.get_one::<String>("skip-tags").map(|s| s.as_str());
   let list_tags = matches.get_flag("list-tags");
   let list_tasks = matches.get_flag("list-tasks");
+  let vars_option = matches.get_one::<String>("vars").map(|s| s.as_str());
 
   #[cfg(windows)]
   let _ = control::set_virtual_terminal(true);
@@ -52,7 +53,7 @@ fn main() {
     process::exit(0);
   };
 
-  let benchmark_result = benchmark::execute(benchmark_file, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose, &tags);
+  let benchmark_result = benchmark::execute(benchmark_file, vars_option, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose, &tags);
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
@@ -79,6 +80,7 @@ fn app_args() -> clap::ArgMatches {
     .arg(Arg::new("list-tasks").long("list-tasks").help("List benchmark tasks (executes --tags/--skip-tags filter)").action(ArgAction::SetTrue))
     .arg(Arg::new("quiet").short('q').long("quiet").help("Disables output").action(ArgAction::SetTrue))
     .arg(Arg::new("timeout").short('o').long("timeout").help("Set timeout in seconds for all requests"))
+    .arg(Arg::new("vars").long("vars").help("Sets a YAML file with variables to inject into interpolations"))
     .arg(Arg::new("nanosec").short('n').long("nanosec").help("Shows statistics in nanoseconds").action(ArgAction::SetTrue))
     .arg(Arg::new("verbose").short('v').long("verbose").help("Toggle verbose output").action(ArgAction::SetTrue))
     .get_matches()

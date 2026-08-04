@@ -178,8 +178,15 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<&str>, verbose: bool, tags: &Tags) -> BenchmarkResult {
-  let config = Arc::new(Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose));
+pub fn execute(benchmark_path: &str, vars_path: Option<&str>, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<&str>, verbose: bool, tags: &Tags) -> BenchmarkResult {
+  let mut config = Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose);
+
+  if let Some(vars_path) = vars_path {
+    let content = crate::reader::read_file(vars_path);
+    config.add_vars(crate::config::parse_vars_file(&content));
+  }
+
+  let config = Arc::new(config);
 
   if report_path_option.is_some() {
     println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow());
@@ -212,6 +219,10 @@ pub fn execute(benchmark_path: &str, report_path_option: Option<&str>, relaxed_i
 
     let mut setup_context = Context::new();
     setup_context.insert("base".to_string(), json!(config.base.to_string()));
+
+    for (key, value) in config.vars.iter() {
+      setup_context.insert(key.clone(), value.clone());
+    }
 
     if let Some(report_path) = report_path_option {
       let mut setup_reports = Vec::new();

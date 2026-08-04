@@ -1,4 +1,5 @@
 use serde_yaml::Value;
+use std::collections::HashMap;
 
 use crate::benchmark::Context;
 use crate::interpolator;
@@ -61,6 +62,7 @@ pub struct Config {
   pub results: Option<ResultsConfig>,
   pub lifecycle: LifecycleConfig,
   pub load_shape: Option<LoadShapeConfig>,
+  pub vars: HashMap<String, serde_json::Value>,
 }
 
 impl Config {
@@ -78,6 +80,7 @@ impl Config {
     let results = read_results_configuration(config_doc);
     let lifecycle = read_lifecycle_configuration(config_doc);
     let load_shape = read_load_shape_configuration(config_doc);
+    let vars = read_vars_configuration(config_doc);
 
     if concurrency > iterations && load_shape.is_none() {
       panic!("The concurrency can not be higher than the number of iterations")
@@ -97,7 +100,80 @@ impl Config {
       results,
       lifecycle,
       load_shape,
+      vars,
     }
+  }
+
+  /// Merge variables coming from a separate `--vars` YAML file into the
+  /// config. Values loaded from the file take precedence over the `vars:`
+  /// block defined inside the benchmark file.
+  pub fn add_vars(&mut self, vars: HashMap<String, serde_json::Value>) {
+    self.vars.extend(vars);
+  }
+}
+
+fn read_vars_configuration(config_doc: &Value) -> HashMap<String, serde_json::Value> {
+  let mut vars = HashMap::new();
+
+  if let Some(mapping) = config_doc.get("vars").and_then(|v| v.as_mapping()) {
+    for (key, value) in mapping {
+      if let Some(key) = key.as_str() {
+        vars.insert(key.to_string(), yaml_to_json(value));
+      }
+    }
+  }
+
+  vars
+}
+
+/// Load a flat `key: value` mapping from a YAML file into context values.
+pub fn parse_vars_file(content: &str) -> HashMap<String, serde_json::Value> {
+  let mut vars = HashMap::new();
+
+  match serde_yaml::from_str::<Value>(content) {
+    Ok(Value::Mapping(mapping)) => {
+      for (key, value) in mapping {
+        if let Some(key) = key.as_str() {
+          vars.insert(key.to_string(), yaml_to_json(&value));
+        } else {
+          println!("Invalid variable key: {key:?}");
+        }
+      }
+    }
+    Ok(_) => println!("Invalid vars: expected a mapping of key/value pairs"),
+    Err(e) => println!("Failed to parse vars file: {e}"),
+  }
+
+  vars
+}
+
+fn yaml_to_json(value: &Value) -> serde_json::Value {
+  match value {
+    Value::Null => serde_json::Value::Null,
+    Value::Bool(b) => serde_json::Value::Bool(*b),
+    Value::Number(n) => {
+      if let Some(i) = n.as_i64() {
+        serde_json::Value::Number(i.into())
+      } else if let Some(u) = n.as_u64() {
+        serde_json::Value::Number(u.into())
+      } else if let Some(f) = n.as_f64() {
+        serde_json::from_str(&f.to_string()).unwrap_or(serde_json::Value::Null)
+      } else {
+        serde_json::Value::Null
+      }
+    }
+    Value::String(s) => serde_json::Value::String(s.clone()),
+    Value::Sequence(seq) => serde_json::Value::Array(seq.iter().map(yaml_to_json).collect()),
+    Value::Mapping(map) => {
+      let mut obj = serde_json::Map::new();
+      for (key, value) in map {
+        if let Some(key) = key.as_str() {
+          obj.insert(key.to_string(), yaml_to_json(value));
+        }
+      }
+      serde_json::Value::Object(obj)
+    }
+    _ => serde_json::Value::Null,
   }
 }
 
@@ -275,5 +351,49 @@ mod tests {
     assert_eq!(load_shape.stages[1].duration, 3);
     assert_eq!(load_shape.stages[1].users, 10);
     assert_eq!(load_shape.stages[1].spawn_rate, None);
+  }
+
+  #[test]
+  fn vars_block_is_optional() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\n").unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+
+    assert!(config.vars.is_empty());
+  }
+
+  #[test]
+  fn vars_block_is_parsed() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\nvars:\n  api_key: abc123\n  username: john\n").unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+
+    assert_eq!(config.vars.get("api_key").and_then(|v| v.as_str()), Some("abc123"));
+    assert_eq!(config.vars.get("username").and_then(|v| v.as_str()), Some("john"));
+  }
+
+  #[test]
+  fn parse_vars_file_loads_a_flat_mapping() {
+    let vars = super::parse_vars_file("api_key: abc123\ncount: 42\nenabled: true\nnested:\n  a: 1\n");
+
+    assert_eq!(vars.get("api_key").and_then(|v| v.as_str()), Some("abc123"));
+    assert_eq!(vars.get("count").and_then(|v| v.as_i64()), Some(42));
+    assert_eq!(vars.get("enabled").and_then(|v| v.as_bool()), Some(true));
+    assert!(vars.get("nested").and_then(|v| v.as_object()).is_some());
+  }
+
+  #[test]
+  fn add_vars_merges_with_file_taking_precedence() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\nvars:\n  api_key: from-benchmark\n  username: john\n").unwrap();
+    let mut config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+
+    let mut external = std::collections::HashMap::new();
+    external.insert("api_key".to_string(), serde_json::json!("from-file"));
+
+    config.add_vars(external);
+
+    assert_eq!(config.vars.get("api_key").and_then(|v| v.as_str()), Some("from-file"));
+    assert_eq!(config.vars.get("username").and_then(|v| v.as_str()), Some("john"));
   }
 }

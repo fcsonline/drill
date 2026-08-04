@@ -110,6 +110,7 @@ impl Runnable for ForEach {
 mod tests {
   use super::*;
   use serde_json::json;
+  use std::collections::HashMap;
 
   fn empty_config() -> Config {
     Config {
@@ -126,6 +127,7 @@ mod tests {
       results: None,
       lifecycle: Default::default(),
       load_shape: None,
+      vars: HashMap::new(),
     }
   }
 

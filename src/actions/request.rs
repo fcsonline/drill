@@ -1384,6 +1384,7 @@ request:
       results: None,
       lifecycle: Default::default(),
       load_shape: None,
+      vars: HashMap::new(),
     }
   }
 
