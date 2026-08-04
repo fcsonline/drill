@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Drill output structures
@@ -36,7 +36,7 @@ pub struct Lifecycle {
     pub iteration_stop: Option<Vec<PlanItem>>,
 }
 
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ResultsConfig {
     pub output_dir: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,17 +45,33 @@ pub struct ResultsConfig {
     pub html: Option<bool>,
 }
 
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LoadShape {
     pub stages: Vec<LoadShapeStage>,
 }
 
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct LoadShapeStage {
     pub duration: u64,
     pub users: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spawn_rate: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct DrillConfigInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub concurrency: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iterations: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rampup: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub results: Option<ResultsConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub load_shape: Option<LoadShape>,
 }
 
 #[allow(clippy::large_enum_variant, dead_code)]

@@ -7,10 +7,11 @@ pub mod assertions;
 
 use crate::model::{Collection, Environment, DrillBenchmark, PlanItem, Auth as ModelAuth};
 use crate::model::collection::{RequestItem as CollectionRequestItem, Item as CollectionItem};
-use crate::model::drill::{RequestItem as DrillRequestItem};
+use crate::model::drill::{RequestItem as DrillRequestItem, DrillConfigInput};
 use crate::warnings::WarningCollector;
 use crate::convert::variables::VariableContext;
 use anyhow::Result;
+use std::collections::HashMap;
 
 pub struct Converter {
     warnings: WarningCollector,
@@ -27,7 +28,7 @@ impl Converter {
         }
     }
 
-    pub fn convert(&mut self, collection: Collection, environment: Option<Environment>) -> Result<DrillBenchmark> {
+    pub fn convert(&mut self, collection: Collection, environment: Option<Environment>, config_input: Option<DrillConfigInput>, vars_file: Option<HashMap<String, serde_yaml::Value>>) -> Result<DrillBenchmark> {
         for var in &collection.variable {
             if var.disabled != Some(true) {
                 self.variable_ctx.add_collection_var(&var.key, &var.value);
@@ -39,6 +40,12 @@ impl Converter {
                 if val.enabled {
                     self.variable_ctx.add_env_var(&val.key, &val.value);
                 }
+            }
+        }
+
+        if let Some(file_vars) = vars_file {
+            for (key, value) in file_vars {
+                self.variable_ctx.vars.insert(key, value);
             }
         }
 
@@ -80,15 +87,19 @@ impl Converter {
             plan.extend(items);
         }
 
+        let (base, concurrency, iterations, rampup, results, load_shape) = config_input
+            .map(|c| (c.base, c.concurrency, c.iterations, c.rampup, c.results, c.load_shape))
+            .unwrap_or_default();
+
         Ok(DrillBenchmark {
-            base: None,
-            concurrency: None,
-            iterations: None,
-            rampup: None,
+            base,
+            concurrency,
+            iterations,
+            rampup,
             vars: if self.variable_ctx.vars.is_empty() { None } else { Some(self.variable_ctx.vars.clone()) },
             lifecycle,
-            results: None,
-            load_shape: None,
+            results,
+            load_shape,
             plan,
         })
     }

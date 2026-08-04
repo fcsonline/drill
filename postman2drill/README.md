@@ -11,6 +11,12 @@ postman2drill collection.json -o benchmark.yml
 # Optional: apply a Postman environment
 postman2drill collection.json environment.json -o benchmark.yml
 
+# Provide Drill load config from a YAML file
+postman2drill collection.json -o benchmark.yml --config config.yml
+
+# Provide variables from a YAML file
+postman2drill collection.json -o benchmark.yml --vars vars.yml
+
 # Capture warnings to a JSON report
 postman2drill collection.json -o benchmark.yml -w warnings.json -f json
 
@@ -29,6 +35,8 @@ Arguments:
 
 Options:
   -o, --output <FILE>      Output Drill YAML file (default: stdout)
+  -c, --config <FILE>      Drill benchmark config YAML file (concurrency, iterations, rampup, base, results, load_shape)
+      --vars <FILE>        Variables YAML file (key/value pairs injected into the benchmark)
   -w, --warnings <FILE>    Warnings report file (default: stderr)
   -f, --format <FORMAT>    Warnings format: json or text [default: json]
       --strict             Treat warnings as errors (exit non-zero)

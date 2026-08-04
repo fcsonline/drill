@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use anyhow::Result;
@@ -7,7 +8,7 @@ mod model;
 mod convert;
 mod warnings;
 
-use model::Collection;
+use model::{Collection, DrillConfigInput};
 use convert::Converter;
 
 #[derive(Parser)]
@@ -22,6 +23,14 @@ struct Cli {
     /// Output Drill YAML file (default: stdout)
     #[arg(short, long)]
     output: Option<PathBuf>,
+    
+    /// Drill benchmark config YAML file
+    #[arg(short, long)]
+    config: Option<PathBuf>,
+    
+    /// Variables YAML file
+    #[arg(long)]
+    vars: Option<PathBuf>,
     
     /// Warnings report file (default: stderr)
     #[arg(short, long)]
@@ -39,21 +48,32 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     
-    // Read collection
     let collection_json = fs::read_to_string(&cli.collection)?;
     let collection: Collection = serde_json::from_str(&collection_json)?;
-    
-    // Read environment if provided
+
     let environment = if let Some(env_path) = &cli.environment {
         let env_json = fs::read_to_string(env_path)?;
         Some(serde_json::from_str(&env_json)?)
     } else {
         None
     };
-    
-    // Convert
+
+    let config_input = if let Some(config_path) = &cli.config {
+        let config_yaml = fs::read_to_string(config_path)?;
+        Some(serde_yaml::from_str::<DrillConfigInput>(&config_yaml)?)
+    } else {
+        None
+    };
+
+    let vars_file = if let Some(vars_path) = &cli.vars {
+        let vars_yaml = fs::read_to_string(vars_path)?;
+        Some(serde_yaml::from_str::<HashMap<String, serde_yaml::Value>>(&vars_yaml)?)
+    } else {
+        None
+    };
+
     let mut converter = Converter::new();
-    let drill = converter.convert(collection, environment)?;
+    let drill = converter.convert(collection, environment, config_input, vars_file)?;
     let warnings = converter.into_warnings();
     
     // Output Drill YAML

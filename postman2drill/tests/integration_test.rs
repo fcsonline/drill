@@ -1,5 +1,6 @@
 use std::process::Command;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 
 fn project_root() -> PathBuf {
@@ -171,4 +172,69 @@ fn test_converter_folder_auth_inheritance() {
     assert!(yaml.contains("type: bearer"));
     assert!(yaml.contains("token: folder-token"));
     assert!(yaml.contains("url: https://api.example.com/users/{{ user_id }}"));
+}
+
+#[test]
+fn test_converter_config_yaml() {
+    let root = project_root();
+    let collection = root.join("tests/fixtures/sample_collection.json");
+    let out = temp_output("postman2drill_test_output_config.yml");
+    let config = temp_output("postman2drill_test_config.yml");
+
+    {
+        let mut f = fs::File::create(&config).expect("config file create failed");
+        f.write_all(b"concurrency: 10\niterations: 100\nrampup: 5\n").unwrap();
+    }
+
+    let (_stdout, stderr) = run_converter(&[
+        collection.to_str().unwrap(),
+        "-o",
+        out.to_str().unwrap(),
+        "--config",
+        config.to_str().unwrap(),
+    ]);
+
+    assert!(
+        stderr.contains("Drill benchmark written to"),
+        "expected success message, got stderr: {}",
+        stderr
+    );
+
+    let yaml = fs::read_to_string(&out).expect("output YAML missing");
+    assert!(yaml.contains("concurrency: 10"));
+    assert!(yaml.contains("iterations: 100"));
+    assert!(yaml.contains("rampup: 5"));
+}
+
+#[test]
+fn test_converter_vars_yaml() {
+    let root = project_root();
+    let collection = root.join("tests/fixtures/sample_collection.json");
+    let out = temp_output("postman2drill_test_output_vars.yml");
+    let vars = temp_output("postman2drill_test_vars.yml");
+
+    {
+        let mut f = fs::File::create(&vars).expect("vars file create failed");
+        f.write_all(b"username: alice\npassword: secret123\n").unwrap();
+    }
+
+    let (_stdout, stderr) = run_converter(&[
+        collection.to_str().unwrap(),
+        "-o",
+        out.to_str().unwrap(),
+        "--vars",
+        vars.to_str().unwrap(),
+    ]);
+
+    assert!(
+        stderr.contains("Drill benchmark written to"),
+        "expected success message, got stderr: {}",
+        stderr
+    );
+
+    let yaml = fs::read_to_string(&out).expect("output YAML missing");
+    assert!(yaml.contains("username: alice"));
+    assert!(yaml.contains("password: secret123"));
+    assert!(yaml.contains("\"username\":\"alice\""));
+    assert!(yaml.contains("\"password\":\"secret123\""));
 }
