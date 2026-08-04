@@ -5,6 +5,7 @@ mod config;
 mod expandable;
 mod faker;
 mod interpolator;
+mod metrics;
 mod reader;
 mod results;
 mod tags;

@@ -33,6 +33,16 @@ pub struct Stats {
   pub p100_ms: f64,
   pub rps: f64,
   pub failures_per_sec: f64,
+  pub min_ttfb_ms: f64,
+  pub max_ttfb_ms: f64,
+  pub mean_ttfb_ms: f64,
+  pub median_ttfb_ms: f64,
+  pub total_upload: u64,
+  pub total_download: u64,
+  pub total_size: u64,
+  pub avg_upload: f64,
+  pub avg_download: f64,
+  pub avg_size: f64,
 }
 
 pub fn generate(reports: &[Vec<Report>], duration: f64, config: &ResultsConfig) {
@@ -75,12 +85,19 @@ fn compute_all_stats(reports: &[Report], duration: f64) -> Vec<Stats> {
 
 fn compute_stats(name: &str, reports: &[&Report], duration: f64) -> Stats {
   let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1_000_000_000, 2).unwrap();
+  let mut ttfb_hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1_000_000_000, 2).unwrap();
   let mut failure = 0usize;
   let mut min_ms = f64::INFINITY;
   let mut max_ms = 0f64;
+  let mut min_ttfb_ms = f64::INFINITY;
+  let mut max_ttfb_ms = 0f64;
+  let mut total_upload = 0u64;
+  let mut total_download = 0u64;
+  let mut total_size = 0u64;
 
   for report in reports {
     hist += (report.duration * NS_PER_MS) as u64;
+    ttfb_hist += (report.metrics.time_starttransfer_ms * NS_PER_MS) as u64;
 
     if report.status < 200 || report.status >= 300 {
       failure += 1;
@@ -93,6 +110,18 @@ fn compute_stats(name: &str, reports: &[&Report], duration: f64) -> Stats {
     if report.duration > max_ms {
       max_ms = report.duration;
     }
+
+    if report.metrics.time_starttransfer_ms < min_ttfb_ms {
+      min_ttfb_ms = report.metrics.time_starttransfer_ms;
+    }
+
+    if report.metrics.time_starttransfer_ms > max_ttfb_ms {
+      max_ttfb_ms = report.metrics.time_starttransfer_ms;
+    }
+
+    total_upload += report.metrics.size_upload;
+    total_download += report.metrics.size_download;
+    total_size += report.metrics.size_total;
   }
 
   let total = reports.len();
@@ -100,6 +129,12 @@ fn compute_stats(name: &str, reports: &[&Report], duration: f64) -> Stats {
   if min_ms == f64::INFINITY {
     min_ms = 0.0;
   }
+
+  if min_ttfb_ms == f64::INFINITY {
+    min_ttfb_ms = 0.0;
+  }
+
+  let total_f64 = total as f64;
 
   Stats {
     name: name.to_string(),
@@ -123,6 +158,16 @@ fn compute_stats(name: &str, reports: &[&Report], duration: f64) -> Stats {
     p100_ms: hist.value_at_quantile(1.0) as f64 / NS_PER_MS,
     rps: total as f64 / duration,
     failures_per_sec: failure as f64 / duration,
+    min_ttfb_ms,
+    max_ttfb_ms,
+    mean_ttfb_ms: ttfb_hist.mean() / NS_PER_MS,
+    median_ttfb_ms: ttfb_hist.value_at_quantile(0.5) as f64 / NS_PER_MS,
+    total_upload,
+    total_download,
+    total_size,
+    avg_upload: total_upload as f64 / total_f64,
+    avg_download: total_download as f64 / total_f64,
+    avg_size: total_size as f64 / total_f64,
   }
 }
 
@@ -132,14 +177,14 @@ fn write_csv(stats: &[Stats], output_dir: &str) {
 
   writeln!(
     file,
-    "Name,Request Count,Failure Count,Median Response Time (ms),Average Response Time (ms),Min Response Time (ms),Max Response Time (ms),Standard Deviation (ms),Requests/s,Failures/s,50%,66%,75%,80%,90%,95%,98%,99%,99.9%,99.99%,100%"
+    "Name,Request Count,Failure Count,Median Response Time (ms),Average Response Time (ms),Min Response Time (ms),Max Response Time (ms),Standard Deviation (ms),Requests/s,Failures/s,50%,66%,75%,80%,90%,95%,98%,99%,99.9%,99.99%,100%,Min TTFB (ms),Max TTFB (ms),Mean TTFB (ms),Median TTFB (ms),Total Upload (bytes),Total Download (bytes),Total Size (bytes),Avg Upload (bytes),Avg Download (bytes),Avg Size (bytes)"
   )
   .unwrap();
 
   for stat in stats {
     writeln!(
       file,
-      "{},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2}",
+      "{},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{},{},{},{:.2},{:.2},{:.2}",
       stat.name,
       stat.total,
       stat.failure,
@@ -160,7 +205,17 @@ fn write_csv(stats: &[Stats], output_dir: &str) {
       stat.p99_ms,
       stat.p999_ms,
       stat.p9999_ms,
-      stat.p100_ms
+      stat.p100_ms,
+      stat.min_ttfb_ms,
+      stat.max_ttfb_ms,
+      stat.mean_ttfb_ms,
+      stat.median_ttfb_ms,
+      stat.total_upload,
+      stat.total_download,
+      stat.total_size,
+      stat.avg_upload,
+      stat.avg_download,
+      stat.avg_size
     )
     .unwrap();
   }
@@ -174,7 +229,7 @@ fn write_html(stats: &[Stats], reports: &[&Report], duration: f64, output_dir: &
     .iter()
     .map(|s| {
       format!(
-        "<tr><td>{name}</td><td>{total}</td><td>{failure}</td><td>{median:.2}</td><td>{mean:.2}</td><td>{min:.2}</td><td>{max:.2}</td><td>{rps:.2}</td><td>{failures:.2}</td></tr>",
+        "<tr><td>{name}</td><td>{total}</td><td>{failure}</td><td>{median:.2}</td><td>{mean:.2}</td><td>{min:.2}</td><td>{max:.2}</td><td>{rps:.2}</td><td>{failures:.2}</td><td>{min_ttfb:.2}</td><td>{max_ttfb:.2}</td><td>{mean_ttfb:.2}</td><td>{median_ttfb:.2}</td><td>{avg_upload:.2}</td><td>{avg_download:.2}</td><td>{avg_size:.2}</td></tr>",
         name = html_escape(&s.name),
         total = s.total,
         failure = s.failure,
@@ -183,7 +238,14 @@ fn write_html(stats: &[Stats], reports: &[&Report], duration: f64, output_dir: &
         min = s.min_ms,
         max = s.max_ms,
         rps = s.rps,
-        failures = s.failures_per_sec
+        failures = s.failures_per_sec,
+        min_ttfb = s.min_ttfb_ms,
+        max_ttfb = s.max_ttfb_ms,
+        mean_ttfb = s.mean_ttfb_ms,
+        median_ttfb = s.median_ttfb_ms,
+        avg_upload = s.avg_upload,
+        avg_download = s.avg_download,
+        avg_size = s.avg_size
       )
     })
     .collect();
@@ -220,7 +282,7 @@ svg {{ display: block; }}
 
 <h2>Request Statistics</h2>
 <table>
-<thead><tr><th>Name</th><th>Requests</th><th>Failures</th><th>Median (ms)</th><th>Average (ms)</th><th>Min (ms)</th><th>Max (ms)</th><th>Req/s</th><th>Fail/s</th></tr></thead>
+<thead><tr><th>Name</th><th>Requests</th><th>Failures</th><th>Median (ms)</th><th>Average (ms)</th><th>Min (ms)</th><th>Max (ms)</th><th>Req/s</th><th>Fail/s</th><th>Min TTFB (ms)</th><th>Max TTFB (ms)</th><th>Mean TTFB (ms)</th><th>Median TTFB (ms)</th><th>Avg Upload (bytes)</th><th>Avg Download (bytes)</th><th>Avg Size (bytes)</th></tr></thead>
 <tbody>{stats_rows}</tbody>
 </table>
 
@@ -420,6 +482,7 @@ mod tests {
       duration,
       status,
       timestamp,
+      metrics: Default::default(),
     }
   }
 

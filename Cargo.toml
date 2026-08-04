@@ -36,6 +36,12 @@ hex = "0.4.3"
 encoding_rs = "0.8"
 fake = { version = "4.0", features = ["derive", "http"] }
 jsonpath_lib = "0.3.0"
+reqwest-middleware = "0.5.2"
+bytes = "1.12.1"
+http-body-util = "0.1.4"
+http-body = "1.1.0"
+http = "1.5.0"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+wiremock = "0.6.5"

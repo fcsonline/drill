@@ -19,6 +19,7 @@ pub use self::save::Save;
 
 use crate::benchmark::{Context, Pool, Reports};
 use crate::config::Config;
+use crate::metrics::RequestMetrics;
 
 use std::fmt;
 
@@ -37,6 +38,7 @@ pub struct Report {
   pub duration: f64,
   pub status: u16,
   pub timestamp: f64,
+  pub metrics: RequestMetrics,
 }
 
 impl fmt::Debug for Report {

@@ -10,19 +10,39 @@ use tokio::{runtime, time::sleep};
 use crate::actions::{Report, Runnable};
 use crate::config::Config;
 use crate::expandable::include;
+use crate::metrics::MetricsMiddleware;
 use crate::results;
 use crate::tags::Tags;
 use crate::writer;
 
-use reqwest::Client;
+use reqwest::ClientBuilder as ReqwestClientBuilder;
+use reqwest_middleware::ClientBuilder;
 
 use colored::*;
 
 pub type Benchmark = Vec<Box<dyn Runnable + Sync + Send>>;
 pub type Context = Map<String, Value>;
 pub type Reports = Vec<Report>;
-pub type PoolStore = HashMap<String, Client>;
+
+/// A pooled HTTP client with both the raw `reqwest::Client` (used for request
+/// construction methods like `.form()` and `.multipart()`) and the middleware
+/// wrapper used for execution and metrics capture.
+#[derive(Clone)]
+pub struct ClientEntry {
+  pub client: reqwest::Client,
+  pub middleware: reqwest_middleware::ClientWithMiddleware,
+}
+
+pub type PoolStore = HashMap<String, ClientEntry>;
 pub type Pool = Arc<Mutex<PoolStore>>;
+
+impl ClientEntry {
+  pub fn new(danger_accept_invalid_certs: bool) -> Self {
+    let client = ReqwestClientBuilder::default().danger_accept_invalid_certs(danger_accept_invalid_certs).build().unwrap();
+    let middleware = ClientBuilder::new(client.clone()).with(MetricsMiddleware::new()).build();
+    ClientEntry { client, middleware }
+  }
+}
 
 pub struct BenchmarkResult {
   pub reports: Vec<Reports>,

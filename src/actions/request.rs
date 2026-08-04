@@ -7,7 +7,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use colored::Colorize;
 use encoding_rs::{Encoding, UTF_8};
 use reqwest::{
-  ClientBuilder, Method, StatusCode,
+  Method, StatusCode,
   header::{self, HeaderMap, HeaderName, HeaderValue},
   multipart::{Form, Part},
 };
@@ -23,9 +23,10 @@ use serde_json::{Map, Value, json};
 
 use crate::actions::{extract, extract_optional};
 use crate::actions::save::LAST_RESPONSE_KEY;
-use crate::benchmark::{Context, Pool, Reports};
+use crate::benchmark::{ClientEntry, Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
+use crate::metrics::{self, RequestMetrics};
 
 use crate::actions::{Report, Runnable};
 
@@ -233,7 +234,7 @@ impl Request {
     }
   }
 
-  async fn send_request(&self, context: &mut Context, pool: &Pool, config: &Config) -> (Option<ResponseData>, f64) {
+  async fn send_request(&self, context: &mut Context, pool: &Pool, config: &Config) -> (Option<ResponseData>, RequestMetrics) {
     // Resolve authentication first. OAuth2 client credentials may perform a
     // token exchange and mutate the context, so it runs before the lazy
     // interpolator below borrows the context.
@@ -301,23 +302,23 @@ impl Request {
     };
 
     // Resolve the body
-    let (client, request) = {
+    let (middleware, request) = {
       let mut pool2 = pool.lock().unwrap();
-      let client = pool2.entry(domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap());
+      let entry = pool2.entry(domain).or_insert_with(|| ClientEntry::new(config.no_check_certificate));
 
       let request = match self.body.as_ref() {
         Some(Body::Template(template_body)) => {
           interpolated_body = uninterpolator.get_or_insert(interpolator::Interpolator::new(context)).resolve(template_body, !config.relaxed_interpolations);
-          client.request(method, request_url.as_str()).body(interpolated_body)
+          entry.client.request(method, request_url.as_str()).body(interpolated_body)
         }
-        Some(Body::Binary(binary_body)) => client.request(method, request_url.as_str()).body(binary_body.clone()),
+        Some(Body::Binary(binary_body)) => entry.client.request(method, request_url.as_str()).body(binary_body.clone()),
         Some(Body::UrlEncoded(params)) => {
           let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
           let encoded: Vec<(String, String)> = params
             .iter()
             .map(|(key, value)| (key.clone(), interpolator.resolve(value, !config.relaxed_interpolations)))
             .collect();
-          client.request(method, request_url.as_str()).form(&encoded)
+          entry.client.request(method, request_url.as_str()).form(&encoded)
         }
         Some(Body::FormData(parts)) => {
           let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
@@ -341,7 +342,7 @@ impl Request {
               form = form.text(key, value);
             }
           }
-          client.request(method, request_url.as_str()).multipart(form)
+          entry.client.request(method, request_url.as_str()).multipart(form)
         }
         Some(Body::GraphQL { query, variables }) => {
           let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
@@ -354,12 +355,12 @@ impl Request {
             json!(map)
           });
           let payload = json!({ "query": query, "variables": variables });
-          client.request(method, request_url.as_str()).json(&payload)
+          entry.client.request(method, request_url.as_str()).json(&payload)
         }
-        None => client.request(method, request_url.as_str()),
+        None => entry.client.request(method, request_url.as_str()),
       };
 
-      (client.clone(), request)
+      (entry.middleware.clone(), request)
     };
 
     // Headers
@@ -392,39 +393,43 @@ impl Request {
       log_request(&request);
     }
 
+    let metrics = metrics::new_metrics();
+    let mut extensions = http::Extensions::new();
+    extensions.insert(metrics.clone());
+
     let begin = Instant::now();
-    let response_result = client.execute(request).await;
+    let response_result = middleware.execute_with_extensions(request, &mut extensions).await;
 
     let mut response = match response_result {
       Err(e) => {
-        let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
+        let metrics = metrics.lock().unwrap().clone();
         if !config.quiet || config.verbose {
           println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
         }
-        return (None, duration_ms);
+        return (None, metrics);
       }
       Ok(response) => response,
     };
 
-    // Snapshot everything that borrows the response before the body stream is
-    // consumed below.
+    // Snapshot everything that borrows the response before the body is consumed.
     let url = response.url().clone();
     let status = response.status();
     let headers = response.headers().clone();
     let cookies: Vec<(String, String)> = response.cookies().map(|cookie| (cookie.name().to_string(), cookie.value().to_string())).collect();
 
+    let mut metrics = metrics.lock().unwrap().clone();
+
     // Read the full response body so the measured latency reflects
     // time-to-last-byte, matching wrk, k6, vegeta and other load-testing tools.
-    // The timer previously stopped at the response headers, which under-reported
-    // any endpoint serving a non-trivial body (files, large JSON).
-    //
     // The body is drained one chunk at a time. It is only buffered when an
     // `assign` needs to decode it; otherwise each chunk is dropped immediately,
     // so peak memory stays O(chunk) rather than O(body) even for large responses.
     let mut body_buf = self.assign.is_some().then(Vec::new);
+    let mut size_download = 0u64;
     let drain_result = loop {
       match response.chunk().await {
         Ok(Some(chunk)) => {
+          size_download += chunk.len() as u64;
           if let Some(buf) = body_buf.as_mut() {
             buf.extend_from_slice(&chunk);
           }
@@ -433,13 +438,20 @@ impl Request {
         Err(e) => break Err(e),
       }
     };
-    let duration_ms = begin.elapsed().as_secs_f64() * 1000.0;
+
+    let response_header_size = header_size_response(&headers);
+    let body_bytes = body_buf.unwrap_or_default();
+
+    metrics.time_total_ms = begin.elapsed().as_secs_f64() * 1000.0;
+    metrics.size_header_response = response_header_size;
+    metrics.size_download = size_download;
+    metrics.size_total = metrics.size_request + response_header_size + size_download;
 
     if let Err(e) = drain_result {
       if !config.quiet || config.verbose {
         println!("Error reading body '{}': {:?}", interpolated_base_url.as_str(), e);
       }
-      return (None, duration_ms);
+      return (None, metrics);
     }
 
     if !config.quiet {
@@ -451,13 +463,12 @@ impl Request {
         status.to_string().yellow()
       };
 
-      println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(duration_ms, config.nanosec).cyan(), width = 25);
+      println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(metrics.time_total_ms, config.nanosec).cyan(), width = 25);
     }
 
-    // Decode the buffered body (only present for `assign`) using the response
-    // charset, mirroring reqwest's `Response::text`, so non-UTF-8 bodies are not
-    // corrupted.
-    let body = body_buf.map(|buf| decode_body(&headers, &buf));
+    // Decode the body (only present for `assign`) using the response charset,
+    // mirroring reqwest's `Response::text`, so non-UTF-8 bodies are not corrupted.
+    let body = self.assign.is_some().then(|| decode_body(&headers, &body_bytes));
 
     (
       Some(ResponseData {
@@ -467,7 +478,7 @@ impl Request {
         cookies,
         body,
       }),
-      duration_ms,
+      metrics,
     )
   }
 
@@ -543,12 +554,12 @@ impl Request {
 
     let token_url_parsed = Url::parse(&token_url).expect("Invalid token url");
     let token_domain = format!("{}://{}:{}", token_url_parsed.scheme(), token_url_parsed.host_str().unwrap(), token_url_parsed.port().unwrap_or(0));
-    let client = {
+    let entry = {
       let mut pool2 = pool.lock().unwrap();
-      pool2.entry(token_domain).or_insert_with(|| ClientBuilder::default().danger_accept_invalid_certs(config.no_check_certificate).build().unwrap()).clone()
+      pool2.entry(token_domain).or_insert_with(|| ClientEntry::new(config.no_check_certificate)).clone()
     };
 
-    let response = client.post(&token_url).form(&params).send().await;
+    let response = entry.client.post(&token_url).form(&params).send().await;
     let response = match response {
       Ok(response) => response,
       Err(e) => panic!("OAuth2 token request to '{}' failed: {:?}", token_url, e),
@@ -607,6 +618,18 @@ fn charset_from_content_type(content_type: &str) -> Option<&str> {
       None
     }
   })
+}
+
+fn header_size_response(headers: &HeaderMap) -> u64 {
+  // Approximate wire size: header name + value + separator overhead.
+  headers
+    .iter()
+    .map(|(name, value)| {
+      let name_len = name.as_str().len() as u64;
+      let value_len = value.as_bytes().len() as u64;
+      name_len + value_len + 4
+    })
+    .sum()
 }
 
 /// Parses a structured `body` mapping (urlencoded, formdata or graphql) into a
@@ -703,11 +726,11 @@ impl Runnable for Request {
       context.insert("index".to_string(), json!(index));
     }
 
-    let (res, duration_ms) = self.send_request(context, pool, config).await;
+    let (res, metrics) = self.send_request(context, pool, config).await;
     let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
 
     let log_message_response = if config.verbose {
-      Some(log_message_response(&res, duration_ms))
+      Some(log_message_response(&res, &metrics))
     } else {
       None
     };
@@ -715,18 +738,20 @@ impl Runnable for Request {
     match res {
       None => reports.push(Report {
         name: self.name.to_owned(),
-        duration: duration_ms,
+        duration: metrics.time_total_ms,
         status: 520u16,
         timestamp,
+        metrics: metrics.clone(),
       }),
       Some(response) => {
         let status = response.status.as_u16();
 
         reports.push(Report {
           name: self.name.to_owned(),
-          duration: duration_ms,
+          duration: metrics.time_total_ms,
           status,
           timestamp,
+          metrics: metrics.clone(),
         });
 
         for (name, value) in &response.cookies {
@@ -777,7 +802,15 @@ impl Runnable for Request {
             "body": data.clone().unwrap_or_default(),
             "headers": response_headers,
             "url": response.url.to_string(),
-            "duration": duration_ms,
+            "duration": metrics.time_total_ms,
+            "time_starttransfer_ms": metrics.time_starttransfer_ms,
+            "time_total_ms": metrics.time_total_ms,
+            "size_upload": metrics.size_upload,
+            "size_download": metrics.size_download,
+            "size_request": metrics.size_request,
+            "size_header_request": metrics.size_header_request,
+            "size_header_response": metrics.size_header_response,
+            "size_total": metrics.size_total,
           }),
         );
 
@@ -798,14 +831,17 @@ fn log_request(request: &reqwest::Request) {
   println!("{message}");
 }
 
-fn log_message_response(response: &Option<ResponseData>, duration_ms: f64) -> String {
+fn log_message_response(response: &Option<ResponseData>, metrics: &RequestMetrics) -> String {
   let mut message = String::new();
   match response {
     Some(response) => {
       write!(message, " {} {},", "URL:".bold(), response.url).unwrap();
       write!(message, " {} {},", "STATUS:".bold(), response.status).unwrap();
       write!(message, " {} {:?}", "HEADERS:".bold(), response.headers).unwrap();
-      write!(message, " {} {:.4} ms,", "DURATION:".bold(), duration_ms).unwrap();
+      write!(message, " {} {:.4} ms,", "DURATION:".bold(), metrics.time_total_ms).unwrap();
+      write!(message, " {} {:.4} ms,", "TTFB:".bold(), metrics.time_starttransfer_ms).unwrap();
+      write!(message, " {} {} bytes,", "UPLOAD:".bold(), metrics.size_upload).unwrap();
+      write!(message, " {} {} bytes", "DOWNLOAD:".bold(), metrics.size_download).unwrap();
     }
     None => {
       message = String::from("No response from server!");
@@ -1413,12 +1449,12 @@ request:
     let config = test_config();
 
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-    let (response, duration_ms) = runtime.block_on(request.send_request(&mut context, &pool, &config));
+    let (response, metrics) = runtime.block_on(request.send_request(&mut context, &pool, &config));
 
     server.join().unwrap();
 
     assert!(response.is_some(), "expected a successful response");
-    assert!(duration_ms >= 250.0, "measured {duration_ms}ms; expected >= 250ms to include the 300ms body-transfer delay");
+    assert!(metrics.time_total_ms >= 250.0, "measured {}ms; expected >= 250ms to include the 300ms body-transfer delay", metrics.time_total_ms);
   }
 
   /// A request without `assign` must still fully drain a large body (so the
@@ -1456,13 +1492,70 @@ request:
     let config = test_config();
 
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-    let (response, _duration_ms) = runtime.block_on(request.send_request(&mut context, &pool, &config));
+    let (response, _metrics) = runtime.block_on(request.send_request(&mut context, &pool, &config));
 
     server.join().unwrap();
 
     let response = response.expect("expected a successful response after draining the body");
     assert_eq!(response.status.as_u16(), 200);
     assert!(response.body.is_none(), "a non-assign body must be drained and dropped, not retained");
+  }
+
+  /// Metrics are captured end-to-end: TTFB, total duration, request body size,
+  /// response body size and total transfer size are all populated.
+  #[test]
+  fn captures_request_metrics() {
+    use std::collections::HashMap;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::{Arc, Mutex};
+    use std::thread;
+
+    let body = r#"{"ok": true}"#;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+
+    thread::spawn(move || {
+      let (mut stream, _) = listener.accept().unwrap();
+      let mut buf = [0u8; 8192];
+      let n = stream.read(&mut buf).unwrap();
+      let request = String::from_utf8_lossy(&buf[..n]);
+      assert!(request.contains("hello=world"), "request body should contain the urlencoded payload");
+
+      let head = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.len(),
+        body
+      );
+      stream.write_all(head.as_bytes()).unwrap();
+      stream.flush().unwrap();
+    });
+
+    let url = format!("http://{addr}/echo");
+    let yaml: YamlValue = serde_yaml::from_str(&format!(
+      r#"name: metrics-test
+request:
+  url: {url}
+  method: POST
+  body: hello=world
+"#
+    ))
+    .unwrap();
+    let request = Request::new(&yaml, None, None);
+    let mut context: Context = Context::new();
+    let pool: Pool = Arc::new(Mutex::new(HashMap::new()));
+    let config = test_config();
+
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    let (response, metrics) = runtime.block_on(request.send_request(&mut context, &pool, &config));
+
+    assert!(response.is_some(), "expected a successful response");
+    assert!(metrics.time_total_ms > 0.0, "time_total_ms should be recorded");
+    assert!(metrics.time_starttransfer_ms > 0.0, "time_starttransfer_ms should be recorded");
+    assert!(metrics.time_starttransfer_ms <= metrics.time_total_ms, "TTFB should not exceed total time");
+    assert!(metrics.size_upload > 0, "upload size should be recorded for POST body");
+    assert!(metrics.size_download > 0, "download size should be recorded for response body");
+    assert!(metrics.size_total > metrics.size_upload + metrics.size_download, "size_total should include headers");
   }
 
   #[test]
