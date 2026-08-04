@@ -237,13 +237,19 @@ fn read_load_shape_configuration(config_doc: &Value) -> Option<LoadShapeConfig> 
     let users = stage.get("users").and_then(|v| v.as_u64()).expect("load_shape stage requires a users count");
     let spawn_rate = stage.get("spawn_rate").and_then(|v| v.as_u64());
 
-    parsed.push(LoadShapeStage { duration, users, spawn_rate });
+    parsed.push(LoadShapeStage {
+      duration,
+      users,
+      spawn_rate,
+    });
   }
 
   if parsed.is_empty() {
     None
   } else {
-    Some(LoadShapeConfig { stages: parsed })
+    Some(LoadShapeConfig {
+      stages: parsed,
+    })
   }
 }
 

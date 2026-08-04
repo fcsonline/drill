@@ -73,10 +73,7 @@ impl Save {
     let body = Self::body_as_json(last_response)?;
 
     match &self.jsonpath {
-      Some(path) => jsonpath_lib::select(&body, path)
-        .ok()
-        .and_then(|mut matches| matches.drain(..).next())
-        .cloned(),
+      Some(path) => jsonpath_lib::select(&body, path).ok().and_then(|mut matches| matches.drain(..).next()).cloned(),
       None => Some(body),
     }
   }
@@ -87,16 +84,7 @@ impl Save {
   fn save_header(&self, last_response: &Value) -> Option<Value> {
     let headers = last_response.get("headers")?;
 
-    headers
-      .get(&self.key)
-      .or_else(|| {
-        headers
-          .as_object()?
-          .iter()
-          .find(|(name, _)| name.eq_ignore_ascii_case(&self.key))
-          .map(|(_, value)| value)
-      })
-      .cloned()
+    headers.get(&self.key).or_else(|| headers.as_object()?.iter().find(|(name, _)| name.eq_ignore_ascii_case(&self.key)).map(|(_, value)| value)).cloned()
   }
 
   fn save_status(&self, last_response: &Value) -> Option<Value> {
@@ -120,11 +108,7 @@ impl Runnable for Save {
     }
 
     let Some(last_response) = context.get(LAST_RESPONSE_KEY).cloned() else {
-      eprintln!(
-        "{} 'save' needs a previous request: no '{}' entry in the context. Add an 'assign' request before it.",
-        "WARNING!".yellow().bold(),
-        LAST_RESPONSE_KEY
-      );
+      eprintln!("{} 'save' needs a previous request: no '{}' entry in the context. Add an 'assign' request before it.", "WARNING!".yellow().bold(), LAST_RESPONSE_KEY);
       return;
     };
 
@@ -144,11 +128,7 @@ impl Runnable for Save {
         context.insert(self.key.clone(), value);
       }
       None => {
-        eprintln!(
-          "{} 'save' could not extract '{}' from the last response.",
-          "WARNING!".yellow().bold(),
-          self.key
-        );
+        eprintln!("{} 'save' could not extract '{}' from the last response.", "WARNING!".yellow().bold(), self.key);
       }
     }
   }
@@ -252,10 +232,7 @@ mod tests {
 
     save.execute(&mut context, &mut reports, &empty_pool(), &empty_config()).await;
 
-    assert_eq!(
-      context.get("payload"),
-      Some(&json!({"user": "x", "roles": ["admin"]}))
-    );
+    assert_eq!(context.get("payload"), Some(&json!({"user": "x", "roles": ["admin"]})));
   }
 
   #[tokio::test]

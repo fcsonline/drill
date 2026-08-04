@@ -72,10 +72,7 @@ fn compute_all_stats(reports: &[Report], duration: f64) -> Vec<Stats> {
     by_name.entry(report.name.clone()).or_default().push(report);
   }
 
-  let mut stats: Vec<Stats> = by_name
-    .iter()
-    .map(|(name, reps)| compute_stats(name, reps, duration))
-    .collect();
+  let mut stats: Vec<Stats> = by_name.iter().map(|(name, reps)| compute_stats(name, reps, duration)).collect();
 
   stats.sort_by_key(|s| s.name.clone());
   let total_refs: Vec<&Report> = reports.iter().collect();
@@ -251,10 +248,7 @@ fn write_html(stats: &[Stats], reports: &[&Report], duration: f64, output_dir: &
     .collect();
 
   let failures = compute_failures(reports);
-  let failure_rows: String = failures
-    .iter()
-    .map(|(name, count)| format!("<tr><td>{name}</td><td>{count}</td></tr>", name = html_escape(name), count = count))
-    .collect();
+  let failure_rows: String = failures.iter().map(|(name, count)| format!("<tr><td>{name}</td><td>{count}</td></tr>", name = html_escape(name), count = count)).collect();
 
   let rps_chart = rps_over_time_svg(reports, duration);
   let avg_chart = average_response_time_svg(stats);
@@ -352,7 +346,7 @@ fn rps_over_time_svg(reports: &[&Report], duration: f64) -> String {
   let chart_width = width - padding * 2;
   let chart_height = height - padding * 2;
 
-    let points: Vec<String> = buckets
+  let points: Vec<String> = buckets
     .iter()
     .enumerate()
     .map(|(i, &count)| {
@@ -488,11 +482,7 @@ mod tests {
 
   #[test]
   fn computes_basic_stats() {
-    let reports: Vec<Report> = vec![
-      report("a", 10.0, 200, 0.0),
-      report("a", 20.0, 200, 1.0),
-      report("a", 30.0, 500, 2.0),
-    ];
+    let reports: Vec<Report> = vec![report("a", 10.0, 200, 0.0), report("a", 20.0, 200, 1.0), report("a", 30.0, 500, 2.0)];
     let report_refs: Vec<&Report> = reports.iter().collect();
 
     let stats = compute_stats("a", &report_refs, 3.0);
@@ -506,11 +496,7 @@ mod tests {
 
   #[test]
   fn generates_csv_file() {
-    let reports: Vec<Vec<Report>> = vec![
-      vec![report("a", 10.0, 200, 0.0)],
-      vec![report("a", 20.0, 200, 1.0)],
-      vec![report("b", 30.0, 500, 2.0)],
-    ];
+    let reports: Vec<Vec<Report>> = vec![vec![report("a", 10.0, 200, 0.0)], vec![report("a", 20.0, 200, 1.0)], vec![report("b", 30.0, 500, 2.0)]];
 
     let tmp = tempfile::tempdir().unwrap();
     let config = ResultsConfig {
@@ -531,11 +517,7 @@ mod tests {
 
   #[test]
   fn generates_html_file() {
-    let reports: Vec<Vec<Report>> = vec![
-      vec![report("a", 10.0, 200, 0.0)],
-      vec![report("a", 20.0, 200, 1.0)],
-      vec![report("b", 30.0, 500, 2.0)],
-    ];
+    let reports: Vec<Vec<Report>> = vec![vec![report("a", 10.0, 200, 0.0)], vec![report("a", 20.0, 200, 1.0)], vec![report("b", 30.0, 500, 2.0)]];
 
     let tmp = tempfile::tempdir().unwrap();
     let config = ResultsConfig {

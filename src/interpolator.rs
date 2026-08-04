@@ -98,10 +98,7 @@ fn resolve_dynamic(capture: &str) -> Option<String> {
 
     // Time
     "timestamp" => {
-      let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .ok()?
-        .as_secs();
+      let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_secs();
       Some(secs.to_string())
     }
     "isoTimestamp" => Some(chrono::Utc::now().to_rfc3339()),
@@ -118,12 +115,8 @@ fn resolve_dynamic(capture: &str) -> Option<String> {
     "randomBoolean" => faker::resolve("boolean"),
 
     // Strings
-    name if name.starts_with("randomHex") => {
-      Some(random_hex(parse_optional_len(name, "randomHex")))
-    }
-    name if name.starts_with("randomAlphaNumeric") => {
-      Some(random_alphanumeric(parse_optional_len(name, "randomAlphaNumeric")))
-    }
+    name if name.starts_with("randomHex") => Some(random_hex(parse_optional_len(name, "randomHex"))),
+    name if name.starts_with("randomAlphaNumeric") => Some(random_alphanumeric(parse_optional_len(name, "randomAlphaNumeric"))),
 
     // Fake-backed
     "randomFirstName" => faker::resolve("first_name"),
@@ -157,10 +150,7 @@ where
 }
 
 fn parse_optional_len(name: &str, prefix: &str) -> usize {
-  parse_arg_list(name, prefix)
-    .and_then(|args| args.into_iter().next())
-    .and_then(|arg| arg.parse().ok())
-    .unwrap_or(16)
+  parse_arg_list(name, prefix).and_then(|args| args.into_iter().next()).and_then(|arg| arg.parse().ok()).unwrap_or(16)
 }
 
 fn random_hex(len: usize) -> String {
@@ -190,9 +180,7 @@ fn resolve_faker(capture: &str) -> Option<String> {
 }
 
 fn parse_fake_locale(rest: &str) -> (&str, &str) {
-  let locales = [
-    "zh_cn", "zh_tw", "fr_fr", "de_de", "it_it", "ja_jp", "pt_br", "pt_pt", "ar_sa", "cy_gb",
-  ];
+  let locales = ["zh_cn", "zh_tw", "fr_fr", "de_de", "it_it", "ja_jp", "pt_br", "pt_pt", "ar_sa", "cy_gb"];
 
   match rest.split_once('.') {
     Some((head, tail)) if locales.contains(&head) => (head, tail),
@@ -401,15 +389,9 @@ mod tests {
     let context: Context = Context::new();
     let interpolator = Interpolator::new(&context);
 
-    let before = std::time::SystemTime::now()
-      .duration_since(std::time::UNIX_EPOCH)
-      .unwrap()
-      .as_secs();
+    let before = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
     let ts: u64 = interpolator.resolve("{{ $timestamp }}", true).parse().unwrap();
-    let after = std::time::SystemTime::now()
-      .duration_since(std::time::UNIX_EPOCH)
-      .unwrap()
-      .as_secs();
+    let after = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
     assert!((before..=after).contains(&ts));
 
     let iso = interpolator.resolve("{{ isoTimestamp }}", true);
@@ -500,10 +482,7 @@ mod tests {
     let context: Context = Context::new();
     let interpolator = Interpolator::new(&context);
 
-    let url = interpolator.resolve(
-      "/api?ts={{ $timestamp }}&id={{ $guid }}&name={{ $randomFirstName }}",
-      true,
-    );
+    let url = interpolator.resolve("/api?ts={{ $timestamp }}&id={{ $guid }}&name={{ $randomFirstName }}", true);
     assert!(!url.contains("{{"));
     assert!(url.starts_with("/api?ts="));
 

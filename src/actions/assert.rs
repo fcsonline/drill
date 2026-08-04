@@ -101,12 +101,7 @@ impl Assert {
   }
 
   fn last_response(&self, context: &Context) -> Value {
-    context.get(LAST_RESPONSE_KEY).cloned().unwrap_or_else(|| {
-      panic!(
-        "Assert needs a previous request: no '{}' entry in the context.",
-        LAST_RESPONSE_KEY
-      )
-    })
+    context.get(LAST_RESPONSE_KEY).cloned().unwrap_or_else(|| panic!("Assert needs a previous request: no '{}' entry in the context.", LAST_RESPONSE_KEY))
   }
 
   fn execute_equals(&self, context: &Context) {
@@ -135,24 +130,12 @@ impl Assert {
     let last_response = self.last_response(context);
     let headers = last_response.get("headers").unwrap_or_else(|| panic!("Header assertion needs 'headers' in the last response"));
 
-    let header_value = headers
-      .get(self.key.to_lowercase())
-      .or_else(|| {
-        headers
-          .as_object()?
-          .iter()
-          .find(|(name, _)| name.eq_ignore_ascii_case(&self.key))
-          .map(|(_, value)| value)
-      })
-      .and_then(|v| v.as_str());
+    let header_value = headers.get(self.key.to_lowercase()).or_else(|| headers.as_object()?.iter().find(|(name, _)| name.eq_ignore_ascii_case(&self.key)).map(|(_, value)| value)).and_then(|v| v.as_str());
 
     match header_value {
       Some(value) => {
         if !value.to_lowercase().contains(&self.value.to_lowercase()) {
-          panic!(
-            "Header assertion mismatched: header '{}' value '{value}' does not contain '{}'",
-            self.key, self.value
-          );
+          panic!("Header assertion mismatched: header '{}' value '{value}' does not contain '{}'", self.key, self.value);
         }
       }
       None => panic!("Header assertion mismatched: header '{}' not found in the last response", self.key),
@@ -165,11 +148,9 @@ impl Assert {
       panic!("JsonPath assertion needs a string 'body' in the last response, got {:?}", last_response.get("body"));
     });
 
-    let body_json: Value = serde_json::from_str(body)
-      .unwrap_or_else(|e| panic!("JsonPath assertion failed: response body is not valid JSON: {e}"));
+    let body_json: Value = serde_json::from_str(body).unwrap_or_else(|e| panic!("JsonPath assertion failed: response body is not valid JSON: {e}"));
 
-    let matches = jsonpath_lib::select(&body_json, &self.key)
-      .unwrap_or_else(|e| panic!("JsonPath assertion failed: invalid path '{}': {e}", self.key));
+    let matches = jsonpath_lib::select(&body_json, &self.key).unwrap_or_else(|e| panic!("JsonPath assertion failed: invalid path '{}': {e}", self.key));
 
     let Some(found) = matches.first() else {
       panic!("JsonPath assertion mismatched: no match for path '{}'", self.key);
@@ -208,10 +189,7 @@ impl Assert {
 fn parse_status_codes(value: &YamlValue) -> Vec<u16> {
   match value {
     YamlValue::Number(_) => vec![integer(value, "Status value must be a positive integer") as u16],
-    YamlValue::Sequence(seq) => seq
-      .iter()
-      .map(|v| integer(v, "Status codes must be positive integers") as u16)
-      .collect(),
+    YamlValue::Sequence(seq) => seq.iter().map(|v| integer(v, "Status codes must be positive integers") as u16).collect(),
     other => panic!("Status value must be an integer or a list of integers, got {:?}", other),
   }
 }
@@ -342,10 +320,7 @@ mod tests {
 
   #[test]
   fn new_parses_header() {
-    let assert = Assert::new(
-      &assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: content-type\n  value: application/json"),
-      None,
-    );
+    let assert = Assert::new(&assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: content-type\n  value: application/json"), None);
 
     assert_eq!(assert.assert_type, AssertType::Header);
     assert_eq!(assert.key, "content-type");
@@ -432,10 +407,7 @@ mod tests {
 
   #[tokio::test]
   async fn header_substring_match_passes() {
-    let assert = Assert::new(
-      &assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: content-type\n  value: application/json"),
-      None,
-    );
+    let assert = Assert::new(&assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: content-type\n  value: application/json"), None);
     let mut headers = Map::new();
     headers.insert("content-type".to_string(), json!("application/json; charset=utf-8"));
     let mut context = last_response(200, "", headers, 10.0);
@@ -445,10 +417,7 @@ mod tests {
 
   #[tokio::test]
   async fn header_match_is_case_insensitive() {
-    let assert = Assert::new(
-      &assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: CONTENT-TYPE\n  value: Application/JSON"),
-      None,
-    );
+    let assert = Assert::new(&assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: CONTENT-TYPE\n  value: Application/JSON"), None);
     let mut headers = Map::new();
     headers.insert("content-type".to_string(), json!("application/json"));
     let mut context = last_response(200, "", headers, 10.0);
@@ -459,10 +428,7 @@ mod tests {
   #[tokio::test]
   #[should_panic(expected = "Header assertion mismatched")]
   async fn header_missing_fails() {
-    let assert = Assert::new(
-      &assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: x-missing\n  value: anything"),
-      None,
-    );
+    let assert = Assert::new(&assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: x-missing\n  value: anything"), None);
     let mut context = last_response(200, "", Map::new(), 10.0);
 
     run(&assert, &mut context).await;
@@ -471,10 +437,7 @@ mod tests {
   #[tokio::test]
   #[should_panic(expected = "Header assertion mismatched")]
   async fn header_value_not_contained_fails() {
-    let assert = Assert::new(
-      &assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: content-type\n  value: text/html"),
-      None,
-    );
+    let assert = Assert::new(&assert_yaml("---\nname: Check header\nassert:\n  type: header\n  key: content-type\n  value: text/html"), None);
     let mut headers = Map::new();
     headers.insert("content-type".to_string(), json!("application/json"));
     let mut context = last_response(200, "", headers, 10.0);

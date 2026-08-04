@@ -40,7 +40,10 @@ impl ClientEntry {
   pub fn new(danger_accept_invalid_certs: bool) -> Self {
     let client = ReqwestClientBuilder::default().danger_accept_invalid_certs(danger_accept_invalid_certs).build().unwrap();
     let middleware = ClientBuilder::new(client.clone()).with(MetricsMiddleware::new()).build();
-    ClientEntry { client, middleware }
+    ClientEntry {
+      client,
+      middleware,
+    }
   }
 }
 
@@ -118,10 +121,13 @@ fn compute_load_shape_schedule(load_shape: &crate::config::LoadShapeConfig, iter
     current_users = end_users;
   }
 
-  let cumulative: Vec<u64> = users_per_second.iter().scan(0u64, |acc, &u| {
-    *acc += u;
-    Some(*acc)
-  }).collect();
+  let cumulative: Vec<u64> = users_per_second
+    .iter()
+    .scan(0u64, |acc, &u| {
+      *acc += u;
+      Some(*acc)
+    })
+    .collect();
 
   let total_user_seconds = cumulative.last().copied().unwrap_or(0);
   let iterations = iterations.max(1);
@@ -178,7 +184,18 @@ fn join<S: ToString>(l: Vec<S>, sep: &str) -> String {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn execute(benchmark_path: &str, vars_path: Option<&str>, report_path_option: Option<&str>, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: Option<&str>, verbose: bool, tags: &Tags) -> BenchmarkResult {
+pub fn execute(
+  benchmark_path: &str,
+  vars_path: Option<&str>,
+  report_path_option: Option<&str>,
+  relaxed_interpolations: bool,
+  no_check_certificate: bool,
+  quiet: bool,
+  nanosec: bool,
+  timeout: Option<&str>,
+  verbose: bool,
+  tags: &Tags,
+) -> BenchmarkResult {
   let mut config = Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose);
 
   if let Some(vars_path) = vars_path {
@@ -301,8 +318,8 @@ mod tests {
 
   use serde_yaml::Value;
 
-  use crate::benchmark::{Benchmark, has_weights};
   use crate::actions::Assign;
+  use crate::benchmark::{Benchmark, has_weights};
 
   fn yaml(text: &str) -> Value {
     let docs = crate::reader::read_file_as_yml_from_str(text);
@@ -311,20 +328,14 @@ mod tests {
 
   #[test]
   fn has_weights_false_when_all_default() {
-    let benchmark: Benchmark = vec![
-      Box::new(Assign::new(&yaml("---\nname: A\nassign:\n  key: a\n  value: '1'"), None)),
-      Box::new(Assign::new(&yaml("---\nname: B\nassign:\n  key: b\n  value: '2'"), None)),
-    ];
+    let benchmark: Benchmark = vec![Box::new(Assign::new(&yaml("---\nname: A\nassign:\n  key: a\n  value: '1'"), None)), Box::new(Assign::new(&yaml("---\nname: B\nassign:\n  key: b\n  value: '2'"), None))];
 
     assert!(!has_weights(&benchmark));
   }
 
   #[test]
   fn has_weights_true_when_any_differ() {
-    let benchmark: Benchmark = vec![
-      Box::new(Assign::new(&yaml("---\nname: A\nassign:\n  key: a\n  value: '1'\nweight: 3"), None)),
-      Box::new(Assign::new(&yaml("---\nname: B\nassign:\n  key: b\n  value: '2'"), None)),
-    ];
+    let benchmark: Benchmark = vec![Box::new(Assign::new(&yaml("---\nname: A\nassign:\n  key: a\n  value: '1'\nweight: 3"), None)), Box::new(Assign::new(&yaml("---\nname: B\nassign:\n  key: b\n  value: '2'"), None))];
 
     assert!(has_weights(&benchmark));
   }
@@ -335,8 +346,16 @@ mod tests {
 
     let load_shape = LoadShapeConfig {
       stages: vec![
-        LoadShapeStage { duration: 2, users: 10, spawn_rate: None },
-        LoadShapeStage { duration: 2, users: 10, spawn_rate: None },
+        LoadShapeStage {
+          duration: 2,
+          users: 10,
+          spawn_rate: None,
+        },
+        LoadShapeStage {
+          duration: 2,
+          users: 10,
+          spawn_rate: None,
+        },
       ],
     };
 

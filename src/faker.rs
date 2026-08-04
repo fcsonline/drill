@@ -11,9 +11,7 @@ use fake::faker::lorem::raw::*;
 use fake::faker::name::raw::*;
 use fake::faker::number::raw::{Digit, NumberWithFormat};
 use fake::faker::phone_number::raw::*;
-use fake::locales::{
-  AR_SA, CY_GB, DE_DE, EN, FR_FR, IT_IT, JA_JP, PT_BR, PT_PT, ZH_CN, ZH_TW,
-};
+use fake::locales::{AR_SA, CY_GB, DE_DE, EN, FR_FR, IT_IT, JA_JP, PT_BR, PT_PT, ZH_CN, ZH_TW};
 
 /// Resolve a fake value for a key in the `fake.` namespace using the default
 /// English locale.
@@ -36,14 +34,7 @@ fn random_uuid() -> String {
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
   let encoded = hex::encode(bytes);
-  format!(
-    "{}-{}-{}-{}-{}",
-    &encoded[0..8],
-    &encoded[8..12],
-    &encoded[12..16],
-    &encoded[16..20],
-    &encoded[20..32]
-  )
+  format!("{}-{}-{}-{}-{}", &encoded[0..8], &encoded[8..12], &encoded[12..16], &encoded[16..20], &encoded[20..32])
 }
 
 macro_rules! resolve_with_locale {

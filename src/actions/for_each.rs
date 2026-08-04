@@ -133,13 +133,16 @@ mod tests {
 
   fn test_context() -> Context {
     let mut context = Context::new();
-    context.insert("users".to_string(), json!({
-      "body": [
-        { "id": 1, "name": "Alice" },
-        { "id": 2, "name": "Bob" },
-        { "id": 3, "name": "Carol" }
-      ]
-    }));
+    context.insert(
+      "users".to_string(),
+      json!({
+        "body": [
+          { "id": 1, "name": "Alice" },
+          { "id": 2, "name": "Bob" },
+          { "id": 3, "name": "Carol" }
+        ]
+      }),
+    );
     context
   }
 

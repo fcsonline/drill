@@ -21,8 +21,8 @@ use url::Url;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use crate::actions::{extract, extract_optional};
 use crate::actions::save::LAST_RESPONSE_KEY;
+use crate::actions::{extract, extract_optional};
 use crate::benchmark::{ClientEntry, Context, Pool, Reports};
 use crate::config::Config;
 use crate::interpolator;
@@ -64,9 +64,18 @@ pub enum ApiKeyLocation {
 /// `apikey`, `oauth2` (`client_credentials` flow), `basic` or `bearer`.
 #[derive(Clone)]
 pub enum AuthConfig {
-  Basic { username: String, password: String },
-  Bearer { token: String },
-  ApiKey { key: String, value: String, location: ApiKeyLocation },
+  Basic {
+    username: String,
+    password: String,
+  },
+  Bearer {
+    token: String,
+  },
+  ApiKey {
+    key: String,
+    value: String,
+    location: ApiKeyLocation,
+  },
   OAuth2ClientCredentials {
     token_url: String,
     client_id: String,
@@ -175,40 +184,53 @@ impl Request {
       }
     }
 
-    let auth = request_val.get("auth").map(|auth_val| {
-      match extract(auth_val, "type").to_lowercase().as_str() {
-        "apikey" => {
-          let key = extract(auth_val, "key");
-          let value = extract(auth_val, "value");
-          let location = match extract(auth_val, "in").to_lowercase().as_str() {
-            "query" => ApiKeyLocation::Query,
-            _ => ApiKeyLocation::Header,
-          };
-          AuthConfig::ApiKey { key, value, location }
+    let auth = request_val.get("auth").map(|auth_val| match extract(auth_val, "type").to_lowercase().as_str() {
+      "apikey" => {
+        let key = extract(auth_val, "key");
+        let value = extract(auth_val, "value");
+        let location = match extract(auth_val, "in").to_lowercase().as_str() {
+          "query" => ApiKeyLocation::Query,
+          _ => ApiKeyLocation::Header,
+        };
+        AuthConfig::ApiKey {
+          key,
+          value,
+          location,
         }
-        "oauth2" => {
-          let flow = extract(auth_val, "flow").to_lowercase();
-          if flow != "client_credentials" {
-            panic!("{} Only the 'client_credentials' OAuth2 flow is supported!", "WARNING!".yellow().bold());
-          }
-          let token_url = extract(auth_val, "token_url");
-          let client_id = extract(auth_val, "client_id");
-          let client_secret = extract(auth_val, "client_secret");
-          let scope = extract_optional(auth_val, "scope");
-          let save_token_as = extract_optional(auth_val, "save_token_as");
-          AuthConfig::OAuth2ClientCredentials { token_url, client_id, client_secret, scope, save_token_as }
-        }
-        "basic" => {
-          let username = extract(auth_val, "username");
-          let password = extract(auth_val, "password");
-          AuthConfig::Basic { username, password }
-        }
-        "bearer" => {
-          let token = extract(auth_val, "token");
-          AuthConfig::Bearer { token }
-        }
-        other => panic!("{} Unknown auth type '{}'!", "WARNING!".yellow().bold(), other),
       }
+      "oauth2" => {
+        let flow = extract(auth_val, "flow").to_lowercase();
+        if flow != "client_credentials" {
+          panic!("{} Only the 'client_credentials' OAuth2 flow is supported!", "WARNING!".yellow().bold());
+        }
+        let token_url = extract(auth_val, "token_url");
+        let client_id = extract(auth_val, "client_id");
+        let client_secret = extract(auth_val, "client_secret");
+        let scope = extract_optional(auth_val, "scope");
+        let save_token_as = extract_optional(auth_val, "save_token_as");
+        AuthConfig::OAuth2ClientCredentials {
+          token_url,
+          client_id,
+          client_secret,
+          scope,
+          save_token_as,
+        }
+      }
+      "basic" => {
+        let username = extract(auth_val, "username");
+        let password = extract(auth_val, "password");
+        AuthConfig::Basic {
+          username,
+          password,
+        }
+      }
+      "bearer" => {
+        let token = extract(auth_val, "token");
+        AuthConfig::Bearer {
+          token,
+        }
+      }
+      other => panic!("{} Unknown auth type '{}'!", "WARNING!".yellow().bold(), other),
     });
 
     Request {
@@ -314,10 +336,7 @@ impl Request {
         Some(Body::Binary(binary_body)) => entry.client.request(method, request_url.as_str()).body(binary_body.clone()),
         Some(Body::UrlEncoded(params)) => {
           let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
-          let encoded: Vec<(String, String)> = params
-            .iter()
-            .map(|(key, value)| (key.clone(), interpolator.resolve(value, !config.relaxed_interpolations)))
-            .collect();
+          let encoded: Vec<(String, String)> = params.iter().map(|(key, value)| (key.clone(), interpolator.resolve(value, !config.relaxed_interpolations))).collect();
           entry.client.request(method, request_url.as_str()).form(&encoded)
         }
         Some(Body::FormData(parts)) => {
@@ -344,7 +363,10 @@ impl Request {
           }
           entry.client.request(method, request_url.as_str()).multipart(form)
         }
-        Some(Body::GraphQL { query, variables }) => {
+        Some(Body::GraphQL {
+          query,
+          variables,
+        }) => {
           let interpolator = uninterpolator.get_or_insert(interpolator::Interpolator::new(context));
           let query = interpolator.resolve(query, !config.relaxed_interpolations);
           let variables = variables.as_ref().map(|variables| {
@@ -487,19 +509,28 @@ impl Request {
   /// caches a client-credentials token when needed.
   async fn resolve_auth(&self, context: &mut Context, pool: &Pool, config: &Config) -> Option<ResolvedAuth> {
     match &self.auth {
-      Some(AuthConfig::Basic { username, password }) => {
+      Some(AuthConfig::Basic {
+        username,
+        password,
+      }) => {
         let interpolator = interpolator::Interpolator::new(context);
         let username = interpolator.resolve(username, !config.relaxed_interpolations);
         let password = interpolator.resolve(password, !config.relaxed_interpolations);
         let encoded = BASE64.encode(format!("{username}:{password}"));
         Some(ResolvedAuth::Header(header::AUTHORIZATION, HeaderValue::from_str(&format!("Basic {encoded}")).expect("invalid basic auth header")))
       }
-      Some(AuthConfig::Bearer { token }) => {
+      Some(AuthConfig::Bearer {
+        token,
+      }) => {
         let interpolator = interpolator::Interpolator::new(context);
         let token = interpolator.resolve(token, !config.relaxed_interpolations);
         Some(ResolvedAuth::Header(header::AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {token}")).expect("invalid bearer token")))
       }
-      Some(AuthConfig::ApiKey { key, value, location }) => {
+      Some(AuthConfig::ApiKey {
+        key,
+        value,
+        location,
+      }) => {
         let interpolator = interpolator::Interpolator::new(context);
         let key = interpolator.resolve(key, !config.relaxed_interpolations);
         let value = interpolator.resolve(value, !config.relaxed_interpolations);
@@ -508,7 +539,9 @@ impl Request {
           ApiKeyLocation::Query => Some(ResolvedAuth::Query(key, value)),
         }
       }
-      Some(AuthConfig::OAuth2ClientCredentials { .. }) => {
+      Some(AuthConfig::OAuth2ClientCredentials {
+        ..
+      }) => {
         let token = self.oauth2_token(context, pool, config).await;
         Some(ResolvedAuth::Header(header::AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {token}")).expect("invalid oauth2 token")))
       }
@@ -522,7 +555,13 @@ impl Request {
   /// the context under `save_token_as` (expiry under `<save_token_as>_expires`).
   async fn oauth2_token(&self, context: &mut Context, pool: &Pool, config: &Config) -> String {
     let (token_url, client_id, client_secret, scope, save_token_as) = match &self.auth {
-      Some(AuthConfig::OAuth2ClientCredentials { token_url, client_id, client_secret, scope, save_token_as }) => (token_url, client_id, client_secret, scope, save_token_as),
+      Some(AuthConfig::OAuth2ClientCredentials {
+        token_url,
+        client_id,
+        client_secret,
+        scope,
+        save_token_as,
+      }) => (token_url, client_id, client_secret, scope, save_token_as),
       _ => unreachable!("oauth2_token called without an OAuth2 auth config"),
     };
 
@@ -543,11 +582,7 @@ impl Request {
     let client_secret = interpolator.resolve(client_secret, !config.relaxed_interpolations);
     let scope = scope.as_ref().map(|s| interpolator.resolve(s, !config.relaxed_interpolations));
 
-    let mut params: Vec<(String, String)> = vec![
-      ("grant_type".to_string(), "client_credentials".to_string()),
-      ("client_id".to_string(), client_id),
-      ("client_secret".to_string(), client_secret),
-    ];
+    let mut params: Vec<(String, String)> = vec![("grant_type".to_string(), "client_credentials".to_string()), ("client_id".to_string(), client_id), ("client_secret".to_string(), client_secret)];
     if let Some(scope) = scope {
       params.push(("scope".to_string(), scope));
     }
@@ -670,7 +705,10 @@ fn parse_structured_body(body: &YamlValue) -> Body {
       }
       vars
     });
-    Body::GraphQL { query, variables }
+    Body::GraphQL {
+      query,
+      variables,
+    }
   } else {
     panic!("{} Body must be string, file, hex, urlencoded, formdata or graphql!!", "WARNING!".yellow().bold());
   }
@@ -788,10 +826,7 @@ impl Runnable for Request {
         // Snapshot of the last response for later `save` plan steps.
         let mut response_headers = Map::new();
         response.headers.iter().for_each(|(header, value)| {
-          let value = value
-            .to_str()
-            .map(|s| s.to_string())
-            .unwrap_or_else(|_| String::from_utf8_lossy(value.as_bytes()).into_owned());
+          let value = value.to_str().map(|s| s.to_string()).unwrap_or_else(|_| String::from_utf8_lossy(value.as_bytes()).into_owned());
           response_headers.insert(header.to_string(), json!(value));
         });
 
@@ -1293,7 +1328,10 @@ request:
     let request = Request::new(&yaml, None, None);
 
     match request.body {
-      Some(Body::GraphQL { query, variables }) => {
+      Some(Body::GraphQL {
+        query,
+        variables,
+      }) => {
         assert_eq!(query, "query { user(id: 1) { name } }");
         let variables = variables.expect("expected variables");
         assert_eq!(variables.get("id").map(String::as_str), Some("{{ item.id }}"));
@@ -1305,10 +1343,7 @@ request:
   #[test]
   fn sends_urlencoded_body() {
     let (addr, captured) = spawn_mock_server("{}", 1);
-    let yaml: YamlValue = serde_yaml::from_str(&format!(
-      "name: test\nrequest:\n  url: http://{addr}/api\n  method: POST\n  body:\n    urlencoded:\n      key1: value1\n      key2: \"{{{{ email }}}}\"\n"
-    ))
-    .unwrap();
+    let yaml: YamlValue = serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{addr}/api\n  method: POST\n  body:\n    urlencoded:\n      key1: value1\n      key2: \"{{{{ email }}}}\"\n")).unwrap();
     let request = Request::new(&yaml, None, None);
     let mut context = Context::new();
     context.insert("email".to_string(), json!("user@example.com"));
@@ -1353,10 +1388,8 @@ request:
   #[test]
   fn sends_graphql_body() {
     let (addr, captured) = spawn_mock_server("{}", 1);
-    let yaml: YamlValue = serde_yaml::from_str(&format!(
-      "name: test\nrequest:\n  url: http://{addr}/api\n  method: POST\n  body:\n    graphql:\n      query: \"query {{ user(id: 1) {{ name }} }}\"\n      variables:\n        id: \"{{{{ item_id }}}}\"\n"
-    ))
-    .unwrap();
+    let yaml: YamlValue =
+      serde_yaml::from_str(&format!("name: test\nrequest:\n  url: http://{addr}/api\n  method: POST\n  body:\n    graphql:\n      query: \"query {{ user(id: 1) {{ name }} }}\"\n      variables:\n        id: \"{{{{ item_id }}}}\"\n")).unwrap();
     let request = Request::new(&yaml, None, None);
     let mut context = Context::new();
     context.insert("item_id".to_string(), json!("42"));
@@ -1523,11 +1556,7 @@ request:
       let request = String::from_utf8_lossy(&buf[..n]);
       assert!(request.contains("hello=world"), "request body should contain the urlencoded payload");
 
-      let head = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-        body.len(),
-        body
-      );
+      let head = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
       stream.write_all(head.as_bytes()).unwrap();
       stream.flush().unwrap();
     });
@@ -1577,7 +1606,11 @@ request:
     let request = Request::new(&yaml, None, None);
 
     match request.auth {
-      Some(AuthConfig::ApiKey { key, value, location }) => {
+      Some(AuthConfig::ApiKey {
+        key,
+        value,
+        location,
+      }) => {
         assert_eq!(key, "X-API-Key");
         assert_eq!(value, "{{ api_key }}");
         assert!(matches!(location, ApiKeyLocation::Header));
@@ -1604,7 +1637,11 @@ request:
     let request = Request::new(&yaml, None, None);
 
     match request.auth {
-      Some(AuthConfig::ApiKey { key, value, location }) => {
+      Some(AuthConfig::ApiKey {
+        key,
+        value,
+        location,
+      }) => {
         assert_eq!(key, "api_key");
         assert_eq!(value, "{{ api_key }}");
         assert!(matches!(location, ApiKeyLocation::Query));
@@ -1630,7 +1667,10 @@ request:
     let request = Request::new(&yaml, None, None);
 
     match request.auth {
-      Some(AuthConfig::Basic { username, password }) => {
+      Some(AuthConfig::Basic {
+        username,
+        password,
+      }) => {
         assert_eq!(username, "admin");
         assert_eq!(password, "secret");
       }
@@ -1654,7 +1694,9 @@ request:
     let request = Request::new(&yaml, None, None);
 
     match request.auth {
-      Some(AuthConfig::Bearer { token }) => assert_eq!(token, "my-token"),
+      Some(AuthConfig::Bearer {
+        token,
+      }) => assert_eq!(token, "my-token"),
       _ => panic!("expected Bearer auth"),
     }
   }
@@ -1680,7 +1722,13 @@ request:
     let request = Request::new(&yaml, None, None);
 
     match request.auth {
-      Some(AuthConfig::OAuth2ClientCredentials { token_url, client_id, client_secret, scope, save_token_as }) => {
+      Some(AuthConfig::OAuth2ClientCredentials {
+        token_url,
+        client_id,
+        client_secret,
+        scope,
+        save_token_as,
+      }) => {
         assert_eq!(token_url, "http://auth.example.com/token");
         assert_eq!(client_id, "my-client");
         assert_eq!(client_secret, "secret");
