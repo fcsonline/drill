@@ -106,7 +106,7 @@ impl Assert {
 
   fn execute_equals(&self, context: &Context) {
     let interpolator = interpolator::Interpolator::new(context);
-    let eval = format!("{{{{ {} }}}}", &self.key);
+    let eval = format!("{{{{ {} }}}}", self.key);
     let stored = interpolator.resolve(&eval, true);
     let assertion = json!(self.value.to_owned());
 
