@@ -1,0 +1,16 @@
+/target
+/.git
+/.githooks
+/Dockerfile
+/.dockerignore
+*.md
+*.log
+/tests
+/examples
+/.idea
+/.vscode
+/node_modules
+*.swp
+*.swo
+*~
+.DS_Store
