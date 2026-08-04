@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "postman2drill"]
+resolver = "2"
+
 [package]
 name = "drill"
 version = "0.9.1"

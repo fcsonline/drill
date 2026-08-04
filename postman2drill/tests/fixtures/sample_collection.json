@@ -1,0 +1,120 @@
+{
+  "info": {
+    "name": "Test API",
+    "_postman_id": "test-123",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://api.example.com",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-Key" },
+      { "key": "value", "value": "{{api_key}}" },
+      { "key": "in", "value": "header" }
+    ]
+  },
+  "item": [
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/login",
+          "host": ["{{base_url}}"],
+          "path": ["login"]
+        },
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{username}}\",\"password\":\"{{password}}\"}",
+          "options": { "raw": { "content-type": "application/json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', () => { pm.response.to.have.status(200); });",
+              "pm.collectionVariables.set('token', pm.response.json().token);",
+              "pm.environment.set('user_id', pm.response.jsonPath('$.user.id'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get User",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/users/{{user_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["users", "{{user_id}}"]
+        },
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ]
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Header check', () => { pm.response.to.have.header('Content-Type', 'application/json'); });",
+              "pm.test('Duration check', () => { pm.expect(pm.response.responseTime).to.be.below(500); });",
+              "pm.expect(pm.response.json().id).to.eql('{{user_id}}');"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create User Form",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/users?source=web",
+          "host": ["{{base_url}}"],
+          "path": ["users"],
+          "query": [
+            { "key": "source", "value": "web" }
+          ]
+        },
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "name", "value": "John Doe" },
+            { "key": "email", "value": "{{$randomEmail}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Upload File",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{base_url}}/upload",
+          "host": ["{{base_url}}"],
+          "path": ["upload"]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "description", "value": "test file", "type": "text" },
+            { "key": "file", "src": "./test.txt", "type": "file", "content_type": "text/plain" }
+          ]
+        }
+      }
+    }
+  ]
+}

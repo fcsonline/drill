@@ -1,0 +1,25 @@
+{
+  "info": {
+    "name": "Warnings fixture",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Digest request",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://example.com/api",
+          "protocol": "https",
+          "host": ["example", "com"],
+          "path": ["api"]
+        },
+        "auth": {
+          "type": "digest"
+        }
+      },
+      "response": []
+    }
+  ]
+}

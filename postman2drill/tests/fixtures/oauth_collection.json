@@ -1,0 +1,47 @@
+{
+  "info": {
+    "name": "OAuth2 fixture",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "OAuth2 request",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://api.example.com/resource",
+          "protocol": "https",
+          "host": ["api", "example", "com"],
+          "path": ["resource"]
+        },
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            {
+              "key": "accessTokenUrl",
+              "value": "https://auth.example.com/token",
+              "type": "string"
+            },
+            {
+              "key": "clientId",
+              "value": "client123",
+              "type": "string"
+            },
+            {
+              "key": "clientSecret",
+              "value": "secret123",
+              "type": "string"
+            },
+            {
+              "key": "scope",
+              "value": "read write",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "sample-env",
+  "name": "Sample Environment",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "https://env.example.com",
+      "enabled": true
+    },
+    {
+      "key": "api_key",
+      "value": "env-api-key",
+      "enabled": true
+    }
+  ]
+}

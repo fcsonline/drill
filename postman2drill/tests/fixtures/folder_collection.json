@@ -1,0 +1,37 @@
+{
+  "info": {
+    "name": "Folder fixture",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "API folder",
+      "item": [
+        {
+          "name": "Get user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api.example.com/users/{{ user_id }}",
+              "protocol": "https",
+              "host": ["api", "example", "com"],
+              "path": ["users", "{{ user_id }}"]
+            }
+          },
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "folder-token",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}
