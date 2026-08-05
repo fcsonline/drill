@@ -3,6 +3,7 @@ name: Build postman2drill
 on:
   push:
     branches: [master]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -50,3 +51,26 @@ jobs:
           name: postman2drill-${{ matrix.name }}
           path: dist/
           if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
