@@ -1,0 +1,52 @@
+name: Build postman2drill
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # linux/amd64 on the current LTS runner
+          - name: linux-amd64
+            os: ubuntu-latest
+          # pinned Ubuntu 22.04 runner -> older glibc, wider binary compatibility
+          - name: ubuntu-22.04
+            os: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run postman2drill tests
+        run: cargo test -p postman2drill
+
+      - name: Build postman2drill (release)
+        run: cargo build --release -p postman2drill
+
+      - name: Smoke test binary
+        run: ./target/release/postman2drill --version
+
+      - name: Stage binary and checksum
+        run: |
+          mkdir -p dist
+          cp target/release/postman2drill dist/postman2drill-${{ matrix.name }}
+          sha256sum dist/postman2drill-${{ matrix.name }} > dist/postman2drill-${{ matrix.name }}.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman2drill-${{ matrix.name }}
+          path: dist/
+          if-no-files-found: error
