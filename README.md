@@ -206,6 +206,15 @@ Right now, the easiest way to get `drill` is to go to the
 [latest release](https://github.com/fcsonline/drill/releases/latest)
 page and download the binary file for your platform.
 
+### postman2drill
+
+Postman collection converter is also available in releases:
+```bash
+# Download postman2drill binary from release page
+# or build from source:
+cargo build --release -p postman2drill
+./target/release/postman2drill collection.json -o benchmark.yml
+```
 
 Another way to install `drill`, if you have [Rust](https://rustup.rs/) available in
 your system, is with [cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html):
@@ -261,6 +270,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Dynamic iteration over context arrays:** iterate over a JSON array from a previous response using the `for_each` action.
 - **Task weights:** control the relative frequency of plan items with a `weight` property.
 - **Custom load shapes:** vary the number of concurrent users over time with staged `load_shape` definitions.
+- **Postman import:** convert Postman Collection v2.1 to Drill YAML with `postman2drill` (see [postman2drill](./postman2drill/README.md))
 
 ## Test it
 
