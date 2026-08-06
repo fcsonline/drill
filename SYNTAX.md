@@ -31,6 +31,9 @@ plan:
 - `rampup`: Amount of time it will take to start all iterations. (Optional)
 - `threads`: Number of worker threads for the tokio runtime (Optional, default: number of CPU cores, capped at CPU cores)
 - `new_conn_per_iter`: Create fresh HTTP connections (new reqwest client, fresh DNS lookup) for every iteration instead of reusing connections (Optional, default: false)
+- `persist_context`: Persist cookies and variables across iterations so state carries forward (Optional, default: false)
+- `run_time`: Wall-clock duration limit in seconds. The benchmark stops accepting new iterations after this time (Optional, default: no limit)
+- `success_codes`: List of HTTP status codes considered successful. When set, only these codes count as success instead of the default 2xx range (Optional, default: 2xx). Example: `[200, 201]`
 - `plan`: List of items to do in your benchmark. (Required)
 
 #### Plan items

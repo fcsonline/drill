@@ -274,6 +274,15 @@ This is the list of all features supported by the current version of `drill`:
 - **Custom load shapes:** vary the number of concurrent users over time with staged `load_shape` definitions.
 - **Multi-threaded runtime:** use multiple CPU cores via `--threads` (default: all cores) or YAML `threads`.
 - **Fresh connections per iteration:** create new HTTP connections (with fresh DNS lookup) per iteration via `--new-conn-per-iter` or YAML `new_conn_per_iter`.
+- **P95 percentile:** stats output now includes the 95.0'th percentile alongside existing 99.0/99.5/99.9 percentiles.
+- **Per-endpoint RPS:** requests-per-second displayed per endpoint in `--stats` output.
+- **JSON Lines export:** machine-readable NDJSON statistics via `--stats-json`, with configurable interval-based time slices via `--stats-interval <sec>`.
+- **CSV export:** comma-separated statistics via `--stats-csv` for spreadsheet or pipeline consumption.
+- **Non-aborting assertions:** record assertion failures and continue the benchmark via `--continue-on-assert-fail` instead of aborting on the first failure.
+- **Wall-clock run-time cap:** limit benchmark duration via `--run-time <sec>` or YAML `run_time`. Stops accepting new iterations after the time limit.
+- **Persist context across iterations:** share cookies and variables across iterations via YAML `persist_context: true` (per-VU semantics, similar to Locust).
+- **Gradual shutdown:** Ctrl+C or SIGTERM stops accepting new iterations and drains in-flight requests before exiting.
+- **Configurable success codes:** define which HTTP status codes count as success via YAML `success_codes: [200, 201]` (default: 2xx).
 - **Postman import:** convert Postman Collection v2.1 to Drill YAML with `postman2drill` (see [postman2drill](./postman2drill/README.md))
 
 ## Test it
@@ -304,10 +313,15 @@ FLAGS:
     -q, --quiet                     Disables output
         --relaxed-interpolations    Do not panic if an interpolation is not present. (Not recommended)
     -s, --stats                     Shows request statistics
+        --stats-json                Outputs statistics as JSON Lines (NDJSON) to stdout
+        --stats-csv                 Outputs statistics as CSV to stdout
+        --continue-on-assert-fail   Record assertion failures and continue instead of aborting
     -V, --version                   Prints version information
     -v, --verbose                   Toggle verbose output
 
 OPTIONS:
+        --stats-interval <sec>      Interval in seconds for streaming statistics (default: 1, requires --stats-json)
+        --run-time <sec>            Wall-clock duration limit in seconds after which the benchmark stops accepting new iterations
     -b, --benchmark <benchmark>    Sets the benchmark file
     -c, --compare <compare>        Sets a compare file
     -r, --report <report>          Sets a report file

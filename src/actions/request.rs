@@ -1420,6 +1420,11 @@ request:
       vars: HashMap::new(),
       threads: 1,
       conn_per_iter: false,
+      persist_context: false,
+      run_time: 0,
+      continue_on_assert_fail: false,
+      success_codes: Vec::new(),
+      assertion_failures: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
     }
   }
 

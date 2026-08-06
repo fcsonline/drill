@@ -227,12 +227,32 @@ impl Runnable for Assert {
       println!("{:width$} {}", self.name.green(), self.describe(), width = 25);
     }
 
-    match self.assert_type {
-      AssertType::Equals => self.execute_equals(context),
-      AssertType::Status => self.execute_status(context),
-      AssertType::Header => self.execute_header(context),
-      AssertType::JsonPath => self.execute_jsonpath(context),
-      AssertType::Duration => self.execute_duration(context),
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      match self.assert_type {
+        AssertType::Equals => self.execute_equals(context),
+        AssertType::Status => self.execute_status(context),
+        AssertType::Header => self.execute_header(context),
+        AssertType::JsonPath => self.execute_jsonpath(context),
+        AssertType::Duration => self.execute_duration(context),
+      }
+    }));
+
+    if let Err(e) = result {
+      let msg = if let Some(s) = e.downcast_ref::<&str>() {
+        s.to_string()
+      } else if let Some(s) = e.downcast_ref::<String>() {
+        s.clone()
+      } else {
+        "Assertion failed".to_string()
+      };
+      if config.continue_on_assert_fail {
+        config.assertion_failures.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if !config.quiet {
+          eprintln!("  {} {} {}", "Assertion failed:".red().bold(), msg.yellow(), "(continuing)".purple());
+        }
+      } else {
+        panic!("{}", msg);
+      }
     }
   }
 }
@@ -242,6 +262,7 @@ mod tests {
   use super::*;
   use serde_json::Map;
   use std::collections::HashMap;
+  use std::sync::atomic::{AtomicUsize, Ordering};
   use std::sync::{Arc, Mutex};
 
   fn empty_config() -> Config {
@@ -262,6 +283,11 @@ mod tests {
       vars: HashMap::new(),
       threads: 1,
       conn_per_iter: false,
+      persist_context: false,
+      run_time: 0,
+      continue_on_assert_fail: false,
+      success_codes: Vec::new(),
+      assertion_failures: Arc::new(AtomicUsize::new(0)),
     }
   }
 

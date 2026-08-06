@@ -23,7 +23,7 @@ serde_json = "1.0.150"
 serde_yaml = "0.9.34"
 url = "2.5.8"
 linked-hash-map = "0.5.6"
-tokio = { version = "1.52.3", features = ["time", "net", "rt-multi-thread"] }
+tokio = { version = "1.52.3", features = ["time", "net", "rt-multi-thread", "signal"] }
 reqwest = { version = "0.13.4", features = ["cookies", "hickory-dns", "form", "json", "multipart"] }
 async-trait = "0.1.89"
 base64 = "0.22.1"

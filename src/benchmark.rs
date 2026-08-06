@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use futures::stream::{self, StreamExt};
+use futures::stream::{FuturesUnordered, StreamExt};
 
 use num_cpus;
 use serde_json::{Map, Value, json};
@@ -51,6 +52,7 @@ impl ClientEntry {
 pub struct BenchmarkResult {
   pub reports: Vec<Reports>,
   pub duration: f64,
+  pub assertion_failures: usize,
 }
 
 pub struct Lifecycle {
@@ -72,7 +74,7 @@ fn has_weights(benchmark: &Benchmark) -> bool {
   benchmark.iter().any(|item| item.weight() != 1)
 }
 
-async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64, lifecycle: Arc<Lifecycle>, mut context: Context, start_delay: Duration) -> Vec<Report> {
+async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64, lifecycle: Arc<Lifecycle>, mut context: Context, start_delay: Duration, persistent_context: Option<Arc<Mutex<Context>>>) -> Vec<Report> {
   sleep(start_delay).await;
 
   let mut reports: Vec<Report> = Vec::new();
@@ -98,6 +100,10 @@ async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config
   }
 
   run_lifecycle_phase(&lifecycle.iteration_stop, &mut context, &mut reports, &pool, &config).await;
+
+  if let Some(pc) = persistent_context {
+    *pc.lock().unwrap() = context;
+  }
 
   reports
 }
@@ -198,18 +204,21 @@ pub fn execute(
   tags: &Tags,
   threads: Option<usize>,
   conn_per_iter: Option<bool>,
+  continue_on_assert_fail: bool,
+  run_time: Option<u64>,
 ) -> BenchmarkResult {
   let mut config = Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose);
 
-  // Apply the requested worker-thread count, defaulting to the CPU core count
-  // gathered inside `Config::new` and capped so it never exceeds the cores
-  // actually available on the machine.
   if let Some(requested) = threads {
     let max = num_cpus::get();
     config.threads = requested.clamp(1, max.max(1));
   }
   if let Some(c) = conn_per_iter {
     config.conn_per_iter = c;
+  }
+  config.continue_on_assert_fail = continue_on_assert_fail;
+  if let Some(rt) = run_time {
+    config.run_time = rt;
   }
 
   if let Some(vars_path) = vars_path {
@@ -261,7 +270,7 @@ pub fn execute(
       run_lifecycle_phase(&lifecycle.setup, &mut setup_context, &mut setup_reports, &pool, &config).await;
 
       let iteration_context = setup_context.clone();
-      let mut reports = run_iteration(benchmark.clone(), pool.clone(), config.clone(), 0, lifecycle.clone(), iteration_context, Duration::ZERO).await;
+      let mut reports = run_iteration(benchmark.clone(), pool.clone(), config.clone(), 0, lifecycle.clone(), iteration_context, Duration::ZERO, None).await;
 
       run_lifecycle_phase(&lifecycle.teardown, &mut setup_context, &mut reports, &pool, &config).await;
       reports.extend(setup_reports);
@@ -271,6 +280,7 @@ pub fn execute(
       BenchmarkResult {
         reports: vec![],
         duration: 0.0,
+        assertion_failures: 0,
       }
     } else {
       let mut setup_reports = Vec::new();
@@ -297,21 +307,49 @@ pub fn execute(
         config.concurrency as usize
       };
 
+      let persistent_context = if config.persist_context {
+        Some(Arc::new(Mutex::new(setup_context.clone())))
+      } else {
+        None
+      };
+      let shutdown_flag = Arc::new(AtomicBool::new(false));
+      let signal_flag = shutdown_flag.clone();
+      tokio::spawn(async move {
+        tokio::signal::ctrl_c().await.ok();
+        signal_flag.store(true, Ordering::SeqCst);
+      });
+
       let base_context = setup_context.clone();
-      let children = (0..config.iterations).map(|iteration| {
+      let mut pending = FuturesUnordered::new();
+      let mut iteration = 0i64;
+      let begin = Instant::now();
+      let mut reports: Vec<Vec<Report>> = Vec::new();
+
+      while iteration < config.iterations && !shutdown_flag.load(Ordering::SeqCst) && (config.run_time == 0 || begin.elapsed().as_secs() < config.run_time) {
         let start_delay = start_delays[iteration as usize];
         let pool = if config.conn_per_iter {
           Arc::new(Mutex::new(PoolStore::new()))
         } else {
           pool.clone()
         };
-        run_iteration(benchmark.clone(), pool, config.clone(), iteration, lifecycle.clone(), base_context.clone(), start_delay)
-      });
+        let ctx = if let Some(ref pc) = persistent_context {
+          pc.lock().unwrap().clone()
+        } else {
+          base_context.clone()
+        };
+        pending.push(run_iteration(benchmark.clone(), pool, config.clone(), iteration, lifecycle.clone(), ctx, start_delay, persistent_context.clone()));
+        iteration += 1;
 
-      let buffered = stream::iter(children).buffer_unordered(max_concurrency);
+        if pending.len() >= max_concurrency {
+          if let Some(result) = pending.next().await {
+            reports.push(result);
+          }
+        }
+      }
 
-      let begin = Instant::now();
-      let mut reports: Vec<Vec<Report>> = buffered.collect::<Vec<_>>().await;
+      while let Some(result) = pending.next().await {
+        reports.push(result);
+      }
       let duration = begin.elapsed().as_secs_f64();
 
       let mut teardown_reports = Vec::new();
@@ -321,12 +359,13 @@ pub fn execute(
       reports.push(teardown_reports);
 
       if let Some(results_config) = config.results.as_ref() {
-        results::generate(&reports, duration, results_config);
+        results::generate(&reports, duration, results_config, &config.success_codes);
       }
 
       BenchmarkResult {
         reports,
         duration,
+        assertion_failures: config.assertion_failures.load(Ordering::SeqCst),
       }
     }
   })

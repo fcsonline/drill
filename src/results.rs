@@ -45,7 +45,7 @@ pub struct Stats {
   pub avg_size: f64,
 }
 
-pub fn generate(reports: &[Vec<Report>], duration: f64, config: &ResultsConfig) {
+pub fn generate(reports: &[Vec<Report>], duration: f64, config: &ResultsConfig, success_codes: &[u16]) {
   if duration == 0.0 {
     return;
   }
@@ -53,7 +53,7 @@ pub fn generate(reports: &[Vec<Report>], duration: f64, config: &ResultsConfig) 
   fs::create_dir_all(&config.output_dir).expect("Unable to create results directory");
 
   let all_reports: Vec<Report> = reports.iter().flat_map(|v| v.iter().cloned()).collect();
-  let stats = compute_all_stats(&all_reports, duration);
+  let stats = compute_all_stats(&all_reports, duration, success_codes);
   let report_refs: Vec<&Report> = all_reports.iter().collect();
 
   if config.csv {
@@ -65,22 +65,22 @@ pub fn generate(reports: &[Vec<Report>], duration: f64, config: &ResultsConfig) 
   }
 }
 
-fn compute_all_stats(reports: &[Report], duration: f64) -> Vec<Stats> {
+fn compute_all_stats(reports: &[Report], duration: f64, success_codes: &[u16]) -> Vec<Stats> {
   let mut by_name: HashMap<String, Vec<&Report>> = HashMap::new();
 
   for report in reports {
     by_name.entry(report.name.clone()).or_default().push(report);
   }
 
-  let mut stats: Vec<Stats> = by_name.iter().map(|(name, reps)| compute_stats(name, reps, duration)).collect();
+  let mut stats: Vec<Stats> = by_name.iter().map(|(name, reps)| compute_stats(name, reps, duration, success_codes)).collect();
 
   stats.sort_by_key(|s| s.name.clone());
   let total_refs: Vec<&Report> = reports.iter().collect();
-  stats.push(compute_stats("Total", &total_refs, duration));
+  stats.push(compute_stats("Total", &total_refs, duration, success_codes));
   stats
 }
 
-fn compute_stats(name: &str, reports: &[&Report], duration: f64) -> Stats {
+fn compute_stats(name: &str, reports: &[&Report], duration: f64, success_codes: &[u16]) -> Stats {
   let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1_000_000_000, 2).unwrap();
   let mut ttfb_hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1_000_000_000, 2).unwrap();
   let mut failure = 0usize;
@@ -96,7 +96,11 @@ fn compute_stats(name: &str, reports: &[&Report], duration: f64) -> Stats {
     hist += (report.duration * NS_PER_MS) as u64;
     ttfb_hist += (report.metrics.time_starttransfer_ms * NS_PER_MS) as u64;
 
-    if report.status < 200 || report.status >= 300 {
+    if success_codes.is_empty() {
+      if report.status < 200 || report.status >= 300 {
+        failure += 1;
+      }
+    } else if !success_codes.contains(&report.status) {
       failure += 1;
     }
 
@@ -485,7 +489,7 @@ mod tests {
     let reports: Vec<Report> = vec![report("a", 10.0, 200, 0.0), report("a", 20.0, 200, 1.0), report("a", 30.0, 500, 2.0)];
     let report_refs: Vec<&Report> = reports.iter().collect();
 
-    let stats = compute_stats("a", &report_refs, 3.0);
+    let stats = compute_stats("a", &report_refs, 3.0, &[]);
 
     assert_eq!(stats.total, 3);
     assert_eq!(stats.failure, 1);
@@ -505,7 +509,7 @@ mod tests {
       html: false,
     };
 
-    generate(&reports, 3.0, &config);
+    generate(&reports, 3.0, &config, &[]);
 
     let csv_path = tmp.path().join("stats.csv");
     assert!(csv_path.exists());
@@ -526,7 +530,7 @@ mod tests {
       html: true,
     };
 
-    generate(&reports, 3.0, &config);
+    generate(&reports, 3.0, &config, &[]);
 
     let html_path = tmp.path().join("report.html");
     assert!(html_path.exists());

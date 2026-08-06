@@ -1,5 +1,7 @@
 use serde_yaml::Value;
 use std::collections::HashMap;
+use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 
 use crate::benchmark::Context;
 use crate::interpolator;
@@ -66,6 +68,11 @@ pub struct Config {
   pub vars: HashMap<String, serde_json::Value>,
   pub threads: usize,
   pub conn_per_iter: bool,
+  pub persist_context: bool,
+  pub run_time: u64,
+  pub continue_on_assert_fail: bool,
+  pub success_codes: Vec<u16>,
+  pub assertion_failures: Arc<AtomicUsize>,
 }
 
 impl Config {
@@ -81,6 +88,9 @@ impl Config {
     let rampup = read_i64_configuration(config_doc, &interpolator, "rampup", NRAMPUP);
     let threads = read_usize_configuration(config_doc, &interpolator, "threads", num_cpus::get());
     let conn_per_iter = read_bool_configuration(config_doc, &interpolator, "new_conn_per_iter", false);
+    let persist_context = read_bool_configuration(config_doc, &interpolator, "persist_context", false);
+    let run_time = read_i64_configuration(config_doc, &interpolator, "run_time", 0).max(0) as u64;
+    let success_codes = read_u16_vec_configuration(config_doc, "success_codes");
     let base = read_str_configuration(config_doc, &interpolator, "base", "");
     let results = read_results_configuration(config_doc);
     let lifecycle = read_lifecycle_configuration(config_doc);
@@ -108,6 +118,11 @@ impl Config {
       vars,
       threads,
       conn_per_iter,
+      persist_context,
+      run_time,
+      continue_on_assert_fail: false,
+      success_codes,
+      assertion_failures: Arc::new(AtomicUsize::new(0)),
     }
   }
 
@@ -352,6 +367,18 @@ fn read_usize_configuration(config_doc: &Value, interpolator: &interpolator::Int
       }
       default
     }
+  }
+}
+
+fn read_u16_vec_configuration(config_doc: &Value, name: &str) -> Vec<u16> {
+  match config_doc.get(name) {
+    Some(Value::Sequence(seq)) => seq.iter().map(|v| v.as_u64().unwrap_or_else(|| panic!("{name} values must be positive integers, got {v:?}")) as u16).collect(),
+    Some(Value::Number(n)) => vec![n.as_u64().unwrap_or_else(|| panic!("{name} must be a positive integer, got {n:?}")) as u16],
+    Some(other) => {
+      println!("Invalid {name}: expected a number or list of numbers, got {other:?}");
+      Vec::new()
+    }
+    None => Vec::new(),
   }
 }
 

@@ -139,6 +139,7 @@ mod tests {
   use super::*;
   use serde_json::{Map, json};
   use std::collections::HashMap;
+  use std::sync::atomic::{AtomicUsize, Ordering};
   use std::sync::{Arc, Mutex};
 
   fn empty_config() -> Config {
@@ -159,6 +160,11 @@ mod tests {
       vars: HashMap::new(),
       threads: 1,
       conn_per_iter: false,
+      persist_context: false,
+      run_time: 0,
+      continue_on_assert_fail: false,
+      success_codes: Vec::new(),
+      assertion_failures: Arc::new(AtomicUsize::new(0)),
     }
   }
 
