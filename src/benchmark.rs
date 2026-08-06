@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
 
+use num_cpus;
 use serde_json::{Map, Value, json};
 use tokio::{runtime, time::sleep};
 
@@ -195,8 +196,21 @@ pub fn execute(
   timeout: Option<&str>,
   verbose: bool,
   tags: &Tags,
+  threads: Option<usize>,
+  conn_per_iter: Option<bool>,
 ) -> BenchmarkResult {
   let mut config = Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose);
+
+  // Apply the requested worker-thread count, defaulting to the CPU core count
+  // gathered inside `Config::new` and capped so it never exceeds the cores
+  // actually available on the machine.
+  if let Some(requested) = threads {
+    let max = num_cpus::get();
+    config.threads = requested.clamp(1, max.max(1));
+  }
+  if let Some(c) = conn_per_iter {
+    config.conn_per_iter = c;
+  }
 
   if let Some(vars_path) = vars_path {
     let content = crate::reader::read_file(vars_path);
@@ -211,13 +225,14 @@ pub fn execute(
     println!("{} {}", "Concurrency".yellow(), config.concurrency.to_string().purple());
     println!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple());
     println!("{} {}", "Rampup".yellow(), config.rampup.to_string().purple());
+    println!("{} {}", "Threads".yellow(), config.threads.to_string().purple());
+    println!("{} {}", "Conn per iter".yellow(), config.conn_per_iter.to_string().purple());
   }
 
   println!("{} {}", "Base URL".yellow(), config.base.purple());
   println!();
 
-  let threads = std::cmp::min(num_cpus::get(), config.concurrency as usize);
-  let rt = runtime::Builder::new_current_thread().enable_all().worker_threads(threads).build().unwrap();
+  let rt = runtime::Builder::new_multi_thread().enable_all().worker_threads(config.threads).build().unwrap();
 
   rt.block_on(async {
     let mut benchmark: Benchmark = Benchmark::new();
@@ -285,7 +300,12 @@ pub fn execute(
       let base_context = setup_context.clone();
       let children = (0..config.iterations).map(|iteration| {
         let start_delay = start_delays[iteration as usize];
-        run_iteration(benchmark.clone(), pool.clone(), config.clone(), iteration, lifecycle.clone(), base_context.clone(), start_delay)
+        let pool = if config.conn_per_iter {
+          Arc::new(Mutex::new(PoolStore::new()))
+        } else {
+          pool.clone()
+        };
+        run_iteration(benchmark.clone(), pool, config.clone(), iteration, lifecycle.clone(), base_context.clone(), start_delay)
       });
 
       let buffered = stream::iter(children).buffer_unordered(max_concurrency);

@@ -37,6 +37,8 @@ fn main() {
   let list_tags = matches.get_flag("list-tags");
   let list_tasks = matches.get_flag("list-tasks");
   let vars_option = matches.get_one::<String>("vars").map(|s| s.as_str());
+  let threads = matches.get_one::<usize>("threads").copied();
+  let conn_per_iter = if matches.contains_id("new-conn-per-iter") { Some(true) } else { None };
 
   #[cfg(windows)]
   let _ = control::set_virtual_terminal(true);
@@ -53,7 +55,7 @@ fn main() {
     process::exit(0);
   };
 
-  let benchmark_result = benchmark::execute(benchmark_file, vars_option, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose, &tags);
+  let benchmark_result = benchmark::execute(benchmark_file, vars_option, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose, &tags, threads, conn_per_iter);
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
@@ -83,6 +85,8 @@ fn app_args() -> clap::ArgMatches {
     .arg(Arg::new("vars").long("vars").help("Sets a YAML file with variables to inject into interpolations"))
     .arg(Arg::new("nanosec").short('n').long("nanosec").help("Shows statistics in nanoseconds").action(ArgAction::SetTrue))
     .arg(Arg::new("verbose").short('v').long("verbose").help("Toggle verbose output").action(ArgAction::SetTrue))
+    .arg(Arg::new("threads").long("threads").value_parser(clap::value_parser!(usize)).help("Number of worker threads for the tokio runtime (defaults to CPU core count, capped at the number of CPU cores)"))
+    .arg(Arg::new("new-conn-per-iter").long("new-conn-per-iter").action(ArgAction::SetTrue).help("Create a fresh HTTP connection (new reqwest client, fresh DNS lookup) for every iteration instead of reusing connections across iterations"))
     .get_matches()
 }
 

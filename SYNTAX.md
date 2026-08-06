@@ -29,6 +29,8 @@ plan:
 - `iterations`: Number of loops is going to do (Optional, default: 1)
 - `concurrency`: Number of concurrent iterations. (Optional, default: max)
 - `rampup`: Amount of time it will take to start all iterations. (Optional)
+- `threads`: Number of worker threads for the tokio runtime (Optional, default: number of CPU cores, capped at CPU cores)
+- `new_conn_per_iter`: Create fresh HTTP connections (new reqwest client, fresh DNS lookup) for every iteration instead of reusing connections (Optional, default: false)
 - `plan`: List of items to do in your benchmark. (Required)
 
 #### Plan items

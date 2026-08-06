@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use crate::benchmark::Context;
 use crate::interpolator;
 use crate::reader;
+use num_cpus;
 
 const NITERATIONS: i64 = 1;
 const NRAMPUP: i64 = 0;
@@ -63,6 +64,8 @@ pub struct Config {
   pub lifecycle: LifecycleConfig,
   pub load_shape: Option<LoadShapeConfig>,
   pub vars: HashMap<String, serde_json::Value>,
+  pub threads: usize,
+  pub conn_per_iter: bool,
 }
 
 impl Config {
@@ -76,6 +79,8 @@ impl Config {
     let iterations = read_i64_configuration(config_doc, &interpolator, "iterations", NITERATIONS);
     let concurrency = read_i64_configuration(config_doc, &interpolator, "concurrency", iterations);
     let rampup = read_i64_configuration(config_doc, &interpolator, "rampup", NRAMPUP);
+    let threads = read_usize_configuration(config_doc, &interpolator, "threads", num_cpus::get());
+    let conn_per_iter = read_bool_configuration(config_doc, &interpolator, "new_conn_per_iter", false);
     let base = read_str_configuration(config_doc, &interpolator, "base", "");
     let results = read_results_configuration(config_doc);
     let lifecycle = read_lifecycle_configuration(config_doc);
@@ -101,6 +106,8 @@ impl Config {
       lifecycle,
       load_shape,
       vars,
+      threads,
+      conn_per_iter,
     }
   }
 
@@ -296,6 +303,53 @@ fn read_i64_configuration(config_doc: &Value, interpolator: &interpolator::Inter
         println!("Invalid {name} value!");
       }
 
+      default
+    }
+  }
+}
+
+fn read_bool_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: bool) -> bool {
+  let value = if let Some(value) = config_doc.get(name).and_then(|v| v.as_bool()) {
+    Some(value)
+  } else if let Some(key) = config_doc.get(name).and_then(|v| v.as_str()) {
+    interpolator.resolve(key, false).parse::<bool>().ok()
+  } else {
+    None
+  };
+
+  match value {
+    Some(value) => value,
+    None => {
+      if config_doc.get(name).and_then(|v| v.as_str()).is_some() {
+        println!("Invalid {name} value!");
+      }
+      default
+    }
+  }
+}
+
+fn read_usize_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: usize) -> usize {
+  let value = if let Some(value) = config_doc.get(name).and_then(|v| v.as_i64()) {
+    Some(value as usize)
+  } else if let Some(key) = config_doc.get(name).and_then(|v| v.as_str()) {
+    interpolator.resolve(key, false).parse::<usize>().ok()
+  } else {
+    None
+  };
+
+  match value {
+    Some(value) => {
+      if value == 0 {
+        println!("Invalid zero {name} value!");
+        default
+      } else {
+        value
+      }
+    }
+    None => {
+      if config_doc.get(name).and_then(|v| v.as_str()).is_some() {
+        println!("Invalid {name} value!");
+      }
       default
     }
   }

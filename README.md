@@ -22,6 +22,8 @@ concurrency: 4
 base: 'http://localhost:9000'
 iterations: 5
 rampup: 2
+threads: 4
+new_conn_per_iter: false
 
 plan:
   - name: Include comments
@@ -270,6 +272,8 @@ This is the list of all features supported by the current version of `drill`:
 - **Dynamic iteration over context arrays:** iterate over a JSON array from a previous response using the `for_each` action.
 - **Task weights:** control the relative frequency of plan items with a `weight` property.
 - **Custom load shapes:** vary the number of concurrent users over time with staged `load_shape` definitions.
+- **Multi-threaded runtime:** use multiple CPU cores via `--threads` (default: all cores) or YAML `threads`.
+- **Fresh connections per iteration:** create new HTTP connections (with fresh DNS lookup) per iteration via `--new-conn-per-iter` or YAML `new_conn_per_iter`.
 - **Postman import:** convert Postman Collection v2.1 to Drill YAML with `postman2drill` (see [postman2drill](./postman2drill/README.md))
 
 ## Test it
@@ -311,6 +315,8 @@ OPTIONS:
         --tags <tags>              Tags to include
     -t, --threshold <threshold>    Sets a threshold value in ms amongst the compared file
     -o, --timeout <timeout>        Set timeout in seconds for all requests
+        --threads <threads>        Number of worker threads for the tokio runtime (defaults to CPU core count, capped at the number of CPU cores)
+        --new-conn-per-iter        Create a fresh HTTP connection (new reqwest client, fresh DNS lookup) for every iteration instead of reusing connections across iterations
 ```
 
 ## Roadmap
