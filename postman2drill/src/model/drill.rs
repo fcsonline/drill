@@ -69,6 +69,8 @@ pub struct DrillConfigInput {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub rampup: Option<i64>,
   #[serde(skip_serializing_if = "Option::is_none")]
+  pub vars: Option<HashMap<String, serde_yaml::Value>>,
+  #[serde(skip_serializing_if = "Option::is_none")]
   pub results: Option<ResultsConfig>,
   #[serde(skip_serializing_if = "Option::is_none")]
   pub load_shape: Option<LoadShape>,

@@ -146,18 +146,18 @@ fn test_converter_config_yaml() {
 }
 
 #[test]
-fn test_converter_vars_yaml() {
+fn test_converter_vars_in_config() {
   let root = project_root();
   let collection = root.join("tests/fixtures/sample_collection.json");
   let out = temp_output("postman2drill_test_output_vars.yml");
-  let vars = temp_output("postman2drill_test_vars.yml");
+  let config = temp_output("postman2drill_test_config_vars.yml");
 
   {
-    let mut f = fs::File::create(&vars).expect("vars file create failed");
-    f.write_all(b"username: alice\npassword: secret123\n").unwrap();
+    let mut f = fs::File::create(&config).expect("config file create failed");
+    f.write_all(b"vars:\n  username: alice\n  password: secret123\n").unwrap();
   }
 
-  let (_stdout, stderr) = run_converter(&[collection.to_str().unwrap(), "-o", out.to_str().unwrap(), "--vars", vars.to_str().unwrap()]);
+  let (_stdout, stderr) = run_converter(&[collection.to_str().unwrap(), "-o", out.to_str().unwrap(), "--config", config.to_str().unwrap()]);
 
   assert!(stderr.contains("Drill benchmark written to"), "expected success message, got stderr: {}", stderr);
 

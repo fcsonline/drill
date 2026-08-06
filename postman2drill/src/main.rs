@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::Parser;
-use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -24,13 +23,9 @@ struct Cli {
   #[arg(short, long)]
   output: Option<PathBuf>,
 
-  /// Drill benchmark config YAML file
+  /// Drill benchmark config YAML file (includes vars)
   #[arg(short, long)]
   config: Option<PathBuf>,
-
-  /// Variables YAML file
-  #[arg(long)]
-  vars: Option<PathBuf>,
 
   /// Warnings report file (default: stderr)
   #[arg(short, long)]
@@ -65,15 +60,8 @@ fn main() -> Result<()> {
     None
   };
 
-  let vars_file = if let Some(vars_path) = &cli.vars {
-    let vars_yaml = fs::read_to_string(vars_path)?;
-    Some(serde_yaml::from_str::<HashMap<String, serde_yaml::Value>>(&vars_yaml)?)
-  } else {
-    None
-  };
-
   let mut converter = Converter::new();
-  let drill = converter.convert(collection, environment, config_input, vars_file)?;
+  let drill = converter.convert(collection, environment, config_input)?;
   let warnings = converter.into_warnings();
 
   // Output Drill YAML

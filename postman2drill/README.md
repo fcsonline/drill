@@ -11,11 +11,8 @@ postman2drill collection.json -o benchmark.yml
 # Optional: apply a Postman environment
 postman2drill collection.json environment.json -o benchmark.yml
 
-# Provide Drill load config from a YAML file
+# Provide Drill load config + variables from a single YAML file
 postman2drill collection.json -o benchmark.yml --config config.yml
-
-# Provide variables from a YAML file
-postman2drill collection.json -o benchmark.yml --vars vars.yml
 
 # Capture warnings to a JSON report
 postman2drill collection.json -o benchmark.yml -w warnings.json -f json
@@ -35,13 +32,37 @@ Arguments:
 
 Options:
   -o, --output <FILE>      Output Drill YAML file (default: stdout)
-  -c, --config <FILE>      Drill benchmark config YAML file (concurrency, iterations, rampup, base, results, load_shape)
-      --vars <FILE>        Variables YAML file (key/value pairs injected into the benchmark)
+  -c, --config <FILE>      Drill benchmark config YAML file (concurrency, iterations, rampup, base, results, load_shape, vars)
   -w, --warnings <FILE>    Warnings report file (default: stderr)
   -f, --format <FORMAT>    Warnings format: json or text [default: json]
       --strict             Treat warnings as errors (exit non-zero)
   -h, --help               Print help
   -V, --version            Print version
+```
+
+## Config file format
+
+```yaml
+concurrency: 10
+iterations: 100
+rampup: 5
+base: "https://api.example.com"
+results:
+  output_dir: "./results"
+  csv: true
+  html: true
+load_shape:
+  stages:
+    - duration: 60
+      users: 10
+      spawn_rate: 2
+    - duration: 120
+      users: 50
+      spawn_rate: 5
+vars:
+  username: "alice"
+  password: "secret123"
+  api_key: "key123"
 ```
 
 ## Supported features

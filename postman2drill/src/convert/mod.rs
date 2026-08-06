@@ -11,7 +11,6 @@ use crate::model::drill::{DrillConfigInput, RequestItem as DrillRequestItem};
 use crate::model::{Auth as ModelAuth, Collection, DrillBenchmark, Environment, PlanItem};
 use crate::warnings::WarningCollector;
 use anyhow::Result;
-use std::collections::HashMap;
 
 pub struct Converter {
   warnings: WarningCollector,
@@ -28,7 +27,7 @@ impl Converter {
     }
   }
 
-  pub fn convert(&mut self, collection: Collection, environment: Option<Environment>, config_input: Option<DrillConfigInput>, vars_file: Option<HashMap<String, serde_yaml::Value>>) -> Result<DrillBenchmark> {
+  pub fn convert(&mut self, collection: Collection, environment: Option<Environment>, config_input: Option<DrillConfigInput>) -> Result<DrillBenchmark> {
     for var in &collection.variable {
       if var.disabled != Some(true) {
         self.variable_ctx.add_collection_var(&var.key, &var.value);
@@ -43,9 +42,11 @@ impl Converter {
       }
     }
 
-    if let Some(file_vars) = vars_file {
+    if let Some(config) = &config_input
+      && let Some(file_vars) = &config.vars
+    {
       for (key, value) in file_vars {
-        self.variable_ctx.vars.insert(key, value);
+        self.variable_ctx.vars.insert(key.clone(), value.clone());
       }
     }
 
