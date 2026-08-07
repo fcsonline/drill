@@ -412,7 +412,7 @@ impl Request {
     let request = request_builder.build().expect("Cannot create request");
 
     if config.verbose {
-      log_request(&request);
+      log_request(&request, config.stats_json);
     }
 
     let metrics = metrics::new_metrics();
@@ -426,7 +426,7 @@ impl Request {
       Err(e) => {
         let metrics = metrics.lock().unwrap().clone();
         if !config.quiet || config.verbose {
-          println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
+          crate::emit(config.stats_json, format_args!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e));
         }
         return (None, metrics);
       }
@@ -471,7 +471,7 @@ impl Request {
 
     if let Err(e) = drain_result {
       if !config.quiet || config.verbose {
-        println!("Error reading body '{}': {:?}", interpolated_base_url.as_str(), e);
+        crate::emit(config.stats_json, format_args!("Error reading body '{}': {:?}", interpolated_base_url.as_str(), e));
       }
       return (None, metrics);
     }
@@ -485,7 +485,7 @@ impl Request {
         status.to_string().yellow()
       };
 
-      println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(metrics.time_total_ms, config.nanosec).cyan(), width = 25);
+      crate::emit(config.stats_json, format_args!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(metrics.time_total_ms, config.nanosec).cyan(), width = 25));
     }
 
     // Decode the body (only present for `assign`) using the response charset,
@@ -850,20 +850,20 @@ impl Runnable for Request {
         );
 
         if let Some(msg) = log_message_response {
-          log_response(msg, &data)
+          log_response(msg, &data, config.stats_json)
         }
       }
     }
   }
 }
 
-fn log_request(request: &reqwest::Request) {
+fn log_request(request: &reqwest::Request, stats_json: bool) {
   let mut message = String::new();
   write!(message, "{}", ">>>".bold().green()).unwrap();
   write!(message, " {} {},", "URL:".bold(), request.url()).unwrap();
   write!(message, " {} {},", "METHOD:".bold(), request.method()).unwrap();
   write!(message, " {} {:?}", "HEADERS:".bold(), request.headers()).unwrap();
-  println!("{message}");
+  crate::emit(stats_json, format_args!("{message}"));
 }
 
 fn log_message_response(response: &Option<ResponseData>, metrics: &RequestMetrics) -> String {
@@ -885,13 +885,13 @@ fn log_message_response(response: &Option<ResponseData>, metrics: &RequestMetric
   message
 }
 
-fn log_response(log_message_response: String, body: &Option<String>) {
+fn log_response(log_message_response: String, body: &Option<String>, stats_json: bool) {
   let mut message = String::new();
   write!(message, "{}{}", "<<<".bold().green(), log_message_response).unwrap();
   if let Some(body) = body.as_ref() {
     write!(message, " {} {:?}", "BODY:".bold(), body).unwrap()
   }
-  println!("{message}");
+  crate::emit(stats_json, format_args!("{message}"));
 }
 
 #[cfg(test)]
@@ -1425,6 +1425,7 @@ request:
       continue_on_assert_fail: false,
       success_codes: Vec::new(),
       assertion_failures: std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+      stats_json: false,
     }
   }
 

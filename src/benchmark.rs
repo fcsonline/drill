@@ -205,8 +205,10 @@ pub fn execute(
   conn_per_iter: Option<bool>,
   continue_on_assert_fail: bool,
   run_time: Option<u64>,
+  stats_json: bool,
+  stats_interval: u64,
 ) -> BenchmarkResult {
-  let mut config = Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose);
+  let mut config = Config::new(benchmark_path, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout.map_or(10, |t| t.parse().unwrap_or(10)), verbose, stats_json);
 
   if let Some(requested) = threads {
     let max = num_cpus::get();
@@ -227,18 +229,20 @@ pub fn execute(
 
   let config = Arc::new(config);
 
+  let banner = |msg: &str| crate::emit(stats_json, format_args!("{msg}"));
+
   if report_path_option.is_some() {
-    println!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow());
+    banner(&format!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow()));
   } else {
-    println!("{} {}", "Concurrency".yellow(), config.concurrency.to_string().purple());
-    println!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple());
-    println!("{} {}", "Rampup".yellow(), config.rampup.to_string().purple());
-    println!("{} {}", "Threads".yellow(), config.threads.to_string().purple());
-    println!("{} {}", "Conn per iter".yellow(), config.conn_per_iter.to_string().purple());
+    banner(&format!("{} {}", "Concurrency".yellow(), config.concurrency.to_string().purple()));
+    banner(&format!("{} {}", "Iterations".yellow(), config.iterations.to_string().purple()));
+    banner(&format!("{} {}", "Rampup".yellow(), config.rampup.to_string().purple()));
+    banner(&format!("{} {}", "Threads".yellow(), config.threads.to_string().purple()));
+    banner(&format!("{} {}", "Conn per iter".yellow(), config.conn_per_iter.to_string().purple()));
   }
 
-  println!("{} {}", "Base URL".yellow(), config.base.purple());
-  println!();
+  banner(&format!("{} {}", "Base URL".yellow(), config.base.purple()));
+  banner("");
 
   let rt = runtime::Builder::new_multi_thread().enable_all().worker_threads(config.threads).build().unwrap();
 
@@ -249,6 +253,17 @@ pub fn execute(
     include::expand_from_filepath(benchmark_path, &mut benchmark, Some("plan"), tags);
 
     if benchmark.is_empty() {
+      if stats_json {
+        let store: Arc<Mutex<Vec<Report>>> = Arc::new(Mutex::new(Vec::new()));
+        let stream = crate::stats_stream::StatsStream::start(stats_interval, store, Arc::from(config.success_codes.clone()));
+        // A closed stdout pipe (e.g. `| head`) is not an error worth
+        // aborting over; the run exits anyway.
+        if let Err(e) = stream.finalize(crate::stats_stream::FinalStatus::Failed).await
+          && e.kind() != std::io::ErrorKind::BrokenPipe
+        {
+          eprintln!("Warning: failed to write final stats record: {e}");
+        }
+      }
       eprintln!("Empty benchmark. Exiting.");
       std::process::exit(1);
     }
@@ -314,9 +329,26 @@ pub fn execute(
       let shutdown_flag = Arc::new(AtomicBool::new(false));
       let signal_flag = shutdown_flag.clone();
       tokio::spawn(async move {
+        #[cfg(unix)]
+        {
+          use tokio::signal::unix::{SignalKind, signal};
+          let mut sigterm = signal(SignalKind::terminate()).expect("install SIGTERM handler");
+          tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = sigterm.recv() => {}
+          }
+        }
+        #[cfg(not(unix))]
         tokio::signal::ctrl_c().await.ok();
         signal_flag.store(true, Ordering::SeqCst);
       });
+
+      let stream_store: Arc<Mutex<Vec<Report>>> = Arc::new(Mutex::new(Vec::new()));
+      let mut stream = if stats_json {
+        Some(crate::stats_stream::StatsStream::start(stats_interval, stream_store.clone(), Arc::from(config.success_codes.clone())))
+      } else {
+        None
+      };
 
       let base_context = setup_context.clone();
       let mut pending = FuturesUnordered::new();
@@ -342,11 +374,13 @@ pub fn execute(
         if pending.len() >= max_concurrency
           && let Some(result) = pending.next().await
         {
+          stream_store.lock().unwrap().extend(result.iter().cloned());
           reports.push(result);
         }
       }
 
       while let Some(result) = pending.next().await {
+        stream_store.lock().unwrap().extend(result.iter().cloned());
         reports.push(result);
       }
       let duration = begin.elapsed().as_secs_f64();
@@ -354,8 +388,29 @@ pub fn execute(
       let mut teardown_reports = Vec::new();
       run_lifecycle_phase(&lifecycle.teardown, &mut setup_context, &mut teardown_reports, &pool, &config).await;
 
+      stream_store.lock().unwrap().extend(setup_reports.iter().cloned());
+      stream_store.lock().unwrap().extend(teardown_reports.iter().cloned());
+
       reports.push(setup_reports);
       reports.push(teardown_reports);
+
+      let status = if shutdown_flag.load(Ordering::SeqCst) || (config.run_time > 0 && begin.elapsed().as_secs() >= config.run_time) {
+        crate::stats_stream::FinalStatus::Cancelled
+      } else if config.assertion_failures.load(Ordering::SeqCst) > 0 {
+        crate::stats_stream::FinalStatus::Failed
+      } else {
+        crate::stats_stream::FinalStatus::Completed
+      };
+
+      if let Some(stream) = stream.take() {
+        // A closed stdout pipe (e.g. `drill --stats-json | head`) means the
+        // consumer is gone; the run itself succeeded, so this is not an error.
+        if let Err(e) = stream.finalize(status).await
+          && e.kind() != std::io::ErrorKind::BrokenPipe
+        {
+          eprintln!("Warning: failed to write final stats record: {e}");
+        }
+      }
 
       if let Some(results_config) = config.results.as_ref() {
         results::generate(&reports, duration, results_config, &config.success_codes);

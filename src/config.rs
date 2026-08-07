@@ -72,10 +72,12 @@ pub struct Config {
   pub continue_on_assert_fail: bool,
   pub success_codes: Vec<u16>,
   pub assertion_failures: Arc<AtomicUsize>,
+  pub stats_json: bool,
 }
 
 impl Config {
-  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool) -> Config {
+  #[expect(clippy::too_many_arguments, reason = "Config is assembled from CLI flags and YAML; consolidated into a builder as a follow-up")]
+  pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool, stats_json: bool) -> Config {
     let config_docs = reader::read_file_as_yml(path);
     let config_doc = &config_docs[0];
 
@@ -122,6 +124,7 @@ impl Config {
       continue_on_assert_fail: false,
       success_codes,
       assertion_failures: Arc::new(AtomicUsize::new(0)),
+      stats_json,
     }
   }
 
@@ -392,7 +395,7 @@ mod tests {
   fn lifecycle_configuration_is_optional() {
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\n").unwrap();
-    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
 
     assert!(config.lifecycle.setup.is_none());
     assert!(config.lifecycle.teardown.is_none());
@@ -405,7 +408,7 @@ mod tests {
     let yaml = b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\nlifecycle:\n  setup:\n    - name: Setup\n      assign:\n        key: setup\n        value: '1'\n  teardown:\n    - name: Teardown\n      assign:\n        key: teardown\n        value: '1'\n  iteration_start:\n    - name: Iteration Start\n      assign:\n        key: iteration_start\n        value: '1'\n  iteration_stop:\n    - name: Iteration Stop\n      assign:\n        key: iteration_stop\n        value: '1'\n";
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(yaml).unwrap();
-    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
 
     assert!(config.lifecycle.setup.is_some());
     assert!(config.lifecycle.teardown.is_some());
@@ -417,7 +420,7 @@ mod tests {
   fn load_shape_configuration_is_optional() {
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\n").unwrap();
-    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
 
     assert!(config.load_shape.is_none());
   }
@@ -427,7 +430,7 @@ mod tests {
     let yaml = b"---\niterations: 10\nbase: 'http://localhost'\nload_shape:\n  stages:\n    - duration: 2\n      users: 5\n      spawn_rate: 2\n    - duration: 3\n      users: 10\n";
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(yaml).unwrap();
-    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
 
     let load_shape = config.load_shape.expect("load_shape should be parsed");
     assert_eq!(load_shape.stages.len(), 2);
@@ -443,7 +446,7 @@ mod tests {
   fn vars_block_is_optional() {
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\n").unwrap();
-    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
 
     assert!(config.vars.is_empty());
   }
@@ -452,7 +455,7 @@ mod tests {
   fn vars_block_is_parsed() {
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\nvars:\n  api_key: abc123\n  username: john\n").unwrap();
-    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
 
     assert_eq!(config.vars.get("api_key").and_then(|v| v.as_str()), Some("abc123"));
     assert_eq!(config.vars.get("username").and_then(|v| v.as_str()), Some("john"));
@@ -472,7 +475,7 @@ mod tests {
   fn add_vars_merges_with_file_taking_precedence() {
     let mut file = NamedTempFile::new().unwrap();
     file.write_all(b"---\niterations: 1\nconcurrency: 1\nbase: 'http://localhost'\nvars:\n  api_key: from-benchmark\n  username: john\n").unwrap();
-    let mut config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false);
+    let mut config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
 
     let mut external = std::collections::HashMap::new();
     external.insert("api_key".to_string(), serde_json::json!("from-file"));
