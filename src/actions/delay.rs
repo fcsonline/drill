@@ -47,7 +47,7 @@ impl Runnable for Delay {
     sleep(Duration::from_secs(self.seconds)).await;
 
     if !config.quiet {
-      println!("{:width$} {}{}", self.name.green(), self.seconds.to_string().cyan().bold(), "s".magenta(), width = 25);
+      crate::emit(config.stats_json, format_args!("{:width$} {}{}", self.name.green(), self.seconds.to_string().cyan().bold(), "s".magenta(), width = 25));
     }
   }
 }

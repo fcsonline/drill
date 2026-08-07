@@ -45,7 +45,7 @@ impl Runnable for Assign {
 
   async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     if !config.quiet {
-      println!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width = 25);
+      crate::emit(config.stats_json, format_args!("{:width$} {}={}", self.name.green(), self.key.cyan().bold(), self.value.magenta(), width = 25));
     }
 
     context.insert(self.key.to_owned(), json!(self.value.to_owned()));

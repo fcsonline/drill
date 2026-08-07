@@ -64,7 +64,7 @@ impl Runnable for ForEach {
 
   async fn execute(&self, context: &mut Context, reports: &mut Reports, pool: &Pool, config: &Config) {
     if !config.quiet {
-      println!("{:width$} {}", self.name.green(), self.items.cyan().bold(), width = 25);
+      crate::emit(config.stats_json, format_args!("{:width$} {}", self.name.green(), self.items.cyan().bold(), width = 25));
     }
 
     let resolved = interpolator::Interpolator::new(context).resolve(&self.items, !config.relaxed_interpolations);

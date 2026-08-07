@@ -104,7 +104,7 @@ impl Runnable for Save {
 
   async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     if !config.quiet {
-      println!("{:width$} {}<-{}", self.name.green(), self.key.cyan().bold(), self.source.magenta(), width = 25);
+      crate::emit(config.stats_json, format_args!("{:width$} {}<-{}", self.name.green(), self.key.cyan().bold(), self.source.magenta(), width = 25));
     }
 
     let Some(last_response) = context.get(LAST_RESPONSE_KEY).cloned() else {

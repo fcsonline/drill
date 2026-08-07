@@ -47,7 +47,7 @@ impl Runnable for Exec {
 
   async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     if !config.quiet {
-      println!("{:width$} {}", self.name.green(), self.command.cyan().bold(), width = 25);
+      crate::emit(config.stats_json, format_args!("{:width$} {}", self.name.green(), self.command.cyan().bold(), width = 25));
     }
 
     let final_command = interpolator::Interpolator::new(context).resolve(&self.command, !config.relaxed_interpolations);
