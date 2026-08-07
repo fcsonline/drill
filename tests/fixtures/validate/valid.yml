@@ -1,0 +1,11 @@
+concurrency: 4
+base: http://localhost:9000
+iterations: 5
+rampup: 2
+threads: 4
+new_conn_per_iter: false
+
+plan:
+  - name: Fetch users
+    request:
+      url: /api/users.json

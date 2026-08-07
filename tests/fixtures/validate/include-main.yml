@@ -1,0 +1,2 @@
+plan:
+  - include: sub/plan.yml

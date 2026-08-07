@@ -283,6 +283,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Persist context across iterations:** share cookies and variables across iterations via YAML `persist_context: true` (per-VU semantics, similar to Locust).
 - **Gradual shutdown:** Ctrl+C or SIGTERM stops accepting new iterations and drains in-flight requests before exiting.
 - **Configurable success codes:** define which HTTP status codes count as success via YAML `success_codes: [200, 201]` (default: 2xx).
+- **Benchmark validation:** pre-flight `drill validate <benchmark.yml>` reports errors, warnings, and standards suggestions before a test runs; see [docs/validate.md](./docs/validate.md).
 - **Postman import:** convert Postman Collection v2.1 to Drill YAML with `postman2drill` (see [postman2drill](./postman2drill/README.md))
 
 ## Test it

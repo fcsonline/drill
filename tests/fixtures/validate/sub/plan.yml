@@ -1,0 +1,7 @@
+concurrency: 1
+iterations: 1
+base: http://localhost:9000
+plan:
+  - name: From include
+    request:
+      url: /thing

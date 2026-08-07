@@ -1,0 +1,10 @@
+concurrency: 2
+iterations: 3
+bogus_top_key: 1
+plan:
+  - request:
+      url: /api
+      method: POST
+    with_items: [1, 2]
+  - request:
+      url: /api/{{ item }}

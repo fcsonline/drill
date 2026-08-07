@@ -1,0 +1,9 @@
+concurrency: 9
+iterations: 1
+plan:
+  - request:
+      url: /api
+    with_items: [1, 2]
+    with_items_range:
+      start: 1
+      stop: 3
