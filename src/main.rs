@@ -8,6 +8,7 @@ mod interpolator;
 mod metrics;
 mod reader;
 mod results;
+mod stats_stream;
 mod tags;
 mod validate;
 mod writer;
@@ -17,7 +18,6 @@ use clap::{Arg, ArgAction, Command, crate_version};
 use colored::*;
 use hdrhistogram::Histogram;
 use linked_hash_map::LinkedHashMap;
-use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::process;
 
@@ -77,11 +77,28 @@ fn main() {
     process::exit(0);
   };
 
-  let benchmark_result = benchmark::execute(benchmark_file, vars_option, report_path_option, relaxed_interpolations, no_check_certificate, quiet, nanosec, timeout, verbose, &tags, threads, conn_per_iter, continue_on_assert_fail, run_time);
+  let benchmark_result = benchmark::execute(
+    benchmark_file,
+    vars_option,
+    report_path_option,
+    relaxed_interpolations,
+    no_check_certificate,
+    quiet,
+    nanosec,
+    timeout,
+    verbose,
+    &tags,
+    threads,
+    conn_per_iter,
+    continue_on_assert_fail,
+    run_time,
+    stats_json,
+    stats_interval.unwrap_or(1),
+  );
   let list_reports = benchmark_result.reports;
   let duration = benchmark_result.duration;
 
-  show_stats(&list_reports, stats_option, stats_json, stats_csv, nanosec, duration, stats_interval);
+  show_stats(&list_reports, stats_option, stats_csv, nanosec, duration);
   compare_benchmark(&list_reports, compare_path_option, threshold_option);
 
   if benchmark_result.assertion_failures > 0 {
@@ -100,7 +117,7 @@ fn app_args() -> clap::ArgMatches {
     .arg(Arg::new("benchmark").help("Sets the benchmark file").long("benchmark").short('b').required(true))
     .arg(Arg::new("stats").short('s').long("stats").help("Shows request statistics").action(ArgAction::SetTrue).conflicts_with("compare"))
     .arg(Arg::new("stats-json").long("stats-json").help("Outputs statistics as JSON Lines (NDJSON) to stdout").action(ArgAction::SetTrue))
-    .arg(Arg::new("stats-interval").long("stats-interval").value_parser(clap::value_parser!(u64)).help("Interval in seconds for streaming statistics (default: 1, requires --stats-json)"))
+    .arg(Arg::new("stats-interval").long("stats-interval").value_parser(clap::value_parser!(u64).range(1..)).requires("stats-json").help("Interval in seconds for streaming statistics (default: 1, requires --stats-json)"))
     .arg(Arg::new("stats-csv").long("stats-csv").help("Outputs statistics as CSV to stdout").action(ArgAction::SetTrue))
     .arg(Arg::new("report").short('r').long("report").help("Sets a report file").conflicts_with("compare"))
     .arg(Arg::new("compare").short('c').long("compare").help("Sets a compare file").conflicts_with("report"))
@@ -186,8 +203,8 @@ fn format_time(tdiff: f64, nanosec: bool) -> String {
   }
 }
 
-fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, stats_json: bool, stats_csv: bool, nanosec: bool, duration: f64, stats_interval: Option<u64>) {
-  if !stats_option && !stats_json && !stats_csv {
+fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, stats_csv: bool, nanosec: bool, duration: f64) {
+  if !stats_option && !stats_csv {
     return;
   }
 
@@ -236,110 +253,9 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, stats_json: bool
   println!("{:width2$} {}", "95.0'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.95), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "Max time per request".yellow(), format_time(global_stats.max_duration(), nanosec).purple(), width2 = 25);
 
-  if stats_json {
-    export_json(list_reports, duration, nanosec, stats_interval.unwrap_or(1));
-  }
   if stats_csv {
     export_csv(list_reports, duration, nanosec);
   }
-}
-
-fn endpoint_stats_json(endpoints: &[(&String, &DrillStats)]) -> Value {
-  let mut items = Vec::new();
-  for (name, s) in endpoints {
-    items.push(json!({
-      "name": name,
-      "total_requests": s.total_requests,
-      "successful_requests": s.successful_requests,
-      "failed_requests": s.failed_requests,
-      "avg_ms": s.mean_duration(),
-      "median_ms": s.median_duration(),
-      "stdev_ms": s.stdev_duration(),
-      "p50_ms": s.value_at_quantile(0.5),
-      "p66_ms": s.value_at_quantile(0.66),
-      "p75_ms": s.value_at_quantile(0.75),
-      "p80_ms": s.value_at_quantile(0.80),
-      "p90_ms": s.value_at_quantile(0.90),
-      "p95_ms": s.value_at_quantile(0.95),
-      "p98_ms": s.value_at_quantile(0.98),
-      "p99_ms": s.value_at_quantile(0.99),
-      "p999_ms": s.value_at_quantile(0.999),
-      "p9999_ms": s.value_at_quantile(0.9999),
-      "max_ms": s.max_duration(),
-    }));
-  }
-  Value::Array(items)
-}
-
-fn export_json(list_reports: &[Vec<Report>], duration: f64, _nanosec: bool, interval_secs: u64) {
-  let all_reports: Vec<Report> = list_reports.iter().flat_map(|v| v.iter().cloned()).collect();
-  if all_reports.is_empty() {
-    return;
-  }
-
-  let time_start = all_reports.iter().map(|r| r.timestamp).fold(f64::INFINITY, f64::min);
-  let total_intervals = ((duration / interval_secs as f64).ceil() as u64).max(1);
-  let interval_duration = duration / total_intervals as f64;
-
-  let mut interval_reports: Vec<Vec<Report>> = vec![Vec::new(); total_intervals as usize];
-  for report in &all_reports {
-    let elapsed = report.timestamp - time_start;
-    let idx = ((elapsed / interval_duration) as usize).min(interval_reports.len() - 1);
-    interval_reports[idx].push(report.clone());
-  }
-
-  for (i, slice) in interval_reports.iter().enumerate() {
-    let mut by_name: LinkedHashMap<String, Vec<Report>> = LinkedHashMap::new();
-    for report in slice {
-      by_name.entry(report.name.clone()).or_default().push(report.clone());
-    }
-    let endpoint_stats: Vec<(String, DrillStats)> = by_name.iter().map(|(name, reps)| (name.clone(), compute_stats(reps))).collect();
-    let ep_refs: Vec<(&String, &DrillStats)> = endpoint_stats.iter().map(|(n, s)| (n, s)).collect();
-    let interval_line = json!({
-      "interval": i + 1,
-      "endpoints": endpoint_stats_json(&ep_refs),
-      "time_elapsed_sec": (i as f64) * interval_duration + interval_duration,
-    });
-    println!("{}", serde_json::to_string(&interval_line).unwrap());
-  }
-
-  let mut by_name: LinkedHashMap<String, Vec<Report>> = LinkedHashMap::new();
-  for report in &all_reports {
-    by_name.entry(report.name.clone()).or_default().push(report.clone());
-  }
-  let endpoint_stats: Vec<(String, DrillStats)> = by_name.iter().map(|(name, reps)| (name.clone(), compute_stats(reps))).collect();
-  let ep_refs: Vec<(&String, &DrillStats)> = endpoint_stats.iter().map(|(n, s)| (n, s)).collect();
-
-  let global_drill = compute_stats(&all_reports);
-  let global_rps = all_reports.len() as f64 / duration;
-
-  let final_line = json!({
-    "final": true,
-    "endpoints": endpoint_stats_json(&ep_refs),
-    "global": {
-      "total_requests": global_drill.total_requests,
-      "successful_requests": global_drill.successful_requests,
-      "failed_requests": global_drill.failed_requests,
-      "avg_ms": global_drill.mean_duration(),
-      "median_ms": global_drill.median_duration(),
-      "stdev_ms": global_drill.stdev_duration(),
-      "p50_ms": global_drill.value_at_quantile(0.5),
-      "p66_ms": global_drill.value_at_quantile(0.66),
-      "p75_ms": global_drill.value_at_quantile(0.75),
-      "p80_ms": global_drill.value_at_quantile(0.80),
-      "p90_ms": global_drill.value_at_quantile(0.90),
-      "p95_ms": global_drill.value_at_quantile(0.95),
-      "p98_ms": global_drill.value_at_quantile(0.98),
-      "p99_ms": global_drill.value_at_quantile(0.99),
-      "p999_ms": global_drill.value_at_quantile(0.999),
-      "p9999_ms": global_drill.value_at_quantile(0.9999),
-      "max_ms": global_drill.max_duration(),
-      "rps": global_rps,
-      "duration_sec": duration,
-      "time_elapsed_sec": duration,
-    }
-  });
-  println!("{}", serde_json::to_string(&final_line).unwrap());
 }
 
 fn export_csv(list_reports: &[Vec<Report>], duration: f64, _nanosec: bool) {

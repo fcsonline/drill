@@ -276,7 +276,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Fresh connections per iteration:** create new HTTP connections (with fresh DNS lookup) per iteration via `--new-conn-per-iter` or YAML `new_conn_per_iter`.
 - **P95 percentile:** stats output now includes the 95.0'th percentile alongside existing 99.0/99.5/99.9 percentiles.
 - **Per-endpoint RPS:** requests-per-second displayed per endpoint in `--stats` output.
-- **JSON Lines export:** machine-readable NDJSON statistics via `--stats-json`, with configurable interval-based time slices via `--stats-interval <sec>`.
+- **JSON Lines export:** machine-readable NDJSON statistics via `--stats-json`, with configurable interval-based time slices via `--stats-interval <sec>`. See [docs/stats-json.md](./docs/stats-json.md).
 - **CSV export:** comma-separated statistics via `--stats-csv` for spreadsheet or pipeline consumption.
 - **Non-aborting assertions:** record assertion failures and continue the benchmark via `--continue-on-assert-fail` instead of aborting on the first failure.
 - **Wall-clock run-time cap:** limit benchmark duration via `--run-time <sec>` or YAML `run_time`. Stops accepting new iterations after the time limit.

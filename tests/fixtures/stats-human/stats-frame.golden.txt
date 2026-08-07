@@ -1,0 +1,36 @@
+Concurrency #
+Iterations #
+Rampup #
+Threads #
+Conn per iter true
+Base URL http://#.#.#.#:#
+
+Get root                  http://#.#.#.#:#/ # OK #ms
+Get root                  http://#.#.#.#:#/ # OK #ms
+
+Get root                  Total requests            #
+Get root                  Successful requests       #
+Get root                  Failed requests           #
+Get root                  Median time per request   #ms
+Get root                  Average time per request  #ms
+Get root                  Sample standard deviation #ms
+Get root                  #.#'th percentile        #ms
+Get root                  #.#'th percentile        #ms
+Get root                  #.#'th percentile        #ms
+Get root                  #.#'th percentile        #ms
+Get root                  Max time per request      #ms
+Get root                  Requests per second       #.# [#/sec]
+
+Time taken for tests      #.# seconds
+Total requests            #
+Successful requests       #
+Failed requests           #
+Requests per second       #.# [#/sec]
+Median time per request   #ms
+Average time per request  #ms
+Sample standard deviation #ms
+#.#'th percentile        #ms
+#.#'th percentile        #ms
+#.#'th percentile        #ms
+#.#'th percentile        #ms
+Max time per request      #ms

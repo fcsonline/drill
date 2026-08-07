@@ -164,6 +164,7 @@ mod tests {
       run_time: 0,
       continue_on_assert_fail: false,
       success_codes: Vec::new(),
+      stats_json: false,
       assertion_failures: Arc::new(AtomicUsize::new(0)),
     }
   }

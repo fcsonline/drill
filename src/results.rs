@@ -80,7 +80,7 @@ fn compute_all_stats(reports: &[Report], duration: f64, success_codes: &[u16]) -
   stats
 }
 
-fn compute_stats(name: &str, reports: &[&Report], duration: f64, success_codes: &[u16]) -> Stats {
+pub(crate) fn compute_stats(name: &str, reports: &[&Report], duration: f64, success_codes: &[u16]) -> Stats {
   let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1_000_000_000, 2).unwrap();
   let mut ttfb_hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1_000_000_000, 2).unwrap();
   let mut failure = 0usize;
