@@ -53,3 +53,45 @@ jobs:
 
       - name: Run cargo-tarpaulin
         run: cargo tarpaulin --out Xml --ignore-tests
+
+  release:
+    name: Auto-tag and release
+    runs-on: ubuntu-latest
+    needs: [test, fmt, clippy]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compute next patch version
+        id: version
+        run: |
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "TAG=v0.1.0" >> "$GITHUB_OUTPUT"
+            echo "version=v0.1.0"
+          else
+            MAJOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f1)
+            MINOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f2)
+            PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
+            NEXT_PATCH=$((PATCH + 1))
+            echo "TAG=v${MAJOR}.${MINOR}.${NEXT_PATCH}" >> "$GITHUB_OUTPUT"
+            echo "version=v${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          fi
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag -a "${{ steps.version.outputs.TAG }}" -m "Release ${{ steps.version.outputs.TAG }}"
+          git push origin "${{ steps.version.outputs.TAG }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: ${{ steps.version.outputs.TAG }}
+          generate_release_notes: true
