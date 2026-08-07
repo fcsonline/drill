@@ -1,0 +1,4 @@
+concurrency: 1
+iterations: 1
+plan:
+  - include: sub/cycle-b.yml

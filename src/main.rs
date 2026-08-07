@@ -9,6 +9,7 @@ mod metrics;
 mod reader;
 mod results;
 mod tags;
+mod validate;
 mod writer;
 
 use crate::actions::Report;
@@ -22,6 +23,17 @@ use std::process;
 
 fn main() {
   let matches = app_args();
+
+  // `validate` subcommand: pre-run benchmark YAML validation (returns before the run pipeline).
+  if let Some((name, sub)) = matches.subcommand()
+    && name == "validate"
+  {
+    let file = sub.get_one::<String>("file").map(String::as_str).unwrap_or_default();
+    let format = sub.get_one::<String>("format").map(String::as_str).unwrap_or(validate::FORMAT_HUMAN);
+    let code = validate::run(file, format);
+    process::exit(code);
+  }
+
   let benchmark_file = matches.get_one::<String>("benchmark").unwrap().as_str();
   let report_path_option = matches.get_one::<String>("report").map(|s| s.as_str());
   let stats_option = matches.get_flag("stats");
@@ -84,6 +96,7 @@ fn app_args() -> clap::ArgMatches {
   Command::new("drill")
     .version(crate_version!())
     .about("HTTP load testing application written in Rust inspired by Ansible syntax")
+    .subcommand_negates_reqs(true)
     .arg(Arg::new("benchmark").help("Sets the benchmark file").long("benchmark").short('b').required(true))
     .arg(Arg::new("stats").short('s').long("stats").help("Shows request statistics").action(ArgAction::SetTrue).conflicts_with("compare"))
     .arg(Arg::new("stats-json").long("stats-json").help("Outputs statistics as JSON Lines (NDJSON) to stdout").action(ArgAction::SetTrue))
@@ -107,6 +120,12 @@ fn app_args() -> clap::ArgMatches {
     .arg(Arg::new("new-conn-per-iter").long("new-conn-per-iter").action(ArgAction::SetTrue).help("Create a fresh HTTP connection (new reqwest client, fresh DNS lookup) for every iteration instead of reusing connections across iterations"))
     .arg(Arg::new("continue-on-assert-fail").long("continue-on-assert-fail").action(ArgAction::SetTrue).help("Record assertion failures and continue the benchmark instead of aborting on the first failure"))
     .arg(Arg::new("run-time").long("run-time").value_parser(clap::value_parser!(u64)).help("Wall-clock duration limit in seconds after which the benchmark stops accepting new iterations"))
+    .subcommand(
+      Command::new("validate")
+        .about("Validate a benchmark YAML file and report errors, warnings, and suggestions")
+        .arg(Arg::new("file").help("Benchmark YAML file to validate").required(true))
+        .arg(Arg::new("format").long("format").help("Output format: human or json").value_parser(["human", "json"]).default_value("human")),
+    )
     .get_matches()
 }
 

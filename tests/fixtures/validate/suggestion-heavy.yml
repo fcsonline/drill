@@ -1,0 +1,8 @@
+concurrency: 2
+iterations: 3
+base: http://localhost:9000
+plan:
+  - request:
+      url: /api/users
+  - request:
+      url: /api/users/{{ item }}
