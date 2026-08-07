@@ -426,11 +426,7 @@ impl Request {
       Err(e) => {
         let metrics = metrics.lock().unwrap().clone();
         if !config.quiet || config.verbose {
-          if config.stats_json {
-            eprintln!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
-          } else {
-            println!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e);
-          }
+          crate::emit(config.stats_json, format_args!("Error connecting '{}': {:?}", interpolated_base_url.as_str(), e));
         }
         return (None, metrics);
       }
@@ -475,11 +471,7 @@ impl Request {
 
     if let Err(e) = drain_result {
       if !config.quiet || config.verbose {
-        if config.stats_json {
-          eprintln!("Error reading body '{}': {:?}", interpolated_base_url.as_str(), e);
-        } else {
-          println!("Error reading body '{}': {:?}", interpolated_base_url.as_str(), e);
-        }
+        crate::emit(config.stats_json, format_args!("Error reading body '{}': {:?}", interpolated_base_url.as_str(), e));
       }
       return (None, metrics);
     }
@@ -493,11 +485,7 @@ impl Request {
         status.to_string().yellow()
       };
 
-      if config.stats_json {
-        eprintln!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(metrics.time_total_ms, config.nanosec).cyan(), width = 25);
-      } else {
-        println!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(metrics.time_total_ms, config.nanosec).cyan(), width = 25);
-      }
+      crate::emit(config.stats_json, format_args!("{:width$} {} {} {}", interpolated_name.green(), interpolated_base_url.blue().bold(), status_text, Request::format_time(metrics.time_total_ms, config.nanosec).cyan(), width = 25));
     }
 
     // Decode the body (only present for `assign`) using the response charset,
@@ -875,11 +863,7 @@ fn log_request(request: &reqwest::Request, stats_json: bool) {
   write!(message, " {} {},", "URL:".bold(), request.url()).unwrap();
   write!(message, " {} {},", "METHOD:".bold(), request.method()).unwrap();
   write!(message, " {} {:?}", "HEADERS:".bold(), request.headers()).unwrap();
-  if stats_json {
-    eprintln!("{message}");
-  } else {
-    println!("{message}");
-  }
+  crate::emit(stats_json, format_args!("{message}"));
 }
 
 fn log_message_response(response: &Option<ResponseData>, metrics: &RequestMetrics) -> String {
@@ -907,11 +891,7 @@ fn log_response(log_message_response: String, body: &Option<String>, stats_json:
   if let Some(body) = body.as_ref() {
     write!(message, " {} {:?}", "BODY:".bold(), body).unwrap()
   }
-  if stats_json {
-    eprintln!("{message}");
-  } else {
-    println!("{message}");
-  }
+  crate::emit(stats_json, format_args!("{message}"));
 }
 
 #[cfg(test)]

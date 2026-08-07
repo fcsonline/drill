@@ -76,7 +76,7 @@ pub struct Config {
 }
 
 impl Config {
-  #[allow(clippy::too_many_arguments)]
+  #[expect(clippy::too_many_arguments, reason = "Config is assembled from CLI flags and YAML; consolidated into a builder as a follow-up")]
   pub fn new(path: &str, relaxed_interpolations: bool, no_check_certificate: bool, quiet: bool, nanosec: bool, timeout: u64, verbose: bool, stats_json: bool) -> Config {
     let config_docs = reader::read_file_as_yml(path);
     let config_doc = &config_docs[0];

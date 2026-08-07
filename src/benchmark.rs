@@ -229,15 +229,7 @@ pub fn execute(
 
   let config = Arc::new(config);
 
-  // When --stats-json is requested, stdout must carry only NDJSON records.
-  // Diagnostics go to stderr (RFP §5 stdout purity, §1.5.4).
-  let banner = |msg: &str| {
-    if stats_json {
-      eprintln!("{msg}");
-    } else {
-      println!("{msg}");
-    }
-  };
+  let banner = |msg: &str| crate::emit(stats_json, format_args!("{msg}"));
 
   if report_path_option.is_some() {
     banner(&format!("{}: {}. Ignoring {} and {} properties...", "Report mode".yellow(), "on".purple(), "concurrency".yellow(), "iterations".yellow()));
@@ -263,8 +255,14 @@ pub fn execute(
     if benchmark.is_empty() {
       if stats_json {
         let store: Arc<Mutex<Vec<Report>>> = Arc::new(Mutex::new(Vec::new()));
-        let stream = crate::stats_stream::StatsStream::start(stats_interval, store, Arc::new(config.success_codes.clone()));
-        stream.finalize(crate::stats_stream::FinalStatus::Failed).await.expect("failed to emit empty final stats record");
+        let stream = crate::stats_stream::StatsStream::start(stats_interval, store, Arc::from(config.success_codes.clone()));
+        // A closed stdout pipe (e.g. `| head`) is not an error worth
+        // aborting over; the run exits anyway.
+        if let Err(e) = stream.finalize(crate::stats_stream::FinalStatus::Failed).await
+          && e.kind() != std::io::ErrorKind::BrokenPipe
+        {
+          eprintln!("Warning: failed to write final stats record: {e}");
+        }
       }
       eprintln!("Empty benchmark. Exiting.");
       std::process::exit(1);
@@ -347,7 +345,7 @@ pub fn execute(
 
       let stream_store: Arc<Mutex<Vec<Report>>> = Arc::new(Mutex::new(Vec::new()));
       let mut stream = if stats_json {
-        Some(crate::stats_stream::StatsStream::start(stats_interval, stream_store.clone(), Arc::new(config.success_codes.clone())))
+        Some(crate::stats_stream::StatsStream::start(stats_interval, stream_store.clone(), Arc::from(config.success_codes.clone())))
       } else {
         None
       };
@@ -405,7 +403,13 @@ pub fn execute(
       };
 
       if let Some(stream) = stream.take() {
-        stream.finalize(status).await.expect("failed to emit final stats record");
+        // A closed stdout pipe (e.g. `drill --stats-json | head`) means the
+        // consumer is gone; the run itself succeeded, so this is not an error.
+        if let Err(e) = stream.finalize(status).await
+          && e.kind() != std::io::ErrorKind::BrokenPipe
+        {
+          eprintln!("Warning: failed to write final stats record: {e}");
+        }
       }
 
       if let Some(results_config) = config.results.as_ref() {

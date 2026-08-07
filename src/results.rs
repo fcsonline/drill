@@ -10,7 +10,7 @@ use crate::config::ResultsConfig;
 
 const NS_PER_MS: f64 = 1_000_000.0;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Stats {
   pub name: String,
   pub total: usize,

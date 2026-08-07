@@ -44,18 +44,24 @@ impl FinalStatus {
 /// record on [`finalize`](Self::finalize).
 pub struct StatsStream {
   store: Arc<Mutex<Vec<Report>>>,
-  success_codes: Arc<Vec<u16>>,
+  success_codes: Arc<[u16]>,
   begin: tokio::time::Instant,
   done: Arc<AtomicBool>,
   notify: Arc<tokio::sync::Notify>,
   handle: Option<tokio::task::JoinHandle<()>>,
 }
 
+impl std::fmt::Debug for StatsStream {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("StatsStream").field("success_codes", &self.success_codes).field("done", &self.done).finish_non_exhaustive()
+  }
+}
+
 impl StatsStream {
   /// Spawns the interval ticker task over `store`. The run loop pushes
   /// completed iteration reports into `store`; each wall-clock tick emits one
   /// NDJSON interval record (zeroed when the slice is empty).
-  pub fn start(interval_secs: u64, store: Arc<Mutex<Vec<Report>>>, success_codes: Arc<Vec<u16>>) -> Self {
+  pub fn start(interval_secs: u64, store: Arc<Mutex<Vec<Report>>>, success_codes: Arc<[u16]>) -> Self {
     let begin = tokio::time::Instant::now();
     let done = Arc::new(AtomicBool::new(false));
     let notify = Arc::new(tokio::sync::Notify::new());
@@ -66,6 +72,9 @@ impl StatsStream {
       let done = done.clone();
       let notify = notify.clone();
       tokio::spawn(async move {
+        // The CLI enforces `--stats-interval >= 1` at parse time; the floor here
+        // is a defensive guard so a programmatic/zero interval cannot make the
+        // ticker busy-spin the shared store.
         let period = Duration::from_secs(interval_secs.max(1));
         let mut interval = tokio::time::interval_at(begin + period, period);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -103,8 +112,11 @@ impl StatsStream {
           let line = build_interval_record(&slice, &success_codes, interval_no, slice_duration, begin.elapsed().as_secs_f64());
           let out = io::stdout();
           let mut w = BufWriter::new(out.lock());
-          let _ = writeln!(w, "{line}");
-          let _ = w.flush();
+          // A failed write means the consumer is gone (e.g. `| head` closed
+          // the pipe): stop ticking instead of silently dropping every record.
+          if writeln!(w, "{line}").and_then(|_| w.flush()).is_err() {
+            break;
+          }
         }
       })
     };
@@ -125,8 +137,10 @@ impl StatsStream {
   pub async fn finalize(mut self, status: FinalStatus) -> io::Result<()> {
     self.done.store(true, Ordering::SeqCst);
     self.notify.notify_one();
-    if let Some(handle) = self.handle.take() {
-      let _ = handle.await;
+    if let Some(handle) = self.handle.take()
+      && handle.await.is_err()
+    {
+      eprintln!("Warning: stats stream ticker task panicked");
     }
 
     let all_reports: Vec<Report> = {
@@ -201,35 +215,10 @@ fn global_object(stats: &results::Stats, duration_sec: f64, time_elapsed_sec: f6
   global
 }
 
-/// Zeroed global for idle/empty slices (§1.5.3, §10).
+/// Zeroed global for idle/empty slices (§1.5.3, §10): reuses the same field
+/// list as [`global_object`] by passing a zeroed [`results::Stats`].
 fn zeroed_global(duration_sec: f64, time_elapsed_sec: f64, status: Option<FinalStatus>) -> Value {
-  let mut global = json!({
-    "total_requests": 0,
-    "successful_requests": 0,
-    "failed_requests": 0,
-    "avg_ms": 0.0,
-    "median_ms": 0.0,
-    "stdev_ms": 0.0,
-    "p50_ms": 0.0,
-    "p66_ms": 0.0,
-    "p75_ms": 0.0,
-    "p80_ms": 0.0,
-    "p90_ms": 0.0,
-    "p95_ms": 0.0,
-    "p98_ms": 0.0,
-    "p99_ms": 0.0,
-    "p999_ms": 0.0,
-    "p9999_ms": 0.0,
-    "max_ms": 0.0,
-    "rps": 0.0,
-    "failures_per_sec": 0.0,
-    "duration_sec": duration_sec,
-    "time_elapsed_sec": time_elapsed_sec,
-  });
-  if let Some(s) = status {
-    global["status"] = json!(s.as_str());
-  }
-  global
+  global_object(&results::Stats::default(), duration_sec, time_elapsed_sec, status)
 }
 
 fn group_by_name(reports: &[Report]) -> LinkedHashMap<String, Vec<&Report>> {
@@ -250,7 +239,7 @@ fn build_interval_record(slice: &[Report], success_codes: &[u16], interval_no: u
     let endpoint_items: Vec<Value> = by_name
       .iter()
       .map(|(name, reps)| {
-        let s = results::compute_stats(name, &reps.to_vec(), duration, success_codes);
+        let s = results::compute_stats(name, reps.as_slice(), duration, success_codes);
         endpoint_object(&s)
       })
       .collect();
@@ -281,7 +270,7 @@ fn build_final_record(reports: &[Report], success_codes: &[u16], duration: f64, 
     let endpoint_items: Vec<Value> = by_name
       .iter()
       .map(|(name, reps)| {
-        let s = results::compute_stats(name, &reps.to_vec(), duration, success_codes);
+        let s = results::compute_stats(name, reps.as_slice(), duration, success_codes);
         endpoint_object(&s)
       })
       .collect();
@@ -399,7 +388,7 @@ mod tests {
   #[tokio::test]
   async fn finalize_emits_zeroed_record_for_empty_store() {
     let store: Arc<Mutex<Vec<Report>>> = Arc::new(Mutex::new(Vec::new()));
-    let stream = StatsStream::start(1, store.clone(), Arc::new(Vec::new()));
+    let stream = StatsStream::start(1, store.clone(), Arc::from(Vec::<u16>::new()));
     // finalize awaits the ticker; the ticker has nothing to emit.
     let result = stream.finalize(FinalStatus::Cancelled).await;
     assert!(result.is_ok());

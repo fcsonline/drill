@@ -109,6 +109,19 @@ fn main() {
   process::exit(0)
 }
 
+/// Routes a diagnostic line to stdout or stderr.
+///
+/// Under `--stats-json`, stdout must carry only NDJSON records (RFP §5), so
+/// human-readable diagnostics go to stderr; otherwise they go to stdout. This
+/// is the single place that owns that routing policy.
+fn emit(stats_json: bool, args: std::fmt::Arguments<'_>) {
+  if stats_json {
+    eprintln!("{args}");
+  } else {
+    println!("{args}");
+  }
+}
+
 fn app_args() -> clap::ArgMatches {
   Command::new("drill")
     .version(crate_version!())
