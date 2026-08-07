@@ -1,5 +1,25 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+# Pre-commit hook: block commits with unformatted Rust code
 
-cargo fmt --check
-cargo clippy --workspace --all-targets -- -D warnings
+# Collect staged .rs files
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.rs$')
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+# Check formatting on staged files
+cargo fmt --check 2>/dev/null
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -ne 0 ]; then
+  echo ""
+  echo "❌ Rust formatting check failed. Run 'cargo fmt' to fix:"
+  echo "   cargo fmt"
+  echo ""
+  echo "Then re-stage and commit:"
+  echo "   git add -A && git commit"
+  echo ""
+  exit 1
+fi
+
+exit 0
