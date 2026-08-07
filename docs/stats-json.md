@@ -98,9 +98,25 @@ failures, `1` otherwise (including an empty plan). A signal-interrupted run stil
 `cancelled` record before exiting, and exits `0` — consumers should rely on the final record's
 `global.status`, not the process exit code.
 
+## Fixture set
+
+`tests/fixtures/stats-json/` ships static NDJSON examples (RFP §9) that consumers can
+validate their parsers against without running Drill:
+
+| Fixture | Covers |
+|---|---|
+| `basic.ndjson` | 2 endpoints, 3 intervals, terminal `completed` record |
+| `empty.ndjson` | zero-request run: terminal record only, zeroed counters, `status: "failed"` |
+| `assert-fail.ndjson` | assertion failure: terminal `status: "failed"` |
+| `early-cancel.ndjson` | SIGTERM mid-run: partial counters, terminal `status: "cancelled"` |
+| `malformed.ndjson` | a non-JSON line the consumer must skip while still finding the final record (RFP §10) |
+
+`tests/stats_json_fixtures.rs` guards that these files stay schema-conformant.
+
 ## Files
 
 - Stream implementation: `src/stats_stream.rs`
 - Wiring: `src/benchmark.rs`, `src/main.rs`, `src/config.rs`, `src/actions/request.rs`
 - End-to-end tests: `tests/stats_json_e2e.rs`
+- Published fixture set: `tests/fixtures/stats-json/*.ndjson` (guarded by `tests/stats_json_fixtures.rs`)
 - Human-output regression guard: `tests/stats_legacy.rs`

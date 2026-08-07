@@ -224,7 +224,7 @@ impl Runnable for Assert {
 
   async fn execute(&self, context: &mut Context, _reports: &mut Reports, _pool: &Pool, config: &Config) {
     if !config.quiet {
-      println!("{:width$} {}", self.name.green(), self.describe(), width = 25);
+      crate::emit(config.stats_json, format_args!("{:width$} {}", self.name.green(), self.describe(), width = 25));
     }
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match self.assert_type {
