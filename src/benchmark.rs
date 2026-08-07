@@ -4,8 +4,6 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use futures::stream::{FuturesUnordered, StreamExt};
-
-use num_cpus;
 use serde_json::{Map, Value, json};
 use tokio::{runtime, time::sleep};
 
@@ -74,6 +72,7 @@ fn has_weights(benchmark: &Benchmark) -> bool {
   benchmark.iter().any(|item| item.weight() != 1)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_iteration(benchmark: Arc<Benchmark>, pool: Pool, config: Arc<Config>, iteration: i64, lifecycle: Arc<Lifecycle>, mut context: Context, start_delay: Duration, persistent_context: Option<Arc<Mutex<Context>>>) -> Vec<Report> {
   sleep(start_delay).await;
 
@@ -340,10 +339,10 @@ pub fn execute(
         pending.push(run_iteration(benchmark.clone(), pool, config.clone(), iteration, lifecycle.clone(), ctx, start_delay, persistent_context.clone()));
         iteration += 1;
 
-        if pending.len() >= max_concurrency {
-          if let Some(result) = pending.next().await {
-            reports.push(result);
-          }
+        if pending.len() >= max_concurrency
+          && let Some(result) = pending.next().await
+        {
+          reports.push(result);
         }
       }
 

@@ -139,7 +139,7 @@ mod tests {
   use super::*;
   use serde_json::{Map, json};
   use std::collections::HashMap;
-  use std::sync::atomic::{AtomicUsize, Ordering};
+  use std::sync::atomic::AtomicUsize;
   use std::sync::{Arc, Mutex};
 
   fn empty_config() -> Config {

@@ -1,12 +1,11 @@
 use serde_yaml::Value;
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use crate::benchmark::Context;
 use crate::interpolator;
 use crate::reader;
-use num_cpus;
 
 const NITERATIONS: i64 = 1;
 const NRAMPUP: i64 = 0;

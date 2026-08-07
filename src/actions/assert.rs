@@ -227,14 +227,12 @@ impl Runnable for Assert {
       println!("{:width$} {}", self.name.green(), self.describe(), width = 25);
     }
 
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      match self.assert_type {
-        AssertType::Equals => self.execute_equals(context),
-        AssertType::Status => self.execute_status(context),
-        AssertType::Header => self.execute_header(context),
-        AssertType::JsonPath => self.execute_jsonpath(context),
-        AssertType::Duration => self.execute_duration(context),
-      }
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match self.assert_type {
+      AssertType::Equals => self.execute_equals(context),
+      AssertType::Status => self.execute_status(context),
+      AssertType::Header => self.execute_header(context),
+      AssertType::JsonPath => self.execute_jsonpath(context),
+      AssertType::Duration => self.execute_duration(context),
     }));
 
     if let Err(e) = result {
@@ -262,7 +260,7 @@ mod tests {
   use super::*;
   use serde_json::Map;
   use std::collections::HashMap;
-  use std::sync::atomic::{AtomicUsize, Ordering};
+  use std::sync::atomic::AtomicUsize;
   use std::sync::{Arc, Mutex};
 
   fn empty_config() -> Config {

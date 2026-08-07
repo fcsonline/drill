@@ -111,8 +111,8 @@ mod tests {
   use super::*;
   use serde_json::json;
   use std::collections::HashMap;
-  use std::sync::atomic::{AtomicUsize, Ordering};
   use std::sync::Arc;
+  use std::sync::atomic::AtomicUsize;
 
   fn empty_config() -> Config {
     Config {

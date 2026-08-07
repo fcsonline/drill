@@ -16,7 +16,7 @@ use clap::{Arg, ArgAction, Command, crate_version};
 use colored::*;
 use hdrhistogram::Histogram;
 use linked_hash_map::LinkedHashMap;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::process;
 
@@ -42,7 +42,11 @@ fn main() {
   let list_tasks = matches.get_flag("list-tasks");
   let vars_option = matches.get_one::<String>("vars").map(|s| s.as_str());
   let threads = matches.get_one::<usize>("threads").copied();
-  let conn_per_iter = if matches.contains_id("new-conn-per-iter") { Some(true) } else { None };
+  let conn_per_iter = if matches.contains_id("new-conn-per-iter") {
+    Some(true)
+  } else {
+    None
+  };
   let continue_on_assert_fail = matches.get_flag("continue-on-assert-fail");
   let run_time = matches.get_one::<u64>("run-time").copied();
 
@@ -212,12 +216,12 @@ fn show_stats(list_reports: &[Vec<Report>], stats_option: bool, stats_json: bool
   println!("{:width2$} {}", "99.9'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.999), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "95.0'th percentile".yellow(), format_time(global_stats.value_at_quantile(0.95), nanosec).purple(), width2 = 25);
   println!("{:width2$} {}", "Max time per request".yellow(), format_time(global_stats.max_duration(), nanosec).purple(), width2 = 25);
-  
+
   if stats_json {
-    export_json(&list_reports, duration, nanosec, stats_interval.unwrap_or(1));
+    export_json(list_reports, duration, nanosec, stats_interval.unwrap_or(1));
   }
   if stats_csv {
-    export_csv(&list_reports, duration, nanosec);
+    export_csv(list_reports, duration, nanosec);
   }
 }
 
@@ -322,16 +326,17 @@ fn export_json(list_reports: &[Vec<Report>], duration: f64, _nanosec: bool, inte
 fn export_csv(list_reports: &[Vec<Report>], duration: f64, _nanosec: bool) {
   let all_reports: Vec<&Report> = list_reports.iter().flat_map(|v| v.iter()).collect();
   let mut by_name: LinkedHashMap<String, Vec<&Report>> = LinkedHashMap::new();
-  
+
   for report in &all_reports {
     by_name.entry(report.name.clone()).or_default().push(*report);
   }
-  
+
   println!("name,total_requests,successful_requests,failed_requests,avg_ms,median_ms,stdev_ms,p50_ms,p66_ms,p75_ms,p80_ms,p90_ms,p95_ms,p98_ms,p99_ms,p999_ms,p9999_ms,max_ms,rps,failures_per_sec");
-  
+
   for (name, reports) in &by_name {
     let substats = compute_stats_for_export(reports, duration);
-    println!("{},{},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2}",
+    println!(
+      "{},{},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2}",
       name,
       substats.total_requests,
       substats.successful_requests,
@@ -354,9 +359,10 @@ fn export_csv(list_reports: &[Vec<Report>], duration: f64, _nanosec: bool) {
       substats.failures_per_sec
     );
   }
-  
-  let global_stats = compute_stats_for_export(&all_reports.iter().cloned().collect::<Vec<_>>(), duration);
-  println!("Total,{},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2}",
+
+  let global_stats = compute_stats_for_export(&all_reports, duration);
+  println!(
+    "Total,{},{},{},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2},{:.2}",
     global_stats.total_requests,
     global_stats.successful_requests,
     global_stats.failed_requests,
@@ -409,21 +415,21 @@ impl ExportStats {
 fn compute_stats_for_export(reports: &[&Report], duration: f64) -> ExportStats {
   let mut hist = Histogram::<u64>::new_with_bounds(1, 60 * 60 * 1_000_000, 2).unwrap();
   let mut group_by_status = HashMap::new();
-  
+
   for req in reports {
     group_by_status.entry(req.status / 100).or_insert_with(Vec::new).push(req);
   }
-  
+
   for r in reports.iter() {
     hist += (r.duration * 1_000.0) as u64;
   }
-  
+
   let total_requests = reports.len();
   let successful_requests = group_by_status.entry(2).or_insert_with(Vec::new).len();
   let failed_requests = total_requests - successful_requests;
   let rps = total_requests as f64 / duration;
   let failures_per_sec = failed_requests as f64 / duration;
-  
+
   ExportStats {
     total_requests,
     successful_requests,
