@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 
+use crate::arrival_schedule::{ArrivalRateShape, ArrivalStage};
 use crate::benchmark::Context;
 use crate::interpolator;
 use crate::reader;
@@ -50,6 +51,17 @@ pub struct LoadShapeConfig {
   pub stages: Vec<LoadShapeStage>,
 }
 
+/// Open (arrival-rate) workload configuration. Arrivals are scheduled at
+/// `shape`'s rate; `max_concurrency` caps simultaneous in-flight iterations
+/// and at least one of `duration`/`max_iterations` bounds the schedule.
+#[derive(Clone, Debug)]
+pub struct ArrivalRateConfig {
+  pub shape: ArrivalRateShape,
+  pub max_concurrency: u64,
+  pub duration: Option<u64>,
+  pub max_iterations: Option<u64>,
+}
+
 pub struct Config {
   pub base: String,
   pub concurrency: i64,
@@ -64,6 +76,7 @@ pub struct Config {
   pub results: Option<ResultsConfig>,
   pub lifecycle: LifecycleConfig,
   pub load_shape: Option<LoadShapeConfig>,
+  pub arrival_rate: Option<ArrivalRateConfig>,
   pub vars: HashMap<String, serde_json::Value>,
   pub threads: usize,
   pub conn_per_iter: bool,
@@ -96,10 +109,33 @@ impl Config {
     let results = read_results_configuration(config_doc);
     let lifecycle = read_lifecycle_configuration(config_doc);
     let load_shape = read_load_shape_configuration(config_doc);
+    let arrival_rate = read_arrival_rate_configuration(config_doc);
     let vars = read_vars_configuration(config_doc);
 
     if concurrency > iterations && load_shape.is_none() {
       panic!("The concurrency can not be higher than the number of iterations")
+    }
+
+    // Open model is mutually exclusive with the closed-model knobs. The
+    // validator reports this earlier with a friendlier diagnostic; this panic
+    // is the runtime backstop (mirrors the concurrency/iterations panic above).
+    if arrival_rate.is_some() {
+      let mut conflicts = Vec::new();
+      if config_doc.get("concurrency").is_some() {
+        conflicts.push("concurrency");
+      }
+      if config_doc.get("iterations").is_some() {
+        conflicts.push("iterations");
+      }
+      if config_doc.get("rampup").is_some() {
+        conflicts.push("rampup");
+      }
+      if config_doc.get("load_shape").is_some() {
+        conflicts.push("load_shape");
+      }
+      if !conflicts.is_empty() {
+        panic!("`arrival_rate` can not be combined with: {}", conflicts.join(", "))
+      }
     }
 
     Config {
@@ -116,6 +152,7 @@ impl Config {
       results,
       lifecycle,
       load_shape,
+      arrival_rate,
       vars,
       threads,
       conn_per_iter,
@@ -275,6 +312,69 @@ fn read_load_shape_configuration(config_doc: &Value) -> Option<LoadShapeConfig> 
       stages: parsed,
     })
   }
+}
+
+/// Keys that `read_arrival_rate_configuration` intentionally does not yet
+/// support. Presenting them in a benchmark asks for behavior Drill does not
+/// implement, so the parser rejects them rather than silently ignoring them
+/// (the schema must not over-promise what the runtime honors).
+const DEFERRED_ARRIVAL_KEYS: [&str; 4] = ["queue", "block", "preallocated", "on_ceiling"];
+
+fn read_arrival_rate_configuration(config_doc: &Value) -> Option<ArrivalRateConfig> {
+  let value = config_doc.get("arrival_rate")?;
+
+  let mapping = match value.as_mapping() {
+    Some(m) => m,
+    None => panic!("`arrival_rate` must be a mapping"),
+  };
+
+  for key in mapping.keys() {
+    let key = key.as_str().unwrap_or("");
+    if DEFERRED_ARRIVAL_KEYS.contains(&key) {
+      panic!("`arrival_rate.{key}` is not supported");
+    }
+  }
+
+  let max_concurrency = mapping.get("max_concurrency").and_then(|v| v.as_u64()).expect("`arrival_rate.max_concurrency` is required and must be a positive integer");
+
+  let duration = read_optional_u64(mapping, "duration");
+  let max_iterations = read_optional_u64(mapping, "max_iterations");
+
+  if duration.is_none() && max_iterations.is_none() {
+    panic!("`arrival_rate` requires at least one of `duration` or `max_iterations`");
+  }
+
+  let shape = if let Some(stages_val) = mapping.get("stages") {
+    let stages = stages_val.as_sequence().expect("`arrival_rate.stages` must be a list of `{duration, rate}` stages");
+    let mut parsed = Vec::new();
+    for stage in stages {
+      let duration = stage.get("duration").and_then(|v| v.as_u64()).expect("arrival_rate stage requires a duration");
+      let rate = stage.get("rate").and_then(|v| v.as_u64()).expect("arrival_rate stage requires a rate");
+      parsed.push(ArrivalStage {
+        duration,
+        rate,
+      });
+    }
+    ArrivalRateShape::Stages {
+      stages: parsed,
+    }
+  } else {
+    let rate = mapping.get("rate").and_then(|v| v.as_u64()).expect("`arrival_rate.rate` is required and must be a positive integer");
+    ArrivalRateShape::Constant {
+      rate,
+    }
+  };
+
+  Some(ArrivalRateConfig {
+    shape,
+    max_concurrency,
+    duration,
+    max_iterations,
+  })
+}
+
+fn read_optional_u64(mapping: &serde_yaml::Mapping, key: &str) -> Option<u64> {
+  mapping.get(key).and_then(|v| v.as_u64())
 }
 
 fn read_str_configuration(config_doc: &Value, interpolator: &interpolator::Interpolator, name: &str, default: &str) -> String {
@@ -484,5 +584,65 @@ mod tests {
 
     assert_eq!(config.vars.get("api_key").and_then(|v| v.as_str()), Some("from-file"));
     assert_eq!(config.vars.get("username").and_then(|v| v.as_str()), Some("john"));
+  }
+
+  #[test]
+  fn arrival_rate_constant_is_parsed() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\narrival_rate:\n  rate: 10\n  duration: 5\n  max_concurrency: 100\nbase: 'http://localhost'\nplan:\n  - request:\n      url: /\n").unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
+
+    let ar = config.arrival_rate.expect("arrival_rate should be parsed");
+    assert_eq!(
+      ar.shape,
+      super::ArrivalRateShape::Constant {
+        rate: 10
+      }
+    );
+    assert_eq!(ar.max_concurrency, 100);
+    assert_eq!(ar.duration, Some(5));
+    assert_eq!(ar.max_iterations, None);
+  }
+
+  #[test]
+  fn arrival_rate_stages_are_parsed() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\narrival_rate:\n  max_concurrency: 50\n  max_iterations: 1000\n  stages:\n    - duration: 10\n      rate: 10\n    - duration: 10\n      rate: 40\nbase: 'http://localhost'\nplan:\n  - request:\n      url: /\n").unwrap();
+    let config = Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
+
+    let ar = config.arrival_rate.expect("arrival_rate should be parsed");
+    match ar.shape {
+      super::ArrivalRateShape::Constant {
+        ..
+      } => panic!("expected stages shape"),
+      super::ArrivalRateShape::Stages {
+        stages,
+      } => {
+        assert_eq!(stages.len(), 2);
+        assert_eq!(stages[0].duration, 10);
+        assert_eq!(stages[0].rate, 10);
+        assert_eq!(stages[1].duration, 10);
+        assert_eq!(stages[1].rate, 40);
+      }
+    }
+    assert_eq!(ar.max_concurrency, 50);
+    assert_eq!(ar.duration, None);
+    assert_eq!(ar.max_iterations, Some(1000));
+  }
+
+  #[test]
+  #[should_panic(expected = "arrival_rate` requires at least one of `duration` or `max_iterations")]
+  fn arrival_rate_without_budget_panics() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\narrival_rate:\n  rate: 10\n  max_concurrency: 100\nbase: 'http://localhost'\nplan:\n  - request:\n      url: /\n").unwrap();
+    Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
+  }
+
+  #[test]
+  #[should_panic(expected = "`arrival_rate.on_ceiling` is not supported")]
+  fn arrival_rate_deferred_key_rejected() {
+    let mut file = NamedTempFile::new().unwrap();
+    file.write_all(b"---\narrival_rate:\n  rate: 10\n  duration: 5\n  max_concurrency: 100\n  on_ceiling: dropped\nplan:\n  - request:\n      url: /\n").unwrap();
+    Config::new(file.path().to_str().unwrap(), false, false, true, false, 10, false, false);
   }
 }

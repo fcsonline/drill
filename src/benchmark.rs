@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -8,6 +9,7 @@ use serde_json::{Map, Value, json};
 use tokio::{runtime, time::sleep};
 
 use crate::actions::{Report, Runnable};
+use crate::arrival_schedule::{ArrivalCounters, ArrivalSchedule};
 use crate::config::Config;
 use crate::expandable::include;
 use crate::metrics::MetricsMiddleware;
@@ -255,7 +257,7 @@ pub fn execute(
     if benchmark.is_empty() {
       if stats_json {
         let store: Arc<Mutex<Vec<Report>>> = Arc::new(Mutex::new(Vec::new()));
-        let stream = crate::stats_stream::StatsStream::start(stats_interval, store, Arc::from(config.success_codes.clone()));
+        let stream = crate::stats_stream::StatsStream::start(stats_interval, store, Arc::from(config.success_codes.clone()), None);
         // A closed stdout pipe (e.g. `| head`) is not an error worth
         // aborting over; the run exits anyway.
         if let Err(e) = stream.finalize(crate::stats_stream::FinalStatus::Failed).await
@@ -344,8 +346,9 @@ pub fn execute(
       });
 
       let stream_store: Arc<Mutex<Vec<Report>>> = Arc::new(Mutex::new(Vec::new()));
+      let counters = Arc::new(ArrivalCounters::default());
       let mut stream = if stats_json {
-        Some(crate::stats_stream::StatsStream::start(stats_interval, stream_store.clone(), Arc::from(config.success_codes.clone())))
+        Some(crate::stats_stream::StatsStream::start(stats_interval, stream_store.clone(), Arc::from(config.success_codes.clone()), config.arrival_rate.as_ref().map(|_| counters.clone())))
       } else {
         None
       };
@@ -356,32 +359,105 @@ pub fn execute(
       let begin = Instant::now();
       let mut reports: Vec<Vec<Report>> = Vec::new();
 
-      while iteration < config.iterations && !shutdown_flag.load(Ordering::SeqCst) && (config.run_time == 0 || begin.elapsed().as_secs() < config.run_time) {
-        let start_delay = start_delays[iteration as usize];
-        let pool = if config.conn_per_iter {
-          Arc::new(Mutex::new(PoolStore::new()))
-        } else {
-          pool.clone()
-        };
-        let ctx = if let Some(ref pc) = persistent_context {
-          pc.lock().unwrap().clone()
-        } else {
-          base_context.clone()
-        };
-        pending.push(run_iteration(benchmark.clone(), pool, config.clone(), iteration, lifecycle.clone(), ctx, start_delay, persistent_context.clone()));
-        iteration += 1;
+      if let Some(arrival) = config.arrival_rate.as_ref() {
+        // Open model: arrivals at `arrival.shape`'s rate, an in-flight ceiling
+        // of `max_concurrency` with drop-on-overcommit, budgets ending the
+        // schedule naturally. `begin` is the schedule origin (run start).
+        let max_concurrency = arrival.max_concurrency as usize;
+        let mut schedule = ArrivalSchedule::new(arrival.shape.clone(), arrival.duration, arrival.max_iterations).expect("`arrival_rate` validated to have a finite budget");
+        let mut pending: FuturesUnordered<Pin<Box<dyn Future<Output = Vec<Report>>>>> = FuturesUnordered::new();
 
-        if pending.len() >= max_concurrency
-          && let Some(result) = pending.next().await
-        {
+        while let Some(start_offset) = schedule.next() {
+          if shutdown_flag.load(Ordering::SeqCst) || (config.run_time != 0 && begin.elapsed().as_secs() >= config.run_time) {
+            break;
+          }
+          counters.scheduled.fetch_add(1, Ordering::SeqCst);
+
+          // Wait until the arrival's wall-clock offset (origin + offset),
+          // absorbing completed iterations so in-flight slots free up.
+          let target = begin + start_offset;
+          loop {
+            let now = Instant::now();
+            if now >= target {
+              break;
+            }
+            if pending.is_empty() {
+              sleep(target - now).await;
+              break;
+            }
+            tokio::select! {
+              _ = sleep(target - now) => break,
+              result = pending.next() => {
+                if let Some(result) = result {
+                  stream_store.lock().unwrap().extend(result.iter().cloned());
+                  reports.push(result);
+                }
+              }
+            }
+          }
+
+          if counters.in_flight.load(Ordering::SeqCst) >= max_concurrency {
+            counters.dropped.fetch_add(1, Ordering::SeqCst);
+            continue;
+          }
+          counters.started.fetch_add(1, Ordering::SeqCst);
+          counters.in_flight.fetch_add(1, Ordering::SeqCst);
+
+          let pool = if config.conn_per_iter {
+            Arc::new(Mutex::new(PoolStore::new()))
+          } else {
+            pool.clone()
+          };
+          let ctx = if let Some(ref pc) = persistent_context {
+            pc.lock().unwrap().clone()
+          } else {
+            base_context.clone()
+          };
+          let counters_c = counters.clone();
+          let benchmark_c = benchmark.clone();
+          let config_c = config.clone();
+          let lifecycle_c = lifecycle.clone();
+          let persistent_context_c = persistent_context.clone();
+          pending.push(Box::pin(async move {
+            let result = run_iteration(benchmark_c, pool, config_c, iteration, lifecycle_c, ctx, Duration::ZERO, persistent_context_c).await;
+            counters_c.in_flight.fetch_sub(1, Ordering::SeqCst);
+            result
+          }));
+          iteration += 1;
+        }
+
+        while let Some(result) = pending.next().await {
           stream_store.lock().unwrap().extend(result.iter().cloned());
           reports.push(result);
         }
-      }
+      } else {
+        while iteration < config.iterations && !shutdown_flag.load(Ordering::SeqCst) && (config.run_time == 0 || begin.elapsed().as_secs() < config.run_time) {
+          let start_delay = start_delays[iteration as usize];
+          let pool = if config.conn_per_iter {
+            Arc::new(Mutex::new(PoolStore::new()))
+          } else {
+            pool.clone()
+          };
+          let ctx = if let Some(ref pc) = persistent_context {
+            pc.lock().unwrap().clone()
+          } else {
+            base_context.clone()
+          };
+          pending.push(run_iteration(benchmark.clone(), pool, config.clone(), iteration, lifecycle.clone(), ctx, start_delay, persistent_context.clone()));
+          iteration += 1;
 
-      while let Some(result) = pending.next().await {
-        stream_store.lock().unwrap().extend(result.iter().cloned());
-        reports.push(result);
+          if pending.len() >= max_concurrency
+            && let Some(result) = pending.next().await
+          {
+            stream_store.lock().unwrap().extend(result.iter().cloned());
+            reports.push(result);
+          }
+        }
+
+        while let Some(result) = pending.next().await {
+          stream_store.lock().unwrap().extend(result.iter().cloned());
+          reports.push(result);
+        }
       }
       let duration = begin.elapsed().as_secs_f64();
 

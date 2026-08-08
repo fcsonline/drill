@@ -272,6 +272,7 @@ This is the list of all features supported by the current version of `drill`:
 - **Dynamic iteration over context arrays:** iterate over a JSON array from a previous response using the `for_each` action.
 - **Task weights:** control the relative frequency of plan items with a `weight` property.
 - **Custom load shapes:** vary the number of concurrent users over time with staged `load_shape` definitions.
+- **Open workload model:** schedule iterations by arrival rate (constant or ramping stages) independent of server speed, with a configurable in-flight ceiling and a drop-on-overcommit policy via `arrival_rate`.
 - **Multi-threaded runtime:** use multiple CPU cores via `--threads` (default: all cores) or YAML `threads`.
 - **Fresh connections per iteration:** create new HTTP connections (with fresh DNS lookup) per iteration via `--new-conn-per-iter` or YAML `new_conn_per_iter`.
 - **P95 percentile:** stats output now includes the 95.0'th percentile alongside existing 99.0/99.5/99.9 percentiles.

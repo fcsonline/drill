@@ -97,3 +97,27 @@ fn json_format_empty_for_clean() {
   let v: serde_json::Value = serde_json::from_str(stdout.trim()).unwrap();
   assert_eq!(v.as_array().unwrap().len(), 0);
 }
+
+/// A valid `arrival_rate` benchmark (no closed-model knobs) validates clean.
+#[test]
+fn arrival_rate_valid_exits_zero() {
+  let out = run_validate(&[&fixture("arrival-rate-valid.yml")]);
+  assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+  assert!(String::from_utf8_lossy(&out.stdout).contains("OK"));
+}
+
+/// `arrival_rate` missing a budget is a validation error (AC4).
+#[test]
+fn arrival_rate_missing_budget_exits_one() {
+  let out = run_validate(&[&fixture("arrival-rate-missing-budget.yml")]);
+  assert_eq!(out.status.code(), Some(1));
+  assert!(String::from_utf8_lossy(&out.stdout).contains("duration"));
+}
+
+/// `arrival_rate` combined with a closed-model knob is a validation error (AC10).
+#[test]
+fn arrival_rate_with_closed_knob_exits_one() {
+  let out = run_validate(&[&fixture("arrival-rate-conflict.yml")]);
+  assert_eq!(out.status.code(), Some(1));
+  assert!(String::from_utf8_lossy(&out.stdout).contains("arrival_rate"));
+}

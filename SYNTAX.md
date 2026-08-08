@@ -500,6 +500,61 @@ Each stage defines:
 
 Drill spaces iterations over the total duration according to the area under the users curve. The concurrency limit is set to the maximum `users` value across all stages. When `load_shape` is present, `concurrency` and `rampup` are ignored.
 
+#### Open workload model (arrival rate)
+
+The models above are **closed**: a fixed number of iterations (`iterations`) is started, and the server's response time decides how long the run lasts. The open (arrival-rate) model inverts this: arrivals are scheduled at a configured rate, independent of how fast the server responds, until a budget is consumed. When the in-flight ceiling is already reached, an arrival is **dropped** and counted, never queued or blocked.
+
+Constant-rate form:
+
+```yaml
+---
+base: 'http://example.com'
+
+arrival_rate:
+  rate: 20                # constant: 20 arrivals/second
+  max_concurrency: 50     # ceiling on simultaneous in-flight iterations
+  duration: 30            # budget #1: run for 30 seconds
+
+plan:
+  - name: Load task
+    request:
+      url: /api/users
+```
+
+Ramping form:
+
+```yaml
+---
+base: 'http://example.com'
+
+arrival_rate:
+  stages:
+    - duration: 60
+      rate: 10
+    - duration: 120
+      rate: 100
+    - duration: 60
+      rate: 25
+  max_concurrency: 100
+  max_iterations: 5000    # budget #2: stop after 5000 arrivals
+
+plan:
+  - name: Load task
+    request:
+      url: /api/users
+```
+
+Key rules:
+
+- `max_concurrency` is **required**: it caps simultaneous in-flight iterations. When the ceiling is reached, an arrival is dropped and recorded in the `dropped_iterations` counter.
+- At least one budget is required — `duration` (whole seconds) and/or `max_iterations` (total arrivals). With both, the first bound reached wins. `duration` is exclusive: an arrival offset landing exactly on the boundary is not scheduled.
+- Ramping stages linearly interpolate the rate from each stage's start value to its end value over `duration` seconds; the first stage holds its rate flat.
+- `arrival_rate` is mutually exclusive with `concurrency`, `iterations`, `rampup`, and `load_shape` (the closed-model knobs).
+- The `queue`, `block`, `preallocated`, and `on_ceiling` keys are not yet supported; `drill validate` rejects them.
+- The `run_time` cap and `arrival_rate.duration` both bound the wall-clock run; whichever is reached first ends the run.
+
+Iteration-level counters (`scheduled_iterations`, `started_iterations`, `dropped_iterations`, `in_flight_iterations`) appear in `--stats` output and, for `--stats-json`, as additive values: interval records carry deltas since the previous tick, the terminal record carries cumulative totals, and a residual interval line covers the gap since the last tick, so `sum(interval deltas) + residual == final totals`. Invariant: `started + dropped == scheduled`.
+
 #### tags item properties
 
 [Ansible](https://docs.ansible.com/ansible/latest/user_guide/playbooks_tags.html#special-tags-always-and-never)-like tags.

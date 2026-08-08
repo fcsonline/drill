@@ -1,4 +1,5 @@
 mod actions;
+mod arrival_schedule;
 mod benchmark;
 mod checker;
 mod config;
