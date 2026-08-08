@@ -278,6 +278,7 @@ mod tests {
       results: None,
       lifecycle: Default::default(),
       load_shape: None,
+      arrival_rate: None,
       vars: HashMap::new(),
       threads: 1,
       conn_per_iter: false,

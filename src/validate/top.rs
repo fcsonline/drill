@@ -3,7 +3,7 @@ use serde_yaml::Value;
 use super::diag::Collector;
 
 /// Top-level benchmark keys recognized by `config.rs`.
-const TOP_LEVEL_KEYS: &[&str] = &["base", "iterations", "concurrency", "rampup", "threads", "new_conn_per_iter", "persist_context", "run_time", "success_codes", "results", "lifecycle", "load_shape", "vars", "plan"];
+const TOP_LEVEL_KEYS: &[&str] = &["base", "iterations", "concurrency", "rampup", "threads", "new_conn_per_iter", "persist_context", "run_time", "success_codes", "results", "lifecycle", "load_shape", "arrival_rate", "vars", "plan"];
 
 const LIFECYCLE_HOOKS: &[&str] = &["setup", "teardown", "iteration_start", "iteration_stop"];
 
@@ -75,6 +75,7 @@ pub fn validate_top(doc: &Value, source: &str, diags: &mut Collector) {
     diags.error(source, format!("`concurrency` ({c}) exceeds `iterations` ({i}) without a `load_shape`; the runtime aborts"));
   }
 
+  validate_arrival_rate(map, source, diags);
   validate_success_and_results(map, source, diags);
 }
 
@@ -133,6 +134,72 @@ pub fn validate_lifecycle(doc: &Value, source: &str, diags: &mut Collector) {
     let k = key.as_str().unwrap_or("");
     if !LIFECYCLE_HOOKS.contains(&k) {
       diags.warning(source, format!("unknown lifecycle phase `{k}` (expected one of {LIFECYCLE_HOOKS:?})"));
+    }
+  }
+}
+
+/// Arrival-rate keys that Drill does not implement yet; presenting them means
+/// the author asked for behavior the runtime will not honor, so reject them.
+const DEFERRED_ARRIVAL_KEYS: [&str; 4] = ["on_ceiling", "queue", "block", "preallocated"];
+
+fn review_positive(map: &serde_yaml::Mapping, key: &str, diags: &mut Collector, source: &str) {
+  if let Some(v) = map.get(key) {
+    match v.as_i64() {
+      Some(n) if n >= 1 => {}
+      Some(_) => diags.error(source, format!("`{key}` must be >= 1")),
+      None => diags.error(source, format!("`{key}` must be an integer")),
+    }
+  }
+}
+
+/// Validates the `arrival_rate` mapping: mutual exclusion with closed-model
+/// knobs (AC10), a finite budget (AC4), a required `max_concurrency` (AC5),
+/// and rejection of deferred drop-policy keys (AC11).
+fn validate_arrival_rate(map: &serde_yaml::Mapping, source: &str, diags: &mut Collector) {
+  let Some(v) = map.get("arrival_rate") else {
+    return;
+  };
+  let Some(ar) = v.as_mapping() else {
+    diags.error(source, "`arrival_rate` must be a mapping");
+    return;
+  };
+
+  for conflicting in ["concurrency", "iterations", "rampup", "load_shape"] {
+    if map.contains_key(serde_yaml::Value::String(conflicting.into())) {
+      diags.error(source, format!("`arrival_rate` can not be combined with `{conflicting}`"));
+    }
+  }
+
+  let has_duration = ar.contains_key(serde_yaml::Value::String("duration".into()));
+  let has_max_iterations = ar.contains_key(serde_yaml::Value::String("max_iterations".into()));
+  if !has_duration && !has_max_iterations {
+    diags.error(source, "`arrival_rate` requires at least one of `duration` or `max_iterations`");
+  }
+
+  if ar.contains_key(serde_yaml::Value::String("max_concurrency".into())) {
+    review_positive(ar, "max_concurrency", diags, source);
+  } else {
+    diags.error(source, "`arrival_rate.max_concurrency` is required");
+  }
+
+  for deferred in DEFERRED_ARRIVAL_KEYS {
+    if ar.contains_key(serde_yaml::Value::String(deferred.into())) {
+      diags.error(source, format!("`arrival_rate.{deferred}` is not yet supported"));
+    }
+  }
+
+  if let Some(d) = ar.get("duration") {
+    match d.as_i64() {
+      Some(n) if n >= 1 => {}
+      Some(_) => diags.error(source, "`arrival_rate.duration` must be >= 1"),
+      None => diags.error(source, "`arrival_rate.duration` must be an integer"),
+    }
+  }
+  if let Some(m) = ar.get("max_iterations") {
+    match m.as_i64() {
+      Some(n) if n >= 1 => {}
+      Some(_) => diags.error(source, "`arrival_rate.max_iterations` must be >= 1"),
+      None => diags.error(source, "`arrival_rate.max_iterations` must be an integer"),
     }
   }
 }
@@ -199,6 +266,52 @@ mod tests {
   #[test]
   fn success_codes_validate() {
     let c = run("success_codes: [200, 0, -1]\nplan:\n  - request:\n      url: /\n");
+    assert!(c.has_errors());
+  }
+
+  #[test]
+  fn arrival_rate_valid_is_clean() {
+    let c = run("arrival_rate:\n  rate: 10\n  duration: 5\n  max_concurrency: 100\nplan:\n  - request:\n      url: /\n");
+    assert!(!c.has_errors(), "unexpected errors: {c:?}");
+  }
+
+  #[test]
+  fn arrival_rate_mutually_exclusive_with_closed_knobs() {
+    for conflicting in ["concurrency: 4\n", "iterations: 4\n", "rampup: 2\n"] {
+      let c = run(&format!("arrival_rate:\n  rate: 10\n  duration: 5\n  max_concurrency: 100\n{conflicting}plan:\n  - request:\n      url: /\n"));
+      assert!(c.has_errors(), "expected error for `{conflicting}`");
+    }
+  }
+
+  #[test]
+  fn arrival_rate_mutually_exclusive_with_load_shape() {
+    let c = run("arrival_rate:\n  rate: 10\n  duration: 5\n  max_concurrency: 100\nload_shape:\n  stages:\n    - duration: 10\n      users: 5\nplan:\n  - request:\n      url: /\n");
+    assert!(c.has_errors());
+  }
+
+  #[test]
+  fn arrival_rate_requires_a_budget() {
+    let c = run("arrival_rate:\n  rate: 10\n  max_concurrency: 100\nplan:\n  - request:\n      url: /\n");
+    assert!(c.has_errors());
+  }
+
+  #[test]
+  fn arrival_rate_max_concurrency_is_required() {
+    let c = run("arrival_rate:\n  rate: 10\n  duration: 5\nplan:\n  - request:\n      url: /\n");
+    assert!(c.has_errors());
+  }
+
+  #[test]
+  fn arrival_rate_deferred_keys_are_rejected() {
+    for deferred in ["on_ceiling", "queue", "block", "preallocated"] {
+      let c = run(&format!("arrival_rate:\n  rate: 10\n  duration: 5\n  max_concurrency: 100\n  {deferred}: drop\nplan:\n  - request:\n      url: /\n"));
+      assert!(c.has_errors(), "expected error for deferred key `{deferred}`");
+    }
+  }
+
+  #[test]
+  fn arrival_rate_invalid_types_error() {
+    let c = run("arrival_rate:\n  rate: 10\n  duration: 0\n  max_concurrency: 0\nplan:\n  - request:\n      url: /\n");
     assert!(c.has_errors());
   }
 }

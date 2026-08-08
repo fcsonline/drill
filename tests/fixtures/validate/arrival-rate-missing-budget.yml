@@ -1,0 +1,8 @@
+arrival_rate:
+  rate: 10
+  max_concurrency: 100
+
+plan:
+  - name: Fetch users
+    request:
+      url: /api/users.json
