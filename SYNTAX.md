@@ -429,6 +429,82 @@ The `assert` action supports multiple assertion types beyond simple context key/
 ```
 Uses JSONPath on the parsed response body. The first match is compared to `value` (type-tolerant: number `123` equals string `"123"`).
 
+**3a. JSONPath value assertions**
+
+`value` accepts any YAML type — numbers, booleans, `null`, arrays, nested objects, or a whole JSON document. Unless the expected `value` is a YAML string, comparison is **strict structural JSON equality** (number `123` does **not** equal string `"123"`).
+
+```yaml
+- assert:
+    type: jsonpath
+    key: "$.data.count"
+    value: 42                  # typed number, strict equality
+
+- assert:
+    type: jsonpath
+    key: "$.user"
+    value: {id: 1, role: admin}   # nested object
+
+- assert:
+    type: jsonpath
+    value: {ok: true}          # key omitted: compare the whole response body
+```
+
+**3b. JSONPath operators**
+
+An `operator` field generalizes the comparison (default: `eq`):
+
+```yaml
+- assert:
+    type: jsonpath
+    key: "$.data.count"
+    operator: gte        # eq, neq, gt, gte, lt, lte, contains, in,
+    value: 10            #     exists, not_exists, is_null, regex
+
+- assert:
+    type: jsonpath
+    key: "$.data.role"
+    operator: in
+    value: [admin, editor]
+
+- assert:
+    type: jsonpath
+    key: "$.data.email"
+    operator: regex
+    value: '^[a-z]+@example\.com$'
+
+- assert:
+    type: jsonpath
+    key: "$.data.token"
+    operator: exists             # or not_exists / is_null (no value needed)
+```
+
+- `eq`, `neq` — equality. A YAML string `value` keeps the type-tolerant behavior.
+- `gt`, `gte`, `lt`, `lte` — numeric comparison (numeric strings count); fails if either side is not a number.
+- `contains` — substring on strings; element presence on arrays.
+- `in` — `value` is an array; the match must equal one of its elements.
+- `exists`, `not_exists` — presence/absence of a match.
+- `is_null` — match is JSON `null`.
+- `regex` — full match of a string-coerced value; invalid regex fails at parse time.
+
+**3c. Multiple matches**
+
+`every: true` applies the assertion to **every** JSONPath match (by default only the first is checked). `match_count` asserts how many matches existed, as a plain integer (`match_count: 3`, default `eq`) or a mapping (`match_count: {gte: 2}`):
+
+```yaml
+- assert:
+    type: jsonpath
+    key: "$.items[*].status"
+    operator: eq
+    value: ok
+    every: true                # all items' status must be "ok"
+
+- assert:
+    type: jsonpath
+    key: "$.items[*]"
+    operator: exists
+    match_count: {gte: 2}      # at least two items
+```
+
 **4. Duration assertion** (response time in milliseconds)
 ```yaml
 - assert:

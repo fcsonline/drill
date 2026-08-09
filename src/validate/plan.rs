@@ -242,12 +242,24 @@ fn validate_assert(a: &Value, loc: &str, diags: &mut Collector) {
         diags.error(loc, "`assert` type `status` requires a `value` (status code)");
       }
     }
-    "header" | "jsonpath" => {
+    "header" => {
       if m.get("key").is_none() {
-        diags.error(loc, format!("`assert` type `{ty}` requires `key`"));
+        diags.error(loc, "`assert` type `header` requires `key`");
       }
       if m.get("value").is_none() {
-        diags.error(loc, format!("`assert` type `{ty}` requires `value`"));
+        diags.error(loc, "`assert` type `header` requires `value`");
+      }
+    }
+    "jsonpath" => {
+      let op = m.get("operator").and_then(|v| v.as_str()).unwrap_or("eq");
+      const OPERATORS: &[&str] = &["eq", "neq", "gt", "gte", "lt", "lte", "contains", "in", "exists", "not_exists", "is_null", "regex"];
+      if !OPERATORS.contains(&op) {
+        diags.error(loc, format!("unknown jsonpath operator `{op}` (expected {})", OPERATORS.join("|")));
+      }
+      // `key` is optional (full-document compare when omitted). Presence
+      // operators (`exists`, `not_exists`, `is_null`) need no `value`.
+      if !matches!(op, "exists" | "not_exists" | "is_null") && m.get("value").is_none() {
+        diags.error(loc, format!("`assert` type `jsonpath` with operator `{op}` requires `value`"));
       }
     }
     "duration" => {
@@ -330,5 +342,29 @@ mod tests {
   fn unknown_action_errors() {
     let c = validate_items("- bogus: 1\n");
     assert!(c.has_errors());
+  }
+
+  #[test]
+  fn jsonpath_without_key_or_value_passes() {
+    let c = validate_items("- assert:\n    type: jsonpath\n    operator: exists\n");
+    assert!(!c.has_errors(), "unexpected errors: {c:?}");
+  }
+
+  #[test]
+  fn jsonpath_value_operator_needs_value() {
+    let c = validate_items("- assert:\n    type: jsonpath\n    operator: gte\n    key: '$.data.count'\n");
+    assert!(c.has_errors());
+  }
+
+  #[test]
+  fn jsonpath_unknown_operator_errors() {
+    let c = validate_items("- assert:\n    type: jsonpath\n    key: '$.x'\n    operator: matches\n    value: 1\n");
+    assert!(c.has_errors());
+  }
+
+  #[test]
+  fn jsonpath_typed_value_passes() {
+    let c = validate_items("- assert:\n    type: jsonpath\n    key: '$.data.count'\n    operator: gte\n    value: 10\n");
+    assert!(!c.has_errors(), "unexpected errors: {c:?}");
   }
 }

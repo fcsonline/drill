@@ -714,7 +714,7 @@ fn parse_structured_body(body: &YamlValue) -> Body {
   }
 }
 
-fn yaml_to_json(data: YamlValue) -> Value {
+pub(crate) fn yaml_to_json(data: YamlValue) -> Value {
   match data {
     YamlValue::Bool(b) => json!(b),
     YamlValue::Number(n) => {
