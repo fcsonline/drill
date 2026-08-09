@@ -16,7 +16,17 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the workspace manifests and source
+# Cache layer: copy workspace manifests and build dependency crates with
+# stub entry points first, so dependency compilation is cached by Docker.
+# Source changes then only recompile the local crates.
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir -p src postman2drill/src \
+    && printf 'fn main() {}\n' > src/main.rs \
+    && printf 'fn main() {}\n' > postman2drill/src/main.rs \
+    && cargo build --release --workspace --locked \
+    && rm -rf src postman2drill
+
+# Copy the workspace manifest and source
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY postman2drill ./postman2drill

@@ -42,7 +42,10 @@ jobs:
       - name: Build linux/amd64 image
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
-          docker buildx build --platform linux/amd64 --load -t "drill:${VERSION}" -t drill:latest .
+          docker buildx build --platform linux/amd64 \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --load -t "drill:${VERSION}" -t drill:latest .
 
       - name: Verify image architecture
         run: |
