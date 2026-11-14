@@ -1,6 +1,6 @@
 # Drill
 
-[![](https://img.shields.io/crates/v/drill.svg?ts=2)](https://crates.io/crates/drill)
+
 ![](https://travis-ci.com/fcsonline/drill.svg?branch=master)
 
 Drill is a HTTP load testing application written in Rust. The main goal
@@ -10,7 +10,7 @@ that require JVM and other stuff.
 You can write benchmark files, in YAML format, describing all the stuff you
 want to test.
 
-It was inspired by [Ansible](http://docs.ansible.com/ansible/playbooks_intro.html)
+It was inspired by Ansible
 syntax because it is really easy to use and extend.
 
 Here is an example for **benchmark.yml**:
